@@ -17,7 +17,7 @@
 **sTiles** has demonstrated significant performance improvements:
 
 - **8.41X / 9.34X / 5.07X / 11.08X** speedups compared to CHOLMOD, SymPACK, MUMPS, and PARDISO, respectively.
-- **5X GPU Speedup** over a 32-core AMD EPYC CPU when executed on an NVIDIA A100 GPU.
+- **5X GPU Speedup** over a 64-core AMD EPYC CPU when executed on an NVIDIA A100 GPU.
 
 ## Installation
 
