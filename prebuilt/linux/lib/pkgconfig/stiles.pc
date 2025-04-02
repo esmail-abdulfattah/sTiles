@@ -1,0 +1,4 @@
+prefix=/home/abdulfe/Documents/postdoc/STiles/dev/sTiles_25.04.01
+libext=-llapack -lmkl_gf_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -ldl -lpthread -lm -ldl -lnuma -lhwloc 
+include_ext= 
+require=

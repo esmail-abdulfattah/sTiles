@@ -27,3 +27,12 @@ To install **sTiles**, clone the repository and build the library using the prov
 git clone https://github.com/esmail-abdulfattah/sTiles.git
 cd sTiles_<>
 make
+
+## Prebuilt Binaries
+
+We currently provide precompiled binaries for:
+- **Linux x86_64** (built on Ubuntu 24.04)
+- **macOS x86_64**
+
+> ⚠️ Additional support for **Windows**, **macOS ARM (M1/M2)**, and **Linux ARM (e.g., Graviton)** is planned for **Summer 2025**.
+
