@@ -1,0 +1,4 @@
+prefix=/home/abdulfe/sTiles/stiles_25.03.01
+libext=-lmkl_gf_lp64 -lmkl_core -lmkl_sequential -lpthread -lm -ldl -lpthread -lm -ldl -lnuma -lhwloc
+include_ext= 
+require=
