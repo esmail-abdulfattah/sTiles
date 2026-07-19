@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What's Slowing Down Your Statistical Model, and How Tiling Fixes It?</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a; --bg-slide: #111110; --bg-card: #1a1a18;
+            --text: #f2f0ec; --text-secondary: #c5c3be; --text-muted: #8a8884;
+            --gold: #e8b931; --gold-light: #f0cc50; --gold-dim: rgba(232,185,49,0.3);
+            --accent: #4a9e8f; --accent-dark: #3d857a; --accent-light: rgba(74,158,143,0.15);
+            --orange: #e8945a; --orange-light: rgba(232,148,90,0.15);
+            --lime: #b8cc4b; --lime-light: rgba(184,204,75,0.15);
+            --border: #3a3530; --code-bg: #2a2a2a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .presentation { width: 1280px; height: 720px; position: relative; background: var(--bg-slide); overflow: hidden; }
+        .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 56px 72px; display: none; flex-direction: column; background: var(--bg-slide); opacity: 0; transition: opacity 0.3s ease; }
+        .slide.active { display: flex; opacity: 1; }
+        .slide::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--gold); }
+
+        .slide-header { margin-bottom: 36px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+        .slide-section { font-size: 13px; font-weight: 600; color: var(--gold); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+        .slide-title { font-family: 'Source Serif 4', Georgia, serif; font-size: 42px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; line-height: 1.2; }
+        .slide-title em { font-style: normal; color: var(--gold); }
+        .slide-subtitle { font-size: 18px; color: var(--text-secondary); margin-top: 8px; }
+
+        /* === TITLE SLIDE === */
+        .title-slide { padding: 0; background: var(--bg); }
+        .title-slide::before { display: none; }
+
+        /* Gold border */
+        .title-border { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 2.5px solid var(--gold); pointer-events: none; z-index: 5; }
+
+        /* Background tile mosaic */
+        .tile-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        /* Content overlay */
+        .title-content { position: relative; z-index: 3; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 80px 100px; }
+
+        /* Dark overlay on left for tile pattern to show through subtly */
+        .title-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 60% 50%, rgba(26,26,26,0.82) 0%, rgba(26,26,26,0.94) 70%); z-index: 2; }
+
+        .title-content h1 {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-weight: 700; color: var(--text);
+            line-height: 1.2; letter-spacing: -1px;
+            font-size: 64px; max-width: 1050px;
+        }
+        .title-content h1 em { font-style: italic; color: var(--gold); font-weight: 600; }
+        .title-content h1 strong { font-weight: 700; color: #fff; }
+
+        .title-divider { width: 80px; height: 3px; background: var(--gold); margin: 32px 0; border: none; }
+
+        .title-meta { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .title-meta .author { font-size: 22px; font-weight: 600; color: var(--text); }
+        .title-meta .affiliation { font-size: 17px; color: var(--text-secondary); }
+        .title-meta .venue { font-size: 16px; color: var(--text-muted); margin-top: 10px; letter-spacing: 0.5px; }
+
+        /* Content helpers */
+        .slide-content { display: flex; gap: 48px; flex: 1; }
+        .content-left, .content-right { flex: 1; display: flex; flex-direction: column; }
+        .content-full { width: 100%; flex: 1; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; margin-bottom: 16px; }
+        .card.accent-border { border-left: 3px solid var(--gold); }
+        .card h3 { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .card p { font-size: 17px; color: var(--text-secondary); line-height: 1.6; }
+        .insight-box { background: rgba(201,168,76,0.08); border: 1px solid var(--gold-dim); border-radius: 6px; padding: 20px 24px; margin: 16px 0; }
+        .insight-box h4 { font-size: 12px; font-weight: 600; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .insight-box p { font-size: 17px; color: var(--text); line-height: 1.5; }
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 24px 20px; text-align: center; }
+        .stat-value { font-family: 'Source Serif 4', Georgia, serif; font-size: 40px; font-weight: 700; color: var(--gold); line-height: 1; }
+        .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+        ul { list-style: none; }
+        ul li { padding: 10px 0; padding-left: 28px; position: relative; font-size: 18px; color: var(--text-secondary); line-height: 1.5; }
+        ul li::before { content: ""; position: absolute; left: 0; top: 0.65em; width: 8px; height: 8px; background: var(--gold); border-radius: 50%; }
+        ul li strong { color: var(--text); font-weight: 600; }
+        ol { padding-left: 20px; }
+        ol li { padding: 6px 0; font-size: 18px; color: var(--text-secondary); line-height: 1.5; }
+        .formula-box { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 20px; color: var(--text); margin: 12px 0; }
+        .code-box { background: #1a1a1a; border-radius: 6px; padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #d4d4d4; overflow-x: auto; }
+        .visual-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; }
+        .visual-container img { max-width: 100%; max-height: 280px; object-fit: contain; }
+        .visual-caption { font-size: 12px; color: var(--text-muted); margin-top: 12px; text-align: center; }
+        .pipeline { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        .pipeline-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 14px 18px; text-align: center; min-width: 90px; }
+        .pipeline-item.accent { background: var(--gold); border-color: var(--gold); }
+        .pipeline-item.accent h4, .pipeline-item.accent p { color: #1a1a1a; }
+        .pipeline-item h4 { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+        .pipeline-item p { font-size: 11px; color: var(--text-muted); }
+        .pipeline-arrow { color: var(--text-muted); font-size: 16px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th, .data-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+        .data-table th { background: var(--bg-card); color: var(--text); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .data-table td { color: var(--text-secondary); }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; height: 100%; }
+        .thankyou-slide { justify-content: center; align-items: center; text-align: center; }
+
+        .nav { position: absolute; bottom: 20px; right: 20px; display: flex; gap: 6px; z-index: 100; }
+        .nav-btn { width: 36px; height: 36px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-size: 14px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
+        .nav-btn:hover { background: var(--gold); border-color: var(--gold); color: #1a1a1a; }
+        .slide-counter { position: absolute; bottom: 24px; left: 24px; font-size: 12px; color: var(--text-muted); z-index: 100; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 2px; }
+        .slide-counter span#current { color: var(--text); font-weight: 500; cursor: pointer; padding: 2px 4px; border-radius: 3px; transition: background 0.2s; }
+        .slide-counter span#current:hover { background: var(--gold-dim); }
+        .slide-counter input#current-input { width: 28px; font-size: 12px; font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--text); border: 1px solid var(--gold); border-radius: 3px; padding: 2px 4px; text-align: center; outline: none; background: var(--bg-card); }
+        .progress-bar { position: absolute; top: 0; left: 0; height: 4px; background: var(--gold); transition: width 0.3s ease; z-index: 100; }
+
+        .step { opacity: 0; transform: translateY(8px); transition: all 0.3s ease; }
+        .step.visible { opacity: 1; transform: translateY(0); }
+        .step-only { opacity: 0; transform: translateY(8px); transition: all 0.3s ease; position: absolute; pointer-events: none; }
+        .step-only.active { opacity: 1; transform: translateY(0); position: relative; pointer-events: auto; }
+        .img-mask { transition: opacity 0.4s ease; }
+        .img-mask.revealed { opacity: 0; pointer-events: none; }
+
+        @media print {
+            @page { size: 13.333in 7.5in; margin: 0; }
+            body { overflow: visible !important; background: #0a0a0a; margin: 0 !important; padding: 0 !important; display: block !important; min-height: 0 !important; }
+            .presentation { width: 1280px !important; height: auto !important; overflow: visible !important; margin: 0 !important; }
+            .slide {
+                display: flex !important; opacity: 1 !important;
+                position: relative !important;
+                page-break-after: always;
+                page-break-inside: avoid;
+                width: 1280px !important; height: 720px !important;
+                break-after: page;
+            }
+            .nav, .slide-counter { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+  <div id="pw-gate" style="display:none;position:fixed;inset:0;z-index:99999;background:#0a0a0a;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;">
+    <div style="background:#111110;border:1px solid #2a2a28;border-radius:12px;padding:2.5rem 2rem;width:320px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.7);">
+      <div style="font-size:1.5rem;font-weight:700;color:#c9a84c;margin-bottom:0.4rem;">sTiles</div>
+      <div style="font-size:0.85rem;color:#666;margin-bottom:1.6rem;">Enter password to view this presentation</div>
+      <input id="pw-input" type="password" placeholder="Password" autofocus
+        style="width:100%;padding:.65rem .9rem;border-radius:7px;border:1px solid #333;background:#0a0a0a;color:#f0f0f0;font-size:0.95rem;outline:none;margin-bottom:.8rem;"
+        onkeydown="if(event.key==='Enter')checkPW()"/>
+      <div id="pw-err" style="color:#c97442;font-size:0.8rem;min-height:1.2em;margin-bottom:.8rem;"></div>
+      <button onclick="checkPW()"
+        style="width:100%;padding:.65rem;border:none;border-radius:7px;background:#c9a84c;color:#0a0a0a;font-weight:700;font-size:0.9rem;cursor:pointer;">
+        Enter
+      </button>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var KEY='stiles_cirad_auth';
+      var gate=document.getElementById('pw-gate');
+      if(sessionStorage.getItem(KEY)==='1'){gate.style.display='none';return;}
+      gate.style.display='flex';
+      document.body.style.overflow='hidden';
+    })();
+    function checkPW(){
+      var v=document.getElementById('pw-input').value;
+      if(v==='sTiles@cirad'){
+        sessionStorage.setItem('stiles_cirad_auth','1');
+        document.getElementById('pw-gate').style.display='none';
+        document.body.style.overflow='';
+      } else {
+        document.getElementById('pw-err').textContent='Incorrect password.';
+        document.getElementById('pw-input').value='';
+        document.getElementById('pw-input').focus();
+      }
+    }
+  </script>
+    <div class="presentation">
+        <div class="progress-bar" id="progress"></div>
+
+        <!-- Slide 1: Title -->
+        <div class="slide title-slide active">
+            <div class="title-border"></div>
+
+            <!-- Background: sparse-matrix tile mosaic -->
+            <svg class="tile-bg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice">
+                <!-- Diagonal band tiles (teal) -->
+                <rect x="20"  y="20"  width="80" height="80" fill="#4a9e8f" opacity="0.18" rx="4"/>
+                <rect x="100" y="20"  width="80" height="80" fill="#4a9e8f" opacity="0.10" rx="4"/>
+                <rect x="100" y="100" width="80" height="80" fill="#4a9e8f" opacity="0.20" rx="4"/>
+                <rect x="180" y="100" width="80" height="80" fill="#4a9e8f" opacity="0.12" rx="4"/>
+                <rect x="180" y="180" width="80" height="80" fill="#4a9e8f" opacity="0.16" rx="4"/>
+                <rect x="260" y="180" width="80" height="80" fill="#4a9e8f" opacity="0.22" rx="4"/>
+                <rect x="260" y="260" width="80" height="80" fill="#4a9e8f" opacity="0.12" rx="4"/>
+
+                <!-- Diagonal band tiles (lime) -->
+                <rect x="340" y="260" width="80" height="80" fill="#b8cc4b" opacity="0.14" rx="4"/>
+                <rect x="340" y="340" width="80" height="80" fill="#b8cc4b" opacity="0.20" rx="4"/>
+                <rect x="420" y="340" width="80" height="80" fill="#b8cc4b" opacity="0.16" rx="4"/>
+                <rect x="420" y="420" width="80" height="80" fill="#b8cc4b" opacity="0.12" rx="4"/>
+                <rect x="500" y="420" width="80" height="80" fill="#b8cc4b" opacity="0.18" rx="4"/>
+
+                <!-- Diagonal band tiles (orange) -->
+                <rect x="580" y="420" width="80" height="80" fill="#e8945a" opacity="0.12" rx="4"/>
+                <rect x="580" y="500" width="80" height="80" fill="#e8945a" opacity="0.18" rx="4"/>
+                <rect x="660" y="500" width="80" height="80" fill="#e8945a" opacity="0.14" rx="4"/>
+                <rect x="660" y="580" width="80" height="80" fill="#e8945a" opacity="0.20" rx="4"/>
+                <rect x="740" y="580" width="80" height="80" fill="#e8945a" opacity="0.12" rx="4"/>
+
+                <!-- Arrowhead column (right edge) -->
+                <rect x="1100" y="20"  width="80" height="80" fill="#e8945a" opacity="0.08" rx="4"/>
+                <rect x="1100" y="100" width="80" height="80" fill="#e8945a" opacity="0.10" rx="4"/>
+                <rect x="1100" y="180" width="80" height="80" fill="#e8945a" opacity="0.06" rx="4"/>
+                <rect x="1100" y="260" width="80" height="80" fill="#e8945a" opacity="0.08" rx="4"/>
+                <rect x="1100" y="340" width="80" height="80" fill="#e8945a" opacity="0.10" rx="4"/>
+                <rect x="1100" y="420" width="80" height="80" fill="#e8945a" opacity="0.08" rx="4"/>
+                <rect x="1100" y="500" width="80" height="80" fill="#e8945a" opacity="0.12" rx="4"/>
+                <rect x="1100" y="580" width="80" height="80" fill="#e8945a" opacity="0.16" rx="4"/>
+
+                <!-- Arrowhead row (bottom edge) -->
+                <rect x="20"  y="580" width="80" height="80" fill="#e8945a" opacity="0.06" rx="4"/>
+                <rect x="180" y="580" width="80" height="80" fill="#e8945a" opacity="0.08" rx="4"/>
+                <rect x="340" y="580" width="80" height="80" fill="#e8945a" opacity="0.06" rx="4"/>
+                <rect x="500" y="580" width="80" height="80" fill="#e8945a" opacity="0.08" rx="4"/>
+                <rect x="820" y="580" width="80" height="80" fill="#e8945a" opacity="0.10" rx="4"/>
+                <rect x="900" y="580" width="80" height="80" fill="#e8945a" opacity="0.14" rx="4"/>
+                <rect x="980" y="580" width="80" height="80" fill="#e8945a" opacity="0.18" rx="4"/>
+                <rect x="1180" y="580" width="80" height="80" fill="#e8b931" opacity="0.22" rx="4"/>
+
+                <!-- Scattered off-diagonal fills -->
+                <rect x="20"  y="100" width="80" height="80" fill="#4a9e8f" opacity="0.06" rx="4"/>
+                <rect x="500" y="260" width="80" height="80" fill="#b8cc4b" opacity="0.06" rx="4"/>
+                <rect x="740" y="340" width="80" height="80" fill="#e8945a" opacity="0.05" rx="4"/>
+                <rect x="900" y="180" width="80" height="80" fill="#e8b931" opacity="0.04" rx="4"/>
+                <rect x="820" y="420" width="80" height="80" fill="#e8945a" opacity="0.06" rx="4"/>
+                <rect x="1180" y="340" width="80" height="80" fill="#e8b931" opacity="0.05" rx="4"/>
+
+                <!-- Faint grid lines -->
+                <g stroke="#e8b931" stroke-width="0.5" opacity="0.06">
+                    <line x1="20" y1="20" x2="20" y2="700"/>
+                    <line x1="100" y1="20" x2="100" y2="700"/>
+                    <line x1="180" y1="20" x2="180" y2="700"/>
+                    <line x1="260" y1="20" x2="260" y2="700"/>
+                    <line x1="340" y1="20" x2="340" y2="700"/>
+                    <line x1="420" y1="20" x2="420" y2="700"/>
+                    <line x1="500" y1="20" x2="500" y2="700"/>
+                    <line x1="580" y1="20" x2="580" y2="700"/>
+                    <line x1="660" y1="20" x2="660" y2="700"/>
+                    <line x1="740" y1="20" x2="740" y2="700"/>
+                    <line x1="820" y1="20" x2="820" y2="700"/>
+                    <line x1="900" y1="20" x2="900" y2="700"/>
+                    <line x1="980" y1="20" x2="980" y2="700"/>
+                    <line x1="1060" y1="20" x2="1060" y2="700"/>
+                    <line x1="1180" y1="20" x2="1180" y2="700"/>
+                    <line x1="1260" y1="20" x2="1260" y2="700"/>
+                    <line x1="20" y1="20" x2="1260" y2="20"/>
+                    <line x1="20" y1="100" x2="1260" y2="100"/>
+                    <line x1="20" y1="180" x2="1260" y2="180"/>
+                    <line x1="20" y1="260" x2="1260" y2="260"/>
+                    <line x1="20" y1="340" x2="1260" y2="340"/>
+                    <line x1="20" y1="420" x2="1260" y2="420"/>
+                    <line x1="20" y1="500" x2="1260" y2="500"/>
+                    <line x1="20" y1="580" x2="1260" y2="580"/>
+                    <line x1="20" y1="660" x2="1260" y2="660"/>
+                </g>
+            </svg>
+
+            <!-- Dark overlay so text pops -->
+            <div class="title-overlay"></div>
+
+            <!-- KAUST logo -->
+            <img src="slides/KAUST_Logo.png" style="position: absolute; top: 24px; left: 32px; height: 70px; z-index: 5; object-fit: contain;">
+
+            <!-- Centered title content -->
+            <div class="title-content">
+                <h1>
+                    <em>What's Slowing Down</em><br>
+                    <strong>Your Statistical Model,</strong><br>
+                    <em>and How Tiling Fixes It?</em>
+                </h1>
+
+                <hr class="title-divider">
+
+                <div class="title-meta">
+                    <p class="author">Esmail Abdul Fattah</p>
+                    <p class="affiliation">King Abdullah University of Science and Technology (KAUST)</p>
+                    <p class="venue">Seminar Talk, Cirad, Montpellier, France &middot; April 2026</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: Purpose (step animation, 4 steps) -->
+        <div class="slide" style="padding: 48px 72px;">
+            <p style="font-size: 30px; color: var(--text); line-height: 1.7; max-width: 1100px;">
+                Bayesian models for spatial, temporal, and hierarchical data are becoming increasingly complex. Yet the computational cost often forces researchers to simplify. In this talk:
+            </p>
+
+            <ul style="margin-top: 36px; margin-left: 16px;">
+                <li class="step" data-step="1" style="font-size: 30px;">Where the bottleneck comes from</li>
+                <li class="step" data-step="2" style="font-size: 30px;">Why existing solvers struggle with statistical matrix structures</li>
+                <li class="step" data-step="3" style="font-size: 30px;">How <strong style="color: var(--gold);">sTiles</strong> exploits internal structure for up to <strong style="color: var(--gold);">11x</strong> speedups</li>
+            </ul>
+
+            <p class="step" data-step="4" style="font-size: 28px; color: var(--text); line-height: 1.7; margin-top: 48px; max-width: 1100px;">
+                The goal: fit the model you <em>want</em>, not the model your hardware <em>allows</em>.
+            </p>
+        </div>
+
+        <!-- Slide 3: Statement -->
+        <div class="slide" style="justify-content: center; align-items: center; text-align: center; padding: 0 80px;">
+            <p style="font-size: 64px; color: var(--text); line-height: 1.35; max-width: 1100px; font-family: 'Source Serif 4', Georgia, serif;">
+                Stan, TMB, INLA, GPs.<br>
+                <span style="color: var(--gold); font-weight: 600;">Different tools, same wall.</span>
+            </p>
+        </div>
+
+        <!-- Slide 4: Statement (moved up, paired with slide 3) -->
+        <div class="slide" style="justify-content: center; align-items: center; text-align: center; padding: 0 80px;">
+            <p style="font-size: 44px; color: var(--text); line-height: 1.4; max-width: 1050px; font-family: 'Source Serif 4', Georgia, serif;">
+                And as models grow, we all simplify the same way: <span style="color: var(--gold);">coarser grids, fewer random effects, dropped interactions.</span>
+            </p>
+        </div>
+
+        <!-- What the computer actually does -->
+        <div class="slide" style="align-items: center; text-align: center; padding: 60px 80px;">
+            <p style="font-size: 38px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; margin-bottom: 32px;">
+                What does your computer <em style="color: var(--text);">actually</em> do?
+            </p>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <p style="font-size: 26px; color: var(--text-secondary); margin-bottom: 12px;">
+                    When you fit a mixed, spatial, or Bayesian model, the software builds a matrix <strong style="color: var(--gold);">A</strong> from your model and asks:
+                </p>
+
+                <p style="font-size: 96px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.1; margin: 12px 0;">
+                    A &middot; x = b
+                </p>
+
+                <p style="font-size: 26px; color: var(--text-secondary); margin-bottom: 32px;">
+                    "Find the <strong style="color: var(--gold);">x</strong> that makes this true."
+                </p>
+
+                <p style="font-size: 24px; color: var(--text-muted); max-width: 900px; line-height: 1.5;">
+                    Every posterior, every likelihood, every iteration goes through this.<br>
+                    If solving <strong style="color: var(--gold);">A &middot; x = b</strong> is slow, your model is slow.
+                </p>
+            </div>
+        </div>
+
+        <!-- Two ways to solve it: dense vs sparse -->
+        <div class="slide" style="align-items: center; text-align: center; padding: 48px 72px;">
+            <p style="font-size: 38px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; margin-bottom: 12px;">
+                We have <em style="color: var(--text);">two ways</em> to solve it.
+            </p>
+            <p style="font-size: 22px; color: var(--text-secondary); max-width: 1000px; margin: 0 auto 28px; line-height: 1.5;">
+                Most entries of A are <strong style="color: var(--gold);">zero</strong>, your model has conditional independence: most parameters don't directly interact. That gives us a choice.
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; width: 100%; max-width: 1100px;">
+                <div class="step" data-step="1" style="background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 6px; padding: 26px 28px; text-align: left;">
+                    <h3 style="font-size: 30px; color: var(--gold); margin-bottom: 10px; font-family: 'Source Serif 4', Georgia, serif;">Dense solver</h3>
+                    <p style="font-size: 20px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                        Considers every element of A, even the zeros. Does the same work whether entries are zero or not.
+                    </p>
+                    <p style="font-size: 18px; color: var(--text-muted); font-style: italic;">
+                        Wastes time on structure it ignores.
+                    </p>
+                </div>
+
+                <div class="step" data-step="2" style="background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 6px; padding: 26px 28px; text-align: left;">
+                    <h3 style="font-size: 30px; color: var(--gold); margin-bottom: 10px; font-family: 'Source Serif 4', Georgia, serif;">Sparse solver</h3>
+                    <p style="font-size: 20px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                        Skips zeros entirely. Only touches non-zero entries, so the work scales with the structure.
+                    </p>
+                    <p style="font-size: 18px; color: var(--text-muted); font-style: italic;">
+                        Uses the pattern instead of fighting it.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Uncertainty lives in the inverse: precision vs covariance, selected inverse -->
+        <div class="slide" style="align-items: center; text-align: center; padding: 48px 72px;">
+            <p style="font-size: 36px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; margin-bottom: 20px;">
+                Solving is only half the story.
+            </p>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px;">
+                <p class="step" data-step="1" style="font-size: 24px; color: var(--text-secondary); margin-bottom: 2px;">Your model works with a</p>
+                <p class="step" data-step="1" style="font-size: 52px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.1;">precision matrix Q</p>
+                <p class="step" data-step="1" style="font-size: 21px; color: var(--text-muted); max-width: 960px; margin-bottom: 18px; line-height: 1.45;">Sparse. That's why structured Bayesian and hierarchical methods can scale at all.</p>
+
+                <p class="step" data-step="2" style="font-size: 24px; color: var(--text-secondary); margin-bottom: 2px;">But uncertainty lives in the</p>
+                <p class="step" data-step="2" style="font-size: 52px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.1;">covariance &Sigma; = Q<sup style="font-size: 70%;">&minus;1</sup></p>
+                <p class="step" data-step="2" style="font-size: 21px; color: var(--text-muted); max-width: 960px; margin-bottom: 18px; line-height: 1.45;">Dense. Forming it at scale is impossible.</p>
+
+                <p class="step" data-step="3" style="font-size: 24px; color: var(--text-secondary); margin-bottom: 2px;">Sometimes you only need</p>
+                <p class="step" data-step="3" style="font-size: 52px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.1;">diag(&Sigma;)</p>
+                <p class="step" data-step="3" style="font-size: 21px; color: var(--text-muted); max-width: 960px; line-height: 1.45;">One variance per parameter. <strong style="color: var(--text);">Selected inversion</strong> recovers it from the same Cholesky factor you already computed.</p>
+            </div>
+        </div>
+
+        <!-- In picture: Q, Sigma, diag(Sigma) -->
+        <div class="slide" style="align-items: center; text-align: center; padding: 44px 60px;">
+            <p style="font-size: 34px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; margin-bottom: 6px;">
+                In picture.
+            </p>
+            <p style="font-size: 19px; color: var(--text-secondary); max-width: 1020px; margin: 0 auto 30px; line-height: 1.5;">
+                What you have, what it inverts to, and what you actually need.
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; width: 100%; max-width: 1080px; align-items: start;">
+                <!-- Panel 1: Q (sparse precision) -->
+                <div style="text-align: center;">
+                    <p style="font-size: 24px; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; margin-bottom: 10px;">Q</p>
+                    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">precision (sparse)</p>
+                    <svg viewBox="0 0 200 200" width="220" height="220" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;">
+                        <g stroke="#2a2a28" stroke-width="0.5">
+                            <line x1="25" y1="0" x2="25" y2="200"/><line x1="50" y1="0" x2="50" y2="200"/><line x1="75" y1="0" x2="75" y2="200"/><line x1="100" y1="0" x2="100" y2="200"/><line x1="125" y1="0" x2="125" y2="200"/><line x1="150" y1="0" x2="150" y2="200"/><line x1="175" y1="0" x2="175" y2="200"/>
+                            <line x1="0" y1="25" x2="200" y2="25"/><line x1="0" y1="50" x2="200" y2="50"/><line x1="0" y1="75" x2="200" y2="75"/><line x1="0" y1="100" x2="200" y2="100"/><line x1="0" y1="125" x2="200" y2="125"/><line x1="0" y1="150" x2="200" y2="150"/><line x1="0" y1="175" x2="200" y2="175"/>
+                        </g>
+                        <!-- Tridiagonal + arrowhead pattern -->
+                        <g fill="#e8b931">
+                            <!-- Diagonal -->
+                            <rect x="2" y="2" width="21" height="21" rx="2"/><rect x="27" y="27" width="21" height="21" rx="2"/><rect x="52" y="52" width="21" height="21" rx="2"/><rect x="77" y="77" width="21" height="21" rx="2"/><rect x="102" y="102" width="21" height="21" rx="2"/><rect x="127" y="127" width="21" height="21" rx="2"/><rect x="152" y="152" width="21" height="21" rx="2"/><rect x="177" y="177" width="21" height="21" rx="2"/>
+                            <!-- Tridiagonal -->
+                            <rect x="27" y="2" width="21" height="21" rx="2"/><rect x="2" y="27" width="21" height="21" rx="2"/>
+                            <rect x="52" y="27" width="21" height="21" rx="2"/><rect x="27" y="52" width="21" height="21" rx="2"/>
+                            <rect x="77" y="52" width="21" height="21" rx="2"/><rect x="52" y="77" width="21" height="21" rx="2"/>
+                            <rect x="102" y="77" width="21" height="21" rx="2"/><rect x="77" y="102" width="21" height="21" rx="2"/>
+                            <rect x="127" y="102" width="21" height="21" rx="2"/><rect x="102" y="127" width="21" height="21" rx="2"/>
+                            <rect x="152" y="127" width="21" height="21" rx="2"/><rect x="127" y="152" width="21" height="21" rx="2"/>
+                            <!-- Arrowhead last row/col -->
+                            <rect x="177" y="2" width="21" height="21" rx="2"/><rect x="2" y="177" width="21" height="21" rx="2"/>
+                            <rect x="177" y="27" width="21" height="21" rx="2"/><rect x="27" y="177" width="21" height="21" rx="2"/>
+                            <rect x="177" y="52" width="21" height="21" rx="2"/><rect x="52" y="177" width="21" height="21" rx="2"/>
+                            <rect x="177" y="77" width="21" height="21" rx="2"/><rect x="77" y="177" width="21" height="21" rx="2"/>
+                            <rect x="177" y="102" width="21" height="21" rx="2"/><rect x="102" y="177" width="21" height="21" rx="2"/>
+                            <rect x="177" y="127" width="21" height="21" rx="2"/><rect x="127" y="177" width="21" height="21" rx="2"/>
+                            <rect x="177" y="152" width="21" height="21" rx="2"/><rect x="152" y="177" width="21" height="21" rx="2"/>
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- Panel 2: Σ = Q^-1 (dense) -->
+                <div style="text-align: center;">
+                    <p style="font-size: 24px; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; margin-bottom: 10px;">&Sigma; = Q<sup style="font-size: 70%;">&minus;1</sup></p>
+                    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">covariance (dense)</p>
+                    <svg viewBox="0 0 200 200" width="220" height="220" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;">
+                        <g stroke="#2a2a28" stroke-width="0.5">
+                            <line x1="25" y1="0" x2="25" y2="200"/><line x1="50" y1="0" x2="50" y2="200"/><line x1="75" y1="0" x2="75" y2="200"/><line x1="100" y1="0" x2="100" y2="200"/><line x1="125" y1="0" x2="125" y2="200"/><line x1="150" y1="0" x2="150" y2="200"/><line x1="175" y1="0" x2="175" y2="200"/>
+                            <line x1="0" y1="25" x2="200" y2="25"/><line x1="0" y1="50" x2="200" y2="50"/><line x1="0" y1="75" x2="200" y2="75"/><line x1="0" y1="100" x2="200" y2="100"/><line x1="0" y1="125" x2="200" y2="125"/><line x1="0" y1="150" x2="200" y2="150"/><line x1="0" y1="175" x2="200" y2="175"/>
+                        </g>
+                        <!-- Fully dense -->
+                        <g fill="#4a9e8f" opacity="0.75">
+                            <rect x="2" y="2" width="21" height="21" rx="2"/><rect x="27" y="2" width="21" height="21" rx="2"/><rect x="52" y="2" width="21" height="21" rx="2"/><rect x="77" y="2" width="21" height="21" rx="2"/><rect x="102" y="2" width="21" height="21" rx="2"/><rect x="127" y="2" width="21" height="21" rx="2"/><rect x="152" y="2" width="21" height="21" rx="2"/><rect x="177" y="2" width="21" height="21" rx="2"/>
+                            <rect x="2" y="27" width="21" height="21" rx="2"/><rect x="27" y="27" width="21" height="21" rx="2"/><rect x="52" y="27" width="21" height="21" rx="2"/><rect x="77" y="27" width="21" height="21" rx="2"/><rect x="102" y="27" width="21" height="21" rx="2"/><rect x="127" y="27" width="21" height="21" rx="2"/><rect x="152" y="27" width="21" height="21" rx="2"/><rect x="177" y="27" width="21" height="21" rx="2"/>
+                            <rect x="2" y="52" width="21" height="21" rx="2"/><rect x="27" y="52" width="21" height="21" rx="2"/><rect x="52" y="52" width="21" height="21" rx="2"/><rect x="77" y="52" width="21" height="21" rx="2"/><rect x="102" y="52" width="21" height="21" rx="2"/><rect x="127" y="52" width="21" height="21" rx="2"/><rect x="152" y="52" width="21" height="21" rx="2"/><rect x="177" y="52" width="21" height="21" rx="2"/>
+                            <rect x="2" y="77" width="21" height="21" rx="2"/><rect x="27" y="77" width="21" height="21" rx="2"/><rect x="52" y="77" width="21" height="21" rx="2"/><rect x="77" y="77" width="21" height="21" rx="2"/><rect x="102" y="77" width="21" height="21" rx="2"/><rect x="127" y="77" width="21" height="21" rx="2"/><rect x="152" y="77" width="21" height="21" rx="2"/><rect x="177" y="77" width="21" height="21" rx="2"/>
+                            <rect x="2" y="102" width="21" height="21" rx="2"/><rect x="27" y="102" width="21" height="21" rx="2"/><rect x="52" y="102" width="21" height="21" rx="2"/><rect x="77" y="102" width="21" height="21" rx="2"/><rect x="102" y="102" width="21" height="21" rx="2"/><rect x="127" y="102" width="21" height="21" rx="2"/><rect x="152" y="102" width="21" height="21" rx="2"/><rect x="177" y="102" width="21" height="21" rx="2"/>
+                            <rect x="2" y="127" width="21" height="21" rx="2"/><rect x="27" y="127" width="21" height="21" rx="2"/><rect x="52" y="127" width="21" height="21" rx="2"/><rect x="77" y="127" width="21" height="21" rx="2"/><rect x="102" y="127" width="21" height="21" rx="2"/><rect x="127" y="127" width="21" height="21" rx="2"/><rect x="152" y="127" width="21" height="21" rx="2"/><rect x="177" y="127" width="21" height="21" rx="2"/>
+                            <rect x="2" y="152" width="21" height="21" rx="2"/><rect x="27" y="152" width="21" height="21" rx="2"/><rect x="52" y="152" width="21" height="21" rx="2"/><rect x="77" y="152" width="21" height="21" rx="2"/><rect x="102" y="152" width="21" height="21" rx="2"/><rect x="127" y="152" width="21" height="21" rx="2"/><rect x="152" y="152" width="21" height="21" rx="2"/><rect x="177" y="152" width="21" height="21" rx="2"/>
+                            <rect x="2" y="177" width="21" height="21" rx="2"/><rect x="27" y="177" width="21" height="21" rx="2"/><rect x="52" y="177" width="21" height="21" rx="2"/><rect x="77" y="177" width="21" height="21" rx="2"/><rect x="102" y="177" width="21" height="21" rx="2"/><rect x="127" y="177" width="21" height="21" rx="2"/><rect x="152" y="177" width="21" height="21" rx="2"/><rect x="177" y="177" width="21" height="21" rx="2"/>
+                        </g>
+                    </svg>
+                </div>
+
+                <!-- Panel 3: diag(Σ) -->
+                <div style="text-align: center;">
+                    <p style="font-size: 24px; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; margin-bottom: 10px;">diag(&Sigma;)</p>
+                    <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">what you need</p>
+                    <svg viewBox="0 0 200 200" width="220" height="220" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;">
+                        <g stroke="#2a2a28" stroke-width="0.5">
+                            <line x1="25" y1="0" x2="25" y2="200"/><line x1="50" y1="0" x2="50" y2="200"/><line x1="75" y1="0" x2="75" y2="200"/><line x1="100" y1="0" x2="100" y2="200"/><line x1="125" y1="0" x2="125" y2="200"/><line x1="150" y1="0" x2="150" y2="200"/><line x1="175" y1="0" x2="175" y2="200"/>
+                            <line x1="0" y1="25" x2="200" y2="25"/><line x1="0" y1="50" x2="200" y2="50"/><line x1="0" y1="75" x2="200" y2="75"/><line x1="0" y1="100" x2="200" y2="100"/><line x1="0" y1="125" x2="200" y2="125"/><line x1="0" y1="150" x2="200" y2="150"/><line x1="0" y1="175" x2="200" y2="175"/>
+                        </g>
+                        <!-- Ghost of dense Σ (faint) -->
+                        <g fill="#4a9e8f" opacity="0.12">
+                            <rect x="27" y="2" width="21" height="21" rx="2"/><rect x="52" y="2" width="21" height="21" rx="2"/><rect x="77" y="2" width="21" height="21" rx="2"/><rect x="102" y="2" width="21" height="21" rx="2"/><rect x="127" y="2" width="21" height="21" rx="2"/><rect x="152" y="2" width="21" height="21" rx="2"/><rect x="177" y="2" width="21" height="21" rx="2"/>
+                            <rect x="2" y="27" width="21" height="21" rx="2"/><rect x="52" y="27" width="21" height="21" rx="2"/><rect x="77" y="27" width="21" height="21" rx="2"/><rect x="102" y="27" width="21" height="21" rx="2"/><rect x="127" y="27" width="21" height="21" rx="2"/><rect x="152" y="27" width="21" height="21" rx="2"/><rect x="177" y="27" width="21" height="21" rx="2"/>
+                            <rect x="2" y="52" width="21" height="21" rx="2"/><rect x="27" y="52" width="21" height="21" rx="2"/><rect x="77" y="52" width="21" height="21" rx="2"/><rect x="102" y="52" width="21" height="21" rx="2"/><rect x="127" y="52" width="21" height="21" rx="2"/><rect x="152" y="52" width="21" height="21" rx="2"/><rect x="177" y="52" width="21" height="21" rx="2"/>
+                            <rect x="2" y="77" width="21" height="21" rx="2"/><rect x="27" y="77" width="21" height="21" rx="2"/><rect x="52" y="77" width="21" height="21" rx="2"/><rect x="102" y="77" width="21" height="21" rx="2"/><rect x="127" y="77" width="21" height="21" rx="2"/><rect x="152" y="77" width="21" height="21" rx="2"/><rect x="177" y="77" width="21" height="21" rx="2"/>
+                            <rect x="2" y="102" width="21" height="21" rx="2"/><rect x="27" y="102" width="21" height="21" rx="2"/><rect x="52" y="102" width="21" height="21" rx="2"/><rect x="77" y="102" width="21" height="21" rx="2"/><rect x="127" y="102" width="21" height="21" rx="2"/><rect x="152" y="102" width="21" height="21" rx="2"/><rect x="177" y="102" width="21" height="21" rx="2"/>
+                            <rect x="2" y="127" width="21" height="21" rx="2"/><rect x="27" y="127" width="21" height="21" rx="2"/><rect x="52" y="127" width="21" height="21" rx="2"/><rect x="77" y="127" width="21" height="21" rx="2"/><rect x="102" y="127" width="21" height="21" rx="2"/><rect x="152" y="127" width="21" height="21" rx="2"/><rect x="177" y="127" width="21" height="21" rx="2"/>
+                            <rect x="2" y="152" width="21" height="21" rx="2"/><rect x="27" y="152" width="21" height="21" rx="2"/><rect x="52" y="152" width="21" height="21" rx="2"/><rect x="77" y="152" width="21" height="21" rx="2"/><rect x="102" y="152" width="21" height="21" rx="2"/><rect x="127" y="152" width="21" height="21" rx="2"/><rect x="177" y="152" width="21" height="21" rx="2"/>
+                            <rect x="2" y="177" width="21" height="21" rx="2"/><rect x="27" y="177" width="21" height="21" rx="2"/><rect x="52" y="177" width="21" height="21" rx="2"/><rect x="77" y="177" width="21" height="21" rx="2"/><rect x="102" y="177" width="21" height="21" rx="2"/><rect x="127" y="177" width="21" height="21" rx="2"/><rect x="152" y="177" width="21" height="21" rx="2"/>
+                        </g>
+                        <!-- Highlighted diagonal only -->
+                        <g fill="#e8b931">
+                            <rect x="2" y="2" width="21" height="21" rx="2"/><rect x="27" y="27" width="21" height="21" rx="2"/><rect x="52" y="52" width="21" height="21" rx="2"/><rect x="77" y="77" width="21" height="21" rx="2"/><rect x="102" y="102" width="21" height="21" rx="2"/><rect x="127" y="127" width="21" height="21" rx="2"/><rect x="152" y="152" width="21" height="21" rx="2"/><rect x="177" y="177" width="21" height="21" rx="2"/>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+
+            <p style="font-size: 17px; color: var(--text-muted); margin-top: 22px; max-width: 1000px;">
+                <strong style="color: var(--text);">Selected inversion</strong> extracts the gold cells directly from the Cholesky factor, without ever forming the dense &Sigma;.
+            </p>
+        </div>
+
+        <!-- What makes it slow, part 1 (the model grows) -->
+        <div class="slide" style="padding: 40px 72px;">
+            <div class="slide-header" style="margin-bottom: 20px; padding-bottom: 14px;">
+                <p class="slide-section">Why It's Slow &middot; 1 of 2</p>
+                <h2 class="slide-title" style="font-size: 44px;">What makes this step <em>slow</em>?</h2>
+            </div>
+
+            <ul style="margin-top: 4px; margin-left: 8px;">
+                <li class="step" data-step="1" style="font-size: 26px; padding: 14px 0 14px 32px; line-height: 1.4;">
+                    <strong style="display: block; font-size: 34px; color: var(--gold); margin-bottom: 4px;">Size grows fast.</strong>
+                    Double the mesh or add a random effect, and Cholesky work grows 4&ndash;8&times;.
+                </li>
+                <li class="step" data-step="2" style="font-size: 26px; padding: 14px 0 14px 32px; line-height: 1.4;">
+                    <strong style="display: block; font-size: 34px; color: var(--gold); margin-bottom: 4px;">Repetition compounds.</strong>
+                    Every optimizer step, every hyperparameter, every MCMC iteration triggers another factorization, hundreds to thousands per fit.
+                </li>
+                <li class="step" data-step="3" style="font-size: 26px; padding: 14px 0 14px 32px; line-height: 1.4;">
+                    <strong style="display: block; font-size: 34px; color: var(--gold); margin-bottom: 4px;">Fill-in explodes.</strong>
+                    The Cholesky factor is usually far denser than the matrix, often 10&ndash;100&times; more non-zeros if the ordering is poor.
+                </li>
+            </ul>
+        </div>
+
+        <!-- What makes it slow, part 2 (solvers waste work) -->
+        <div class="slide" style="padding: 40px 72px;">
+            <div class="slide-header" style="margin-bottom: 20px; padding-bottom: 14px;">
+                <p class="slide-section">Why It's Slow &middot; 2 of 2</p>
+                <h2 class="slide-title" style="font-size: 44px;">What makes this step <em>slow</em>?</h2>
+            </div>
+
+            <ul style="margin-top: 4px; margin-left: 8px;">
+                <li class="step" data-step="1" style="font-size: 26px; padding: 14px 0 14px 32px; line-height: 1.4;">
+                    <strong style="display: block; font-size: 34px; color: var(--gold); margin-bottom: 4px;">One core by default.</strong>
+                    Most solvers pin to a single thread, while your laptop has 8 or more sitting idle.
+                </li>
+                <li class="step" data-step="2" style="font-size: 26px; padding: 14px 0 14px 32px; line-height: 1.4;">
+                    <strong style="display: block; font-size: 34px; color: var(--gold); margin-bottom: 4px;">Memory wall.</strong>
+                    Once the factor leaves cache, or RAM, data movement dominates compute.
+                </li>
+            </ul>
+        </div>
+
+        <!-- Slide 6: Understanding the Hardware Behind the Speed -->
+        <div class="slide" style="padding: 48px 72px;">
+            <div class="slide-header">
+                <p class="slide-section">Understanding the Hardware Behind the Speed</p>
+                <h2 class="slide-title" style="font-size: 46px;">Analogy</h2>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 36px; flex: 1; justify-content: center;">
+                <!-- CPU -->
+                <div style="display: flex; align-items: center; gap: 32px;">
+                    <div style="min-width: 100px; text-align: center;">
+                        <svg width="72" height="72" viewBox="0 0 72 72">
+                            <rect x="16" y="16" width="40" height="40" rx="4" fill="none" stroke="var(--gold)" stroke-width="2.5"/>
+                            <rect x="24" y="24" width="24" height="24" rx="2" fill="var(--gold)" opacity="0.2"/>
+                            <rect x="30" y="30" width="12" height="12" rx="1" fill="var(--gold)" opacity="0.5"/>
+                            <!-- Pins top -->
+                            <line x1="26" y1="8" x2="26" y2="16" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="36" y1="8" x2="36" y2="16" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="46" y1="8" x2="46" y2="16" stroke="var(--gold)" stroke-width="2"/>
+                            <!-- Pins bottom -->
+                            <line x1="26" y1="56" x2="26" y2="64" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="36" y1="56" x2="36" y2="64" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="46" y1="56" x2="46" y2="64" stroke="var(--gold)" stroke-width="2"/>
+                            <!-- Pins left -->
+                            <line x1="8" y1="26" x2="16" y2="26" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="8" y1="36" x2="16" y2="36" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="8" y1="46" x2="16" y2="46" stroke="var(--gold)" stroke-width="2"/>
+                            <!-- Pins right -->
+                            <line x1="56" y1="26" x2="64" y2="26" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="56" y1="36" x2="64" y2="36" stroke="var(--gold)" stroke-width="2"/>
+                            <line x1="56" y1="46" x2="64" y2="46" stroke="var(--gold)" stroke-width="2"/>
+                        </svg>
+                        <p style="font-size: 16px; font-weight: 700; color: var(--gold); margin-top: 6px;">CPU</p>
+                    </div>
+                    <p style="font-size: 28px; color: var(--text); line-height: 1.5;">
+                        A kitchen with a few expert chefs (the cores), each carefully preparing a complex dish.
+                    </p>
+                </div>
+
+                <!-- GPU -->
+                <div style="display: flex; align-items: center; gap: 32px;">
+                    <div style="min-width: 100px; text-align: center;">
+                        <svg width="72" height="72" viewBox="0 0 72 72">
+                            <rect x="12" y="16" width="48" height="40" rx="4" fill="none" stroke="var(--gold)" stroke-width="2.5"/>
+                            <!-- Grid of small cores -->
+                            <g fill="var(--gold)">
+                                <rect x="18" y="22" width="7" height="7" rx="1" opacity="0.5"/>
+                                <rect x="28" y="22" width="7" height="7" rx="1" opacity="0.5"/>
+                                <rect x="38" y="22" width="7" height="7" rx="1" opacity="0.5"/>
+                                <rect x="48" y="22" width="7" height="7" rx="1" opacity="0.5"/>
+                                <rect x="18" y="32" width="7" height="7" rx="1" opacity="0.4"/>
+                                <rect x="28" y="32" width="7" height="7" rx="1" opacity="0.4"/>
+                                <rect x="38" y="32" width="7" height="7" rx="1" opacity="0.4"/>
+                                <rect x="48" y="32" width="7" height="7" rx="1" opacity="0.4"/>
+                                <rect x="18" y="42" width="7" height="7" rx="1" opacity="0.3"/>
+                                <rect x="28" y="42" width="7" height="7" rx="1" opacity="0.3"/>
+                                <rect x="38" y="42" width="7" height="7" rx="1" opacity="0.3"/>
+                                <rect x="48" y="42" width="7" height="7" rx="1" opacity="0.3"/>
+                            </g>
+                            <!-- Pins top -->
+                            <line x1="22" y1="8" x2="22" y2="16" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="28" y1="8" x2="28" y2="16" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="34" y1="8" x2="34" y2="16" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="40" y1="8" x2="40" y2="16" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="46" y1="8" x2="46" y2="16" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="52" y1="8" x2="52" y2="16" stroke="var(--gold)" stroke-width="1.5"/>
+                            <!-- Pins bottom -->
+                            <line x1="22" y1="56" x2="22" y2="64" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="28" y1="56" x2="28" y2="64" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="34" y1="56" x2="34" y2="64" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="40" y1="56" x2="40" y2="64" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="46" y1="56" x2="46" y2="64" stroke="var(--gold)" stroke-width="1.5"/>
+                            <line x1="52" y1="56" x2="52" y2="64" stroke="var(--gold)" stroke-width="1.5"/>
+                        </svg>
+                        <p style="font-size: 16px; font-weight: 700; color: var(--gold); margin-top: 6px;">GPU</p>
+                    </div>
+                    <p style="font-size: 28px; color: var(--text); line-height: 1.5;">
+                        A stadium full of burger flippers, each making the same thing fast and in parallel.
+                    </p>
+                </div>
+            </div>
+
+            <p style="font-size: 18px; color: var(--text-muted); text-align: center; font-style: italic; margin-top: 16px;">
+                "INLA's computational speed depends not just on clever math,<br>but on how well we use the hardware it runs&nbsp;on."
+            </p>
+        </div>
+
+        <!-- Disease mapping story (moved here, step animation, 3 steps) -->
+        <div class="slide" style="justify-content: center; align-items: center; text-align: center; padding: 60px 80px;">
+            <p style="font-size: 32px; color: var(--text); line-height: 1.5; max-width: 1000px;">
+                A complex interaction model* for disease mapping in Spain couldn't be fit using <span style="color: #c9a84c; font-weight: 700;">INLA</span> in 2009.
+            </p>
+
+            <div class="step" data-step="1" style="margin-top: 36px;">
+                <p style="font-size: 28px; color: var(--text-secondary);">This model took</p>
+                <p style="font-size: 84px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.2;">6 days</p>
+                <p style="font-size: 26px; color: var(--text-secondary);">to run with default solvers in 2016.</p>
+            </div>
+
+            <div class="step" data-step="2" style="margin-top: 28px;">
+                <p style="font-size: 28px; color: var(--text);">Even in 2024, INLA sometimes crashed or took</p>
+                <p style="font-size: 76px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.2;">hours</p>
+                <p style="font-size: 26px; color: var(--text-secondary);">to run.</p>
+            </div>
+
+            <div class="step" data-step="3" style="margin-top: -8px;">
+                <p style="font-size: 28px; color: var(--text);">With INLA<sup style="font-size: 60%; vertical-align: super;">+</sup>, it runs in <span style="font-size: 84px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif;">minutes</span>, reliably.</p>
+            </div>
+
+            <p style="position: absolute; bottom: 28px; left: 80px; right: 80px; font-size: 15px; color: var(--text-muted); text-align: left;">
+                *Based on: Goicoa et al. (2016), Age-space-time CAR models for Bayesian disease mapping, <em>Stat Med</em>.
+            </p>
+        </div>
+
+        <!-- What makes INLA fast? -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center; text-align: center; background: var(--bg);">
+            <div style="position: absolute; top: 16px; left: 16px; right: 16px; bottom: 16px; border: 2.5px solid var(--gold); pointer-events: none;"></div>
+            <div style="position: absolute; top: 24px; left: 24px; right: 24px; bottom: 24px; border: 1px solid var(--gold); opacity: 0.4; pointer-events: none;"></div>
+            <p style="font-size: 72px; font-weight: 400; color: var(--gold); line-height: 1.3; font-family: 'Source Serif 4', Georgia, serif;">What makes<br>INLA fast?</p>
+            <svg width="320" height="32" viewBox="0 0 320 32" style="margin-top: 8px;"><line x1="10" y1="16" x2="310" y2="16" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="40" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="40" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="72" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="72" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="100" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="100" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="100" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><line x1="115" y1="13" x2="145" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="115" y1="19" x2="145" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="165" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="165" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="165" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="200" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="200" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><line x1="212" y1="13" x2="238" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="212" y1="19" x2="238" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="255" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="255" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="280" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="280" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="308" cy="20" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/></svg>
+        </div>
+
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;">
+            <img src="slides/slide-045.png" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+
+        <!-- Slide 10: image -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;">
+            <img src="slides/slide-046.png" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+
+        <!-- Slide 11: image -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;">
+            <img src="slides/slide-047.png" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+
+        <!-- Slide 12: image -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;">
+            <img src="slides/slide-048.png" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+
+        <!-- INLA Timeline -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;">
+            <img src="slides/slide-042.png" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+
+        <!-- Is INLA Ready? -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center; text-align: center; background: var(--bg);">
+            <div style="position: absolute; top: 16px; left: 16px; right: 16px; bottom: 16px; border: 2.5px solid var(--gold); pointer-events: none;"></div>
+            <div style="position: absolute; top: 24px; left: 24px; right: 24px; bottom: 24px; border: 1px solid var(--gold); opacity: 0.4; pointer-events: none;"></div>
+            <p style="font-size: 72px; font-weight: 400; color: var(--gold); line-height: 1.3; font-family: 'Source Serif 4', Georgia, serif;">Is INLA Ready for the<br>Growing Complexity<br>of Models?</p>
+            <svg width="320" height="32" viewBox="0 0 320 32" style="margin-top: 8px;"><line x1="10" y1="16" x2="310" y2="16" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="40" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="40" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="72" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="72" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="100" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="100" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="100" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><line x1="115" y1="13" x2="145" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="115" y1="19" x2="145" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="165" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="165" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="165" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="200" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="200" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><line x1="212" y1="13" x2="238" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="212" y1="19" x2="238" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="255" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="255" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="280" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="280" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="308" cy="20" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/></svg>
+        </div>
+
+        <!-- Transition: let's look at the precision matrices themselves -->
+        <div class="slide" style="justify-content: center; align-items: center; text-align: center; padding: 0 80px;">
+            <p style="font-size: 44px; color: var(--text); line-height: 1.4; max-width: 1050px; font-family: 'Source Serif 4', Georgia, serif;">
+                Let's look at what these <span style="color: var(--gold); font-weight: 700;">precision matrices</span> actually look like.
+            </p>
+        </div>
+
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-050.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-051.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-052.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-053.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-054.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-055.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-056.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-057.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-059.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-061.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-062.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-063.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-064.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+
+        <!-- Fill-in & reordering demo: same Q, ordering changes the factor -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_Q_natural.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_L_natural.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_Q_reordered.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_L_reordered.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+
+        <!-- Scattered sparsity: reordering helps even without obvious structure -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_Q_scattered.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_L_scattered.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_Q_scattered_reordered.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="fig_L_scattered_reordered.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+
+
+        <!-- Captcha -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center; text-align: center; background: var(--bg);">
+            <div style="position: absolute; top: 16px; left: 16px; right: 16px; bottom: 16px; border: 2.5px solid var(--gold); pointer-events: none;"></div>
+            <div style="position: absolute; top: 24px; left: 24px; right: 24px; bottom: 24px; border: 1px solid var(--gold); opacity: 0.4; pointer-events: none;"></div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <svg width="64" height="64" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="6" fill="none" stroke="var(--gold)" stroke-width="3"/><polyline points="16,34 28,46 48,20" fill="none" stroke="var(--gold)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <p style="font-size: 72px; font-weight: 400; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif;">Captcha</p>
+            </div>
+            <svg width="320" height="32" viewBox="0 0 320 32" style="margin-top: 8px;"><line x1="10" y1="16" x2="310" y2="16" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="40" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="40" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="72" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="72" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="100" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="100" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="100" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><line x1="115" y1="13" x2="145" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="115" y1="19" x2="145" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="165" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="165" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="165" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="200" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="200" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><line x1="212" y1="13" x2="238" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="212" y1="19" x2="238" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="255" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="255" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="280" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="280" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="308" cy="20" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/></svg>
+        </div>
+
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-071.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-072.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-073.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-074.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-075.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-076.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-077.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-078.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-079.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-080.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-081.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+
+        <!-- Not All Zeros Are Equal -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center; text-align: center; background: var(--bg);">
+            <div style="position: absolute; top: 16px; left: 16px; right: 16px; bottom: 16px; border: 2.5px solid var(--gold); pointer-events: none;"></div>
+            <div style="position: absolute; top: 24px; left: 24px; right: 24px; bottom: 24px; border: 1px solid var(--gold); opacity: 0.4; pointer-events: none;"></div>
+            <p style="font-size: 72px; font-weight: 400; color: var(--gold); line-height: 1.3; font-family: 'Source Serif 4', Georgia, serif;">Not All Zeros Are Equal!<br>Sparse vs. Dense</p>
+            <svg width="320" height="32" viewBox="0 0 320 32" style="margin-top: 8px;"><line x1="10" y1="16" x2="310" y2="16" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="40" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="40" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="72" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="72" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="100" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="100" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="100" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><line x1="115" y1="13" x2="145" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="115" y1="19" x2="145" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="165" cy="16" r="10" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="165" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="165" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="200" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="200" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><line x1="212" y1="13" x2="238" y2="13" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><line x1="212" y1="19" x2="238" y2="19" stroke="var(--gold)" stroke-width="1.5" opacity="0.6"/><circle cx="255" cy="16" r="8" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="255" cy="16" r="4" fill="var(--gold)" opacity="0.5"/><circle cx="280" cy="16" r="6" fill="none" stroke="var(--gold)" stroke-width="1.5" opacity="0.7"/><circle cx="280" cy="16" r="3" fill="var(--gold)" opacity="0.5"/><circle cx="12" cy="12" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/><circle cx="308" cy="20" r="3" fill="none" stroke="var(--gold)" stroke-width="1" opacity="0.5"/></svg>
+        </div>
+
+        <!-- Simple Example: Summing Two Vectors (083-114) -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-083.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-084.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-085.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-086.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-087.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-088.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-089.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-090.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-091.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-092.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-093.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-094.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-095.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-096.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-097.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-098.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-099.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-100.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-101.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-102.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-103.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-104.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-105.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-106.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-107.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-108.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-109.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-110.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-111.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-112.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-113.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-114.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+
+        <!-- slides 115-135 -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-115.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-116.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-117.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-118.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-119.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-120.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-121.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-122.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-123.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-124.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-125.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-126.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-127.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-128.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-129.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-130.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-131.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-132.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-133.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-134.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-135.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+
+
+        <!-- Introducing sTiles (adapted from Talk 2, slide 4) -->
+        <div class="slide" style="padding: 40px 60px;">
+            <div class="slide-header" style="margin-bottom: 18px; padding-bottom: 14px;">
+                <p class="slide-section">Our Framework</p>
+                <h2 class="slide-title" style="font-size: 42px;">Introducing <em>sTiles</em></h2>
+                <p class="slide-subtitle" style="font-size: 17px;">A tile-based hybrid solver: sparse preprocessing, dense performance.</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 28px; flex: 1;">
+                <!-- LEFT: Core idea + why tiles -->
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div style="display: flex; align-items: center; gap: 18px;">
+                        <img src="slides/stiles.jpeg" style="width: 84px; height: 84px; object-fit: cover; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+                        <div>
+                            <p style="font-size: 18px; color: var(--text); font-weight: 600;">Tile-based linear algebra</p>
+                            <p style="font-size: 14px; color: var(--text-muted); margin-top: 2px;">Uniform tiles for sparse + dense compute.</p>
+                        </div>
+                    </div>
+
+                    <div class="card accent-border" style="margin-bottom: 0; padding: 14px 18px;">
+                        <h3 style="font-size: 16px; margin-bottom: 6px;">Core idea</h3>
+                        <p style="font-size: 15px; line-height: 1.5;">Impose a <strong style="color: var(--gold);">uniform grid of fixed-size tiles</strong> on the matrix. Regular data, predictable dependencies.</p>
+                    </div>
+
+                    <div class="card" style="margin-bottom: 0; padding: 14px 18px;">
+                        <h3 style="font-size: 16px; margin-bottom: 6px;">Why tiles?</h3>
+                        <ul style="padding-left: 0;">
+                            <li style="font-size: 14px; padding: 3px 0 3px 22px; line-height: 1.4;"><strong>Finer granularity</strong> &mdash; more parallel tasks</li>
+                            <li style="font-size: 14px; padding: 3px 0 3px 22px; line-height: 1.4;"><strong>Cache locality</strong> &mdash; each tile fits in cache</li>
+                            <li style="font-size: 14px; padding: 3px 0 3px 22px; line-height: 1.4;"><strong>BLAS-3 kernels</strong> &mdash; GEMM, TRSM, POTRF on every tile</li>
+                            <li style="font-size: 14px; padding: 3px 0 3px 22px; line-height: 1.4;"><strong>Static schedule</strong> &mdash; no runtime overhead, GPU-ready</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Comparison cards -->
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div class="card" style="margin-bottom: 0; border-left: 3px solid var(--orange); padding: 14px 18px;">
+                        <h3 style="font-size: 16px; margin-bottom: 6px; color: var(--orange);">Traditional supernodal</h3>
+                        <ul style="padding-left: 0;">
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">Variable block sizes</li>
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">Irregular data structures</li>
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">Dynamic scheduling</li>
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">Hard to optimize for GPUs</li>
+                        </ul>
+                    </div>
+
+                    <div class="card" style="margin-bottom: 0; border-left: 3px solid var(--lime); padding: 14px 18px;">
+                        <h3 style="font-size: 16px; margin-bottom: 6px; color: var(--lime);">sTiles</h3>
+                        <ul style="padding-left: 0;">
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">Fixed tile sizes (tunable)</li>
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">Regular data structures</li>
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">Static, pre-computed schedule</li>
+                            <li style="font-size: 14px; padding: 2px 0 2px 22px; line-height: 1.35;">One codebase, CPUs and GPUs</li>
+                        </ul>
+                    </div>
+
+                    <div class="insight-box" style="margin: 0; padding: 12px 18px;">
+                        <h4 style="font-size: 11px;">What you'll see next</h4>
+                        <p style="font-size: 14px; line-height: 1.4;">The same matrices you've been fighting with, fitted <strong style="color: var(--gold);">faster</strong>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance benchmarks (137-155) and GPU results (156-160) -->
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-137.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-138.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-139.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-140.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-141.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-142.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-143.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-144.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-145.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-146.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-147.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-148.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-149.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-150.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-151.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-152.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-153.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-154.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-155.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-156.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-157.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-158.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-159.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+        <div class="slide" style="padding: 0; justify-content: center; align-items: center;"><img src="slides/slide-160.png" style="width: 100%; height: 100%; object-fit: contain;"></div>
+
+        <!-- Closing: matrix structure + speed changes the science -->
+        <div class="slide" style="align-items: center; text-align: center; padding: 60px 80px;">
+            <p style="font-size: 42px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; margin-bottom: 40px;">
+                So, What's Slowing You Down?
+            </p>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <p class="step" data-step="1" style="font-size: 26px; color: var(--text-secondary); margin-bottom: 4px;">Adding interactions or finer resolution doesn't just add rows.</p>
+                <p class="step" data-step="1" style="font-size: 26px; color: var(--text-secondary); margin-bottom: 4px;">It changes the</p>
+                <p class="step" data-step="1" style="font-size: 64px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.1;">matrix structure</p>
+                <p class="step" data-step="1" style="font-size: 26px; color: var(--text-secondary); margin-bottom: 36px;">sometimes dramatically.</p>
+
+                <div class="step" data-step="2">
+                    <p style="font-size: 26px; color: var(--text-secondary);">If each run takes an hour, you try 4 a day.</p>
+                    <p style="font-size: 26px; color: var(--text-secondary); margin-bottom: 4px;">If it takes 2 minutes, you try 50.</p>
+                    <p style="font-size: 56px; font-weight: 700; color: var(--gold); font-family: 'Source Serif 4', Georgia, serif; line-height: 1.1;">Speed changes the science</p>
+                    <p style="font-size: 26px; color: var(--text-secondary);">not just the wait.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final closing statement -->
+        <div class="slide" style="justify-content: center; align-items: center; text-align: center; padding: 0 80px;">
+            <p style="font-size: 48px; color: var(--text); line-height: 1.4; max-width: 1050px; font-family: 'Source Serif 4', Georgia, serif;">
+                Don't simplify your science<br>for your computer.
+            </p>
+            <p style="font-size: 40px; color: var(--gold); line-height: 1.4; max-width: 1050px; font-family: 'Source Serif 4', Georgia, serif; margin-top: 24px;">
+                The real fix is a better solver,<br>not a worse model.
+            </p>
+        </div>
+
+        <div class="nav">
+            <button class="nav-btn" onclick="prevSlide()">&#8592;</button>
+            <button class="nav-btn" onclick="nextSlide()">&#8594;</button>
+        </div>
+        <div class="slide-counter">
+            <span id="current" onclick="editSlideNumber()">01</span>
+            <input type="text" id="current-input" style="display: none;" onblur="submitSlideNumber()" onkeydown="handleSlideInput(event)">
+            <span> / </span>
+            <span id="total">01</span>
+        </div>
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const total = slides.length;
+        let current = 0, currentStep = 0;
+        const progress = document.getElementById('progress');
+        document.getElementById('total').textContent = String(total).padStart(2, '0');
+
+        function scalePresentation() {
+            const p = document.querySelector('.presentation');
+            const s = Math.min(window.innerWidth / 1280, window.innerHeight / 720, 1);
+            p.style.transform = 'scale(' + s + ')';
+            p.style.transformOrigin = 'center center';
+        }
+        window.addEventListener('resize', scalePresentation);
+        scalePresentation();
+
+        function updateProgress() { progress.style.width = ((current + 1) / total) * 100 + '%'; }
+        function getSteps(i) { return Math.max(0, ...Array.from(slides[i].querySelectorAll('.step, .step-only')).map(s => parseInt(s.dataset.step) || 0)); }
+
+        function showSlide(index, step) {
+            step = step || 0;
+            slides.forEach(sl => { sl.classList.remove('active'); sl.querySelectorAll('.step').forEach(s => s.classList.remove('visible')); sl.querySelectorAll('.step-only').forEach(s => s.classList.remove('active')); sl.querySelectorAll('.img-mask').forEach(m => m.classList.remove('revealed')); });
+            slides[index].classList.add('active');
+            slides[index].querySelectorAll('.step').forEach(s => { if (parseInt(s.dataset.step) <= step) s.classList.add('visible'); });
+            slides[index].querySelectorAll('.step-only').forEach(s => { if (parseInt(s.dataset.step) === step) s.classList.add('active'); });
+            slides[index].querySelectorAll('.img-mask').forEach(m => { if (parseInt(m.dataset.reveal) <= step) m.classList.add('revealed'); });
+            document.getElementById('current').textContent = String(index + 1).padStart(2, '0');
+            updateProgress();
+        }
+
+        function nextSlide() { const mx = getSteps(current); if (currentStep < mx) { currentStep++; showSlide(current, currentStep); } else if (current < total - 1) { current++; currentStep = 0; showSlide(current, currentStep); } }
+        function prevSlide() { if (currentStep > 0) { currentStep--; showSlide(current, currentStep); } else if (current > 0) { current--; currentStep = getSteps(current); showSlide(current, currentStep); } }
+
+        document.addEventListener('keydown', e => { if (['ArrowRight',' ','Enter'].includes(e.key)) { e.preventDefault(); nextSlide(); } else if (['ArrowLeft','Backspace'].includes(e.key)) { e.preventDefault(); prevSlide(); } });
+
+        function editSlideNumber() { document.getElementById('current').style.display = 'none'; const inp = document.getElementById('current-input'); inp.style.display = 'inline-block'; inp.value = current + 1; inp.focus(); inp.select(); }
+        function submitSlideNumber() { const n = parseInt(document.getElementById('current-input').value); if (!isNaN(n) && n >= 1 && n <= total) { current = n - 1; currentStep = 0; showSlide(current, 0); } document.getElementById('current-input').style.display = 'none'; document.getElementById('current').style.display = 'inline'; }
+        function handleSlideInput(e) { if (e.key === 'Enter') { e.preventDefault(); submitSlideNumber(); } else if (e.key === 'Escape') { document.getElementById('current-input').style.display = 'none'; document.getElementById('current').style.display = 'inline'; } }
+
+        showSlide(0, 0);
+        updateProgress();
+    </script>
+</body>
+</html>

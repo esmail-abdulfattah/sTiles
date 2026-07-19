@@ -1,0 +1,19 @@
+Package: sTiles
+Type: Package
+Title: R Bindings for the sTiles Sparse Cholesky / Selected-Inverse Framework
+Version: 0.1.0
+Authors@R: person("Esmail", "Abdul Fattah", role = c("aut", "cre"),
+    email = "esmail.abdulfattah@kaust.edu.sa")
+Description: Thin R interface to the prebuilt libstiles shared library for
+    tile-based sparse Cholesky factorization: log-determinants, selected
+    inverse (marginal variances) and triangular solves, with symbolic reuse
+    for repeated factorizations that share one sparsity pattern (e.g. INLA
+    hyperparameter sweeps). The compiled glue resolves its sTiles_* symbols at
+    runtime against libstiles, which is located via the STILES_LIB /
+    STILES_LIB_DIR environment variables, a bundled copy under inst/libs, or a
+    development checkout.
+License: file LICENSE
+Imports: methods, Matrix
+NeedsCompilation: yes
+SystemRequirements: libstiles shared object (libstiles.so / libstiles.dylib)
+Encoding: UTF-8

@@ -1,0 +1,12 @@
+# The glue is compiled with UNDEFINED sTiles_* symbols; they are resolved at
+# runtime against libstiles, which the package preloads (RTLD_GLOBAL) in
+# .onLoad before loading this object.  So there is no -lstiles / rpath here and
+# the package needs no libstiles present at *build* time -- only stiles.h
+# (vendored next to this file).
+#
+# On macOS the linker rejects undefined symbols by default, so allow dynamic
+# lookup there; on Linux undefined symbols in a shared object are fine.
+
+ifeq ($(shell uname -s),Darwin)
+PKG_LIBS += -undefined dynamic_lookup
+endif

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download | sTiles</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --lime: #c5d86d;
+            --lime-dark: #a8bd4d;
+            --orange: #e08c5a;
+            --orange-dark: #c97442;
+            --teal: #4a9a8f;
+            --teal-light: #6bb3a8;
+            --teal-dark: #3a7a71;
+            --black: #1a1a1a;
+            --charcoal: #2d2d2d;
+            --bg-primary: #fafafa;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+            --border: #e0e0e0;
+            --gradient-brand: linear-gradient(135deg, var(--lime) 0%, var(--teal) 50%, var(--orange) 100%);
+            --gradient-hero: linear-gradient(180deg, var(--black) 0%, var(--charcoal) 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+        /* Navigation */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-content {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 24px; max-width: 1100px; margin: 0 auto;
+        }
+        .nav-brand {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--text-primary);
+            font-weight: 800; letter-spacing: -0.02em; font-size: 1.15rem;
+        }
+        .nav-brand img { height: 30px; border-radius: 4px; display: block; }
+        .nav-links a {
+            color: var(--text-secondary); text-decoration: none;
+            font-size: 0.9rem; font-weight: 500; transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--teal); }
+
+        /* Hero */
+        .hero {
+            padding: 120px 0 64px;
+            background: var(--gradient-hero);
+            color: #fff;
+            text-align: center;
+            position: relative; overflow: hidden;
+        }
+        .hero::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 70px;
+            background: linear-gradient(to bottom, transparent, var(--bg-primary));
+        }
+        .hero-content { position: relative; z-index: 1; }
+        .hero .badge {
+            display: inline-block;
+            background: rgba(197,216,109,0.15); color: var(--lime);
+            border: 1px solid rgba(197,216,109,0.3);
+            padding: 5px 14px; border-radius: 100px;
+            font-size: 0.75rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 18px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .hero h1 {
+            font-size: 2.6rem; font-weight: 800;
+            line-height: 1.1; margin-bottom: 14px; letter-spacing: -0.03em;
+        }
+        .hero .subtitle {
+            font-size: 1.02rem; color: rgba(255,255,255,0.62);
+            max-width: 560px; margin: 0 auto; line-height: 1.7;
+        }
+
+        section { padding: 0 0 72px; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px 44px;
+            margin-top: -24px;
+            position: relative; z-index: 2;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.06);
+        }
+
+        .card h2 {
+            font-size: 1.4rem; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 6px;
+        }
+        .card .lead {
+            color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 28px;
+        }
+
+        /* Form */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px 20px;
+        }
+        .field { display: flex; flex-direction: column; }
+        .field.full { grid-column: 1 / -1; }
+
+        label {
+            font-size: 0.78rem; font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin-bottom: 7px;
+        }
+        label .req { color: var(--orange); }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 11px 14px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px rgba(74,154,143,0.12);
+        }
+        input.invalid, select.invalid, textarea.invalid {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 3px rgba(224,140,90,0.12);
+        }
+
+        .btn {
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding: 14px;
+            background: var(--teal);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:hover { background: var(--teal-dark); }
+        .btn:active { transform: scale(0.99); }
+        .btn:disabled { opacity: 0.6; cursor: default; transform: none; }
+
+        .consent {
+            grid-column: 1 / -1;
+            display: flex; gap: 10px; align-items: flex-start;
+            font-size: 0.85rem; color: var(--text-secondary);
+        }
+        .consent input { width: auto; margin-top: 3px; flex-shrink: 0; }
+
+        .form-msg {
+            grid-column: 1 / -1;
+            display: none;
+            font-size: 0.88rem;
+            padding: 11px 14px; border-radius: 8px;
+        }
+        .form-msg.err { display: block; background: rgba(224,140,90,0.12); color: var(--orange-dark); }
+
+        .privacy-note {
+            margin-top: 20px; font-size: 0.8rem; color: var(--text-muted);
+            text-align: center; line-height: 1.6;
+        }
+
+        /* Downloads (revealed) */
+        #downloads { display: none; }
+        .welcome {
+            background: rgba(197,216,109,0.14);
+            border: 1px solid rgba(168,189,77,0.4);
+            border-radius: 10px;
+            padding: 14px 18px; margin-bottom: 24px;
+            font-size: 0.9rem; color: var(--text-secondary);
+        }
+        .welcome strong { color: var(--text-primary); }
+
+        .dl-table { width: 100%; border-collapse: collapse; }
+        .dl-table th {
+            text-align: left; font-size: 0.72rem; text-transform: uppercase;
+            letter-spacing: 0.07em; color: var(--text-muted);
+            padding: 0 12px 10px; font-weight: 600;
+        }
+        .dl-table td {
+            padding: 14px 12px;
+            border-top: 1px solid var(--border-light, #f0f0f0);
+            vertical-align: middle;
+        }
+        .platform-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 6px;
+            font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .platform-badge.mac   { background: rgba(74,154,143,0.15);  color: var(--teal-dark); }
+        .platform-badge.linux { background: rgba(197,216,109,0.20); color: var(--lime-dark); }
+        .platform-badge.hpc   { background: rgba(224,140,90,0.15);  color: var(--orange-dark); }
+        .platform-badge.win   { background: rgba(45,45,45,0.10);   color: var(--charcoal); }
+        .dl-desc { font-size: 0.88rem; color: var(--text-secondary); }
+        .dl-btn {
+            display: inline-block; padding: 8px 18px; border-radius: 8px;
+            background: var(--teal); color: #fff; text-decoration: none;
+            font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .dl-btn:hover { background: var(--teal-dark); }
+
+        .reset-link {
+            margin-top: 26px; font-size: 0.83rem; color: var(--text-muted); text-align: center;
+        }
+        .reset-link a { color: var(--teal); text-decoration: none; cursor: pointer; }
+        .reset-link a:hover { text-decoration: underline; }
+
+        .card h3.sub { font-size: 1.05rem; margin: 32px 0 4px; }
+
+        footer {
+            padding: 28px 0; text-align: center;
+            color: var(--text-muted); font-size: 0.82rem;
+            border-top: 1px solid var(--border);
+        }
+        footer a { color: var(--teal); text-decoration: none; }
+
+        @media (max-width: 640px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .card { padding: 28px 22px; }
+            .hero h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-content">
+            <a class="nav-brand" href="index.html">
+                <img src="images/stiles.jpeg" alt="sTiles"> sTiles
+            </a>
+            <div class="nav-links">
+                <a href="index.html">&larr; Back to home</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container hero-content">
+            <span class="badge">Pre-built Binaries</span>
+            <h1>Download sTiles</h1>
+            <p class="subtitle">
+                sTiles is free for research and academic use. Please tell us a little
+                about yourself so we can understand our user community. You will get the
+                download links right after.
+            </p>
+        </div>
+    </header>
+
+    <section>
+        <div class="container">
+            <div class="card">
+                <!-- ===================== FORM STATE ===================== -->
+                <div id="form-state">
+                    <h2>Request access to the binaries</h2>
+                    <p class="lead">Fields marked <span style="color:var(--orange)">*</span> are required.</p>
+
+                    <form id="dl-form" class="form-grid" novalidate>
+                        <div class="field">
+                            <label for="f-name">Full name <span class="req">*</span></label>
+                            <input type="text" id="f-name" name="name" autocomplete="name" required>
+                        </div>
+                        <div class="field">
+                            <label for="f-email">Email <span class="req">*</span></label>
+                            <input type="email" id="f-email" name="email" autocomplete="email" required>
+                        </div>
+
+                        <div class="field">
+                            <label for="f-country">Country <span class="req">*</span></label>
+                            <select id="f-country" name="country" required>
+                                <option value="" disabled selected>Select your country</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="f-institution">Institution / Organization <span class="req">*</span></label>
+                            <input type="text" id="f-institution" name="institution"
+                                   placeholder="e.g. KAUST" autocomplete="organization" required>
+                        </div>
+
+                        <div class="field full">
+                            <label for="f-usetype">Primary use <span class="req">*</span></label>
+                            <select id="f-usetype" name="usetype" required>
+                                <option value="" disabled selected>Select one</option>
+                                <option>Academic research</option>
+                                <option>Teaching / coursework</option>
+                                <option>Student project / thesis</option>
+                                <option>Industry / commercial evaluation</option>
+                                <option>Personal / self-learning</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+
+                        <div class="field full">
+                            <label for="f-reason">How do you plan to use sTiles? <span class="req">*</span></label>
+                            <textarea id="f-reason" name="reason" required
+                                placeholder="Briefly describe your problem, matrix type, or the workflow you want to accelerate."></textarea>
+                        </div>
+
+                        <label class="consent">
+                            <input type="checkbox" id="f-consent" required>
+                            <span>I agree that sTiles is provided for research and evaluation purposes,
+                            and I will cite the relevant sTiles publications if I use it in my work.</span>
+                        </label>
+
+                        <div class="form-msg" id="form-msg"></div>
+
+                        <button type="submit" class="btn" id="submit-btn">Get download links</button>
+                    </form>
+
+                    <p class="privacy-note">
+                        Your details are used only to understand who uses sTiles and are not shared
+                        with third parties. Questions? <a href="mailto:esmail.abdulfattah@kaust.edu.sa" style="color:var(--teal)">Contact us</a>.
+                    </p>
+                </div>
+
+                <!-- ===================== DOWNLOADS STATE ===================== -->
+                <div id="downloads">
+                    <div class="welcome" id="welcome-msg"></div>
+
+                    <h2>Python &amp; R packages</h2>
+                    <p class="lead">The easiest way to use sTiles, no manual download. Each fetches the right
+                        <code>libstiles</code> binary automatically on first use.</p>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin:14px 0 32px;">
+                        <div>
+                            <div style="font-weight:600; margin-bottom:6px;">Python (PyPI)</div>
+                            <pre style="background:#1e1e1e; color:#e0e0e0; padding:14px 16px; border-radius:8px; overflow-x:auto; margin:0; font-size:0.85rem;"><code>pip install sTiles</code></pre>
+                        </div>
+                        <div>
+                            <div style="font-weight:600; margin-bottom:6px;">R (GitHub)</div>
+                            <pre style="background:#1e1e1e; color:#e0e0e0; padding:14px 16px; border-radius:8px; overflow-x:auto; margin:0; font-size:0.85rem;"><code>remotes::install_github(
+  "esmail-abdulfattah/sTiles",
+  subdir = "R/sTiles")</code></pre>
+                        </div>
+                    </div>
+
+                    <h2>Pre-built binaries</h2>
+                    <p class="lead" id="release-line" style="font-size:0.92rem;color:var(--text-secondary);margin-bottom:8px;">
+                        Latest release <strong>v2026.7.19</strong> &middot; <code>libstiles</code> 3.0.0 (built 2026-07-18)
+                    </p>
+                    <p class="lead">Pick the build that matches your platform. Each archive contains
+                        <code>libstiles</code>, headers, and example code.</p>
+
+                    <table class="dl-table">
+                        <thead>
+                            <tr><th>Platform</th><th>Description</th><th></th></tr>
+                        </thead>
+                        <tbody id="dl-rows"></tbody>
+                    </table>
+
+                    <h3 class="sub">Build from source</h3>
+                    <p class="lead" style="margin-bottom:0;">Prefer to compile it yourself? The full source,
+                        build instructions, and examples live on
+                        <a href="https://github.com/esmail-abdulfattah/sTiles" style="color:var(--teal)">GitHub</a>.</p>
+
+                    <p class="reset-link">Not you, or need to register a different person?
+                        <a id="reset-btn">Fill the form again</a>.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            sTiles &middot; King Abdullah University of Science and Technology (KAUST) &middot;
+            <a href="index.html">Home</a> &middot;
+            <a href="https://github.com/esmail-abdulfattah/sTiles">GitHub</a>
+        </div>
+    </footer>
+
+    <script>
+    /* ============================================================
+       CONFIG: edit these two things only
+       ============================================================ */
+
+    // 1. Google Apps Script Web App deployment URL (see docs/apps_script/README.md).
+    //    Until you paste it, submissions are NOT recorded but downloads still work.
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTLzSjOEKuEwGP3mSZuDOaMSQZ-TqOGm8swebheHzjgSZnX65BHTE-yAjVB7W_CVq16g/exec';
+
+    // 2. Download links. Point each `url` at wherever you host the archive on GitHub
+    //    (a Releases asset, or a file in the repo). Delete rows you do not ship.
+    const REPO = 'https://github.com/esmail-abdulfattah/sTiles';
+    const REL = REPO + '/releases/latest/download';
+    const DOWNLOADS = [
+        { platform: 'Linux x86_64', cls: 'linux', desc: 'Intel or AMD 64-bit, the choice for most PCs and servers',     url: REL + '/libstiles-linux-x86_64.zip' },
+        { platform: 'Linux ARM64',  cls: 'linux', desc: 'ARM 64-bit only (AWS Graviton, Ampere, Raspberry Pi 64-bit)',        url: REL + '/libstiles-linux-arm64.zip' },
+        { platform: 'macOS ARM64',  cls: 'mac',   desc: 'Apple Silicon (M1-M4)',                                        url: REL + '/libstiles-macos-apple-arm64.zip' },
+        { platform: 'Windows x64',  cls: 'win',   desc: 'Windows 10/11 on Intel or AMD 64-bit',                               url: REL + '/libstiles-windows-x86_64.zip' }
+    ];
+
+    /* ============================================================
+       Country list
+       ============================================================ */
+    const COUNTRIES = ["Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Chad","Chile","China","Colombia","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czechia","Denmark","Dominican Republic","Ecuador","Egypt","El Salvador","Estonia","Ethiopia","Finland","France","Georgia","Germany","Ghana","Greece","Guatemala","Honduras","Hong Kong","Hungary","Iceland","India","Indonesia","Iraq","Ireland","Italy","Ivory Coast","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Libya","Liechtenstein","Lithuania","Luxembourg","Macao","Madagascar","Malaysia","Maldives","Mali","Malta","Mauritius","Mexico","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Macedonia","Norway","Oman","Pakistan","Panama","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saudi Arabia","Senegal","Serbia","Singapore","Slovakia","Slovenia","Somalia","South Africa","South Korea","Spain","Sri Lanka","Sudan","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe","Other"];
+
+    const STORAGE_KEY = 'stiles_dl_registration';
+
+    /* ============================================================
+       Wiring
+       ============================================================ */
+    (function () {
+        // Populate country dropdown
+        const sel = document.getElementById('f-country');
+        COUNTRIES.forEach(function (c) {
+            const o = document.createElement('option');
+            o.value = c; o.textContent = c;
+            sel.appendChild(o);
+        });
+
+        // If already registered this browser, skip straight to downloads
+        var stored = null;
+        try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) {}
+        if (stored && stored.name) {
+            showDownloads(stored.name);
+        }
+
+        document.getElementById('dl-form').addEventListener('submit', onSubmit);
+        document.getElementById('reset-btn').addEventListener('click', function () {
+            try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+            document.getElementById('downloads').style.display = 'none';
+            document.getElementById('form-state').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    })();
+
+    function renderDownloadRows() {
+        const tb = document.getElementById('dl-rows');
+        tb.innerHTML = '';
+        DOWNLOADS.forEach(function (d) {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td><span class="platform-badge ' + d.cls + '">' + d.platform + '</span></td>' +
+                '<td class="dl-desc">' + d.desc + '</td>' +
+                '<td style="text-align:right"><a class="dl-btn" href="' + d.url + '">Download &darr;</a></td>';
+            tb.appendChild(tr);
+        });
+    }
+
+    function showDownloads(name) {
+        renderDownloadRows();
+        document.getElementById('welcome-msg').innerHTML =
+            'Thanks, <strong>' + escapeHtml(name) + '</strong>. Your download links are ready below.';
+        document.getElementById('form-state').style.display = 'none';
+        document.getElementById('downloads').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function onSubmit(e) {
+        e.preventDefault();
+        const msg = document.getElementById('form-msg');
+        msg.className = 'form-msg';
+
+        const fields = {
+            name:        document.getElementById('f-name'),
+            email:       document.getElementById('f-email'),
+            country:     document.getElementById('f-country'),
+            institution: document.getElementById('f-institution'),
+            usetype:     document.getElementById('f-usetype'),
+            reason:      document.getElementById('f-reason')
+        };
+        const consent = document.getElementById('f-consent');
+
+        // Validate
+        let firstBad = null;
+        Object.keys(fields).forEach(function (k) {
+            const el = fields[k];
+            const bad = !el.value || !el.value.trim();
+            el.classList.toggle('invalid', bad);
+            if (bad && !firstBad) firstBad = el;
+        });
+        const emailEl = fields.email;
+        if (emailEl.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) {
+            emailEl.classList.add('invalid');
+            if (!firstBad) firstBad = emailEl;
+        }
+        if (!consent.checked) {
+            if (!firstBad) firstBad = consent;
+        }
+        if (firstBad) {
+            msg.textContent = consent.checked
+                ? 'Please complete the highlighted fields.'
+                : 'Please complete all fields and accept the usage terms.';
+            msg.className = 'form-msg err';
+            firstBad.focus();
+            return;
+        }
+
+        const payload = {
+            name:        fields.name.value.trim(),
+            email:       fields.email.value.trim(),
+            country:     fields.country.value,
+            institution: fields.institution.value.trim(),
+            usetype:     fields.usetype.value,
+            reason:      fields.reason.value.trim(),
+            page:        location.href,
+            userAgent:   navigator.userAgent
+        };
+
+        const btn = document.getElementById('submit-btn');
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+
+        // Persist locally so returning visitors skip the form
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ name: payload.name, ts: Date.now() })); } catch (e) {}
+
+        // Fire-and-forget to Apps Script. no-cors guarantees the POST is delivered
+        // (we cannot read the response, which is fine for lead capture). If the URL
+        // is not configured yet, we skip the network call but still reveal downloads.
+        const done = function () { showDownloads(payload.name); };
+
+        if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('http') === 0) {
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            }).then(done).catch(done);
+        } else {
+            done();
+        }
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    </script>
+</body>
+</html>
