@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# sTiles — public repo (GitHub Pages site under docs/ + R/Python bindings).
+# Platform binaries ship as GitHub Release assets, never committed here.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# OS / editor cruft
+.DS_Store
+*.swp
+
+# Markdown docs are kept internal; the site (docs/) is the documentation.
+# (.gitkeep files are preserved below so binary-drop dirs still exist.)
+*.md
+!**/.gitkeep
+
+# Python build / cache
+__pycache__/
+*.pyc
+python/build/
+python/dist/
+python/*.egg-info/
+
+# R build / personal history
+**/.Rhistory
+R/**/*.o
+R/**/*.so
+R/**/*.Rcheck/
+
+# Compiled objects / archives / logs
+*.o
+*.a
+*.log
+
+# ctest compiled binaries (sources committed, build outputs not)
+ctest/test_stiles
+ctest/scale_stiles
+ctest/run_mtx
+
+# Platform libraries — distributed as GitHub Release assets, not committed
+*.so
+*.dylib
+*.dll
+*.dll.a
+_libs/**
+!_libs/**/.gitkeep
+inst/libs/**
+!inst/libs/**/.gitkeep
+
+# CI artifact zips + their extracted trees (fetched, never committed)
+binaries/*.zip
+binaries/libstiles-*/
+
+# Dropped from the public repo (kept locally for reference)
+prebuilt/
+examples/
+docs/suits/old_site/

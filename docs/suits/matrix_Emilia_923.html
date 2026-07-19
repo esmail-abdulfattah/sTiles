@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emilia_923 | sTiles Matrix</title>
+    <script>
+        if (sessionStorage.getItem('stiles_bench_auth') !== '1') {
+            window.location.replace('../benchmarks.html');
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --lime:#c5d86d; --lime-dark:#a8bd4d; --orange:#e08c5a; --orange-dark:#c97442;
+            --teal:#4a9a8f; --teal-light:#6bb3a8; --teal-dark:#3a7a71;
+            --black:#1a1a1a; --charcoal:#2d2d2d; --bg-primary:#fafafa; --bg-card:#ffffff;
+            --text-primary:#1a1a1a; --text-secondary:#555; --text-muted:#888;
+            --border:#e0e0e0; --border-light:#f0f0f0;
+            --gradient-hero:linear-gradient(180deg, var(--black) 0%, var(--charcoal) 100%);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg-primary);
+               color:var(--text-primary); line-height:1.7; font-size:16px; }
+        .container { max-width:1100px; margin:0 auto; padding:0 24px; }
+        nav { position:fixed; top:0; left:0; right:0; z-index:1000;
+              background:rgba(255,255,255,0.95); backdrop-filter:blur(12px);
+              border-bottom:1px solid var(--border); }
+        .nav-content { display:flex; align-items:center; justify-content:space-between;
+              padding:14px 24px; max-width:1100px; margin:0 auto; }
+        .nav-brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
+        .nav-brand img { height:30px; border-radius:4px; display:block; }
+        .nav-sub { font-size:0.85rem; color:var(--text-muted); }
+        .nav-links a { font-size:0.85rem; color:var(--teal); text-decoration:none;
+              font-weight:600; margin-left:18px; }
+        .hero { padding:104px 0 44px; background:var(--gradient-hero); color:#fff;
+              text-align:center; position:relative; overflow:hidden; }
+        .hero::after { content:''; position:absolute; bottom:0; left:0; right:0; height:60px;
+              background:linear-gradient(to bottom, transparent, var(--bg-primary)); }
+        .hero-content { position:relative; z-index:1; }
+        .hero .grp { display:inline-block; font-family:'JetBrains Mono',monospace;
+              font-size:0.72rem; font-weight:600; text-transform:uppercase;
+              letter-spacing:0.1em; color:var(--lime); background:rgba(197,216,109,0.14);
+              border:1px solid rgba(197,216,109,0.3); padding:4px 12px; border-radius:100px;
+              margin-bottom:14px; }
+        .hero h1 { font-family:'JetBrains Mono',monospace; font-size:2.1rem; font-weight:700;
+              letter-spacing:-0.01em; word-break:break-all; }
+        .hero .sub { color:rgba(255,255,255,0.6); font-size:0.95rem; margin-top:8px; }
+        section { padding:36px 0 56px; }
+        .dl-row { display:flex; justify-content:center; margin:-12px 0 30px; }
+        .dl-btn { display:inline-flex; align-items:center; gap:10px;
+              background:var(--teal); color:#fff; text-decoration:none; font-weight:600;
+              padding:13px 26px; border-radius:12px; font-size:0.95rem;
+              box-shadow:0 6px 20px rgba(74,154,143,0.3); transition:transform .12s, box-shadow .12s; }
+        .dl-btn:hover { transform:translateY(-2px); box-shadow:0 10px 26px rgba(74,154,143,0.4); }
+        .dl-btn .sz { font-family:'JetBrains Mono',monospace; font-size:0.82rem;
+              font-weight:500; opacity:0.85; }
+        .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+              gap:14px; margin-bottom:34px; }
+        .card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+              padding:16px 18px; box-shadow:0 2px 10px rgba(0,0,0,0.04); }
+        .card .lbl { font-size:0.7rem; font-weight:700; text-transform:uppercase;
+              letter-spacing:0.07em; color:var(--text-muted); margin-bottom:6px; }
+        .card .val { font-family:'JetBrains Mono',monospace; font-size:1.15rem; font-weight:600;
+              color:var(--teal-dark); }
+        .plot-wrap { background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+              padding:18px; box-shadow:0 4px 20px rgba(0,0,0,0.05); text-align:center; }
+        .plot-wrap .lbl { font-size:0.7rem; font-weight:700; text-transform:uppercase;
+              letter-spacing:0.07em; color:var(--text-muted); margin-bottom:14px; }
+        .plot-wrap img { width:100%; max-width:680px; height:auto; border:1px solid var(--border-light);
+              border-radius:8px; background:#fff; }
+        .plot-wrap .no { color:var(--text-muted); font-style:italic; padding:60px 0; }
+        .bench { margin-top:38px; }
+        .bench .lbl { font-size:0.7rem; font-weight:700; text-transform:uppercase;
+              letter-spacing:0.07em; color:var(--text-muted); margin-bottom:14px; }
+        .bench-table-wrap { border:1px solid var(--border); border-radius:12px; overflow-x:auto;
+              box-shadow:0 2px 10px rgba(0,0,0,0.04); }
+        .bench-table { width:100%; border-collapse:collapse; background:var(--bg-card); font-size:0.84rem; }
+        .bench-table thead th { background:var(--black); color:#fff; text-align:right;
+              padding:10px 13px; font-size:0.7rem; font-weight:600; text-transform:uppercase;
+              letter-spacing:0.04em; white-space:nowrap; }
+        .bench-table thead th:first-child { text-align:left; }
+        .bench-table td { padding:9px 13px; border-bottom:1px solid var(--border-light);
+              font-family:'JetBrains Mono',monospace; font-size:0.8rem; text-align:right;
+              white-space:nowrap; color:var(--text-secondary); }
+        .bench-table td.solver { font-family:'Inter',sans-serif; font-weight:600;
+              color:var(--text-primary); text-align:left; }
+        .bench-table tbody tr:nth-child(even) { background:#f8f9fa; }
+        .bench-table tbody tr:last-child td { border-bottom:none; }
+        .bench-table td.rmin { color:var(--teal-dark); font-weight:700; background:rgba(74,154,143,0.16); }
+        .bench-table td.gmin { color:#46570a; font-weight:800; background:rgba(197,216,109,0.62); }
+        .bench-table tr.home td.solver { border-left:3px solid var(--lime-dark); }
+        .bench-table td.solver .tag { font-family:'Inter',sans-serif; font-size:0.58rem;
+              font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--lime-dark);
+              background:rgba(197,216,109,0.22); border:1px solid rgba(168,189,77,0.45);
+              padding:1px 6px; border-radius:100px; margin-left:7px; vertical-align:middle; }
+        .bench-legend { display:flex; align-items:center; flex-wrap:wrap;
+              font-size:0.78rem; color:var(--text-muted); margin-top:12px; }
+        .bench-legend .sw { display:inline-block; width:15px; height:15px; border-radius:4px;
+              margin-left:18px; margin-right:6px; vertical-align:middle; border:1px solid var(--border); }
+        .bench-legend .sw:first-child { margin-left:0; }
+        .bench-legend .sw.rmin { background:rgba(74,154,143,0.32); }
+        .bench-legend .sw.gmin { background:rgba(197,216,109,0.72); }
+        .bench-note { font-size:0.8rem; color:var(--text-muted); margin-top:12px; line-height:1.6; }
+        .bench-pending { background:var(--bg-card); border:1px dashed var(--border); border-radius:12px;
+              padding:22px; text-align:center; color:var(--text-muted); font-style:italic; }
+        footer { background:var(--black); color:rgba(255,255,255,0.5); padding:28px 0;
+              text-align:center; font-size:0.85rem; margin-top:30px; }
+        footer strong { color:#fff; }
+    </style>
+</head>
+<body>
+<nav>
+    <div class="nav-content">
+        <a class="nav-brand" href="index.html">
+            <img src="imgs/stiles.jpeg" alt="sTiles"><span class="nav-sub">/ Matrix</span>
+        </a>
+        <div class="nav-links">
+            <a href="index.html">&larr; Catalog</a>
+            <a href="results.html">Solver benchmarks</a>
+            <a href="dense.html">Dense benchmark</a>
+            <a href="../index.html">Home</a>
+        </div>
+    </div>
+</nav>
+
+<div class="hero"><div class="container"><div class="hero-content">
+    <div class="grp">group9</div>
+    <h1>Emilia_923</h1>
+    <div class="sub">Real symmetric &middot; SPD &middot; MatrixMarket (lower triangle)</div>
+</div></div></div>
+
+<section><div class="container">
+    <div class="dl-row" style="margin-bottom:34px;">
+        <a class="dl-btn" href="https://esmail.r-inla-download.org/mtx/group9/Emilia_923.mtx" download>
+            &#x2193; Download .mtx <span class="sz">725.2 MB</span>
+        </a>
+    </div>
+
+    <div class="cards">
+        <div class="card"><div class="lbl">Dimension</div><div class="val">923,136</div></div>
+        <div class="card"><div class="lbl">NNZ (lower &#9651;)</div><div class="val">20,964,171</div></div>
+        <div class="card"><div class="lbl">Density</div><div class="val">0.0049%</div></div>
+        <div class="card"><div class="lbl">Application</div><div class="val" style="font-size:0.92rem;">Structural Engineering</div></div>
+        <div class="card"><div class="lbl">File size</div><div class="val">725.2 MB</div></div>
+        <div class="card"><div class="lbl">Format</div><div class="val" style="font-size:0.92rem;">real symmetric</div></div>
+    </div>
+
+    <div class="plot-wrap">
+        <div class="lbl">Sparsity pattern &middot; 1000&times;1000 bins &middot; log-density</div>
+        <a href="plots/Emilia_923_sparsity.png" target="_blank">
+            <img src="plots/Emilia_923_sparsity.png" alt="Emilia_923 sparsity pattern" loading="lazy"
+                 onerror="this.parentElement.outerHTML='<div class=no>sparsity plot not generated yet</div>'">
+        </a>
+    </div>
+
+    </div></section>
+
+<footer><div class="container">
+    <p><strong>sTiles</strong> &middot; KAUST &middot; Test Suite &middot; &copy; 2026</p>
+</div></footer>
+</body>
+</html>

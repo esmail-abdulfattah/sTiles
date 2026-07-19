@@ -1,0 +1,31 @@
+# DLLs are loaded manually in .onLoad (libstiles first, with global symbol
+# visibility, then the glue) so useDynLib is intentionally not used here.
+#
+# Public API: a small, professional set of sTiles_* verbs (so every call keeps
+# the sTiles name and works under sTiles::). Info/status getters and the
+# library-measured timings live in sTiles_summary(); the triangular solves live
+# under sTiles_solve(..., system=).
+
+# -- lifecycle --
+export(sTiles)              # one-shot: analyze + factorize
+export(sTiles_analyze)      # preprocessing (symbolic) only
+export(sTiles_factorize)    # numeric Cholesky; reuse preprocessing
+export(sTiles_selinv)       # selected inverse; reuse factorization
+export(sTiles_close)
+
+# -- results --
+export(sTiles_logdet)
+export(sTiles_selinv_diag)  # marginal variances, diag(Q^-1)
+export(sTiles_selinv_elm)   # any (Q^-1)[i, j]
+export(sTiles_selinv_row)
+export(sTiles_solve)        # system = "A" (Qx=b) | "L" | "Lt"
+
+# -- introspection / meta --
+export(sTiles_summary)      # dims, fill, mode, state, measured timings, library
+export(sTiles_version)
+export(sTiles_library_path) # absolute path of the loaded libstiles shared object
+
+S3method(print, sTiles)
+S3method(print, sTiles_summary)
+importFrom(methods, as)
+importFrom(Matrix, tril)

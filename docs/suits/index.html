@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Catalog | sTiles Test Suite</title>
+    <script>
+        if (sessionStorage.getItem('stiles_bench_auth') !== '1') {
+            window.location.replace('../benchmarks.html');
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --lime: #c5d86d;
+            --lime-light: #d4e48a;
+            --lime-dark: #a8bd4d;
+            --orange: #e08c5a;
+            --orange-light: #e9a67a;
+            --orange-dark: #c97442;
+            --teal: #4a9a8f;
+            --teal-light: #6bb3a8;
+            --teal-dark: #3a7a71;
+            --black: #1a1a1a;
+            --charcoal: #2d2d2d;
+            --bg-primary: #fafafa;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+            --text-light: #ffffff;
+            --border: #e0e0e0;
+            --border-light: #f0f0f0;
+            --gradient-brand: linear-gradient(135deg, var(--lime) 0%, var(--teal) 50%, var(--orange) 100%);
+            --gradient-hero: linear-gradient(180deg, var(--black) 0%, var(--charcoal) 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        .container { max-width: 1500px; margin: 0 auto; padding: 0 24px; }
+
+        /* Navigation */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-content {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 24px; max-width: 1300px; margin: 0 auto;
+        }
+        .nav-brand {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; letter-spacing: -0.02em;
+        }
+        .nav-brand img { height: 30px; border-radius: 4px; display: block; }
+        .nav-sub { font-size: 0.85rem; color: var(--text-muted); font-weight: 400; }
+
+        /* Hero */
+        .hero {
+            padding: 110px 0 56px;
+            background: var(--gradient-hero);
+            color: var(--text-light);
+            text-align: center;
+            position: relative; overflow: hidden;
+        }
+        .hero::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 70px;
+            background: linear-gradient(to bottom, transparent, var(--bg-primary));
+        }
+        .hero-content { position: relative; z-index: 1; }
+        .hero-logo { height: 64px; border-radius: 10px; margin: 0 auto 20px; display: block; }
+        .hero h1 {
+            font-size: 2.8rem; font-weight: 800;
+            line-height: 1.1; margin-bottom: 14px; letter-spacing: -0.03em;
+        }
+        .hero .subtitle {
+            font-size: 1.05rem; color: rgba(255,255,255,0.65);
+            max-width: 640px; margin: 0 auto; line-height: 1.7;
+        }
+        .hero-badges {
+            display: flex; justify-content: center; gap: 14px;
+            margin-top: 28px; flex-wrap: wrap;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 7px 18px; border-radius: 100px;
+            font-size: 0.85rem; font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .hero-badge.lime  { background: rgba(197,216,109,0.15); color: var(--lime);       border: 1px solid rgba(197,216,109,0.3); }
+        .hero-badge.teal  { background: rgba(74,154,143,0.15);  color: var(--teal-light); border: 1px solid rgba(74,154,143,0.3); }
+        .hero-badge.orange{ background: rgba(224,140,90,0.15);  color: var(--orange-light);border: 1px solid rgba(224,140,90,0.3); }
+
+        /* Section */
+        section { padding: 56px 0; }
+        .section-header { margin-bottom: 28px; }
+        .section-badge {
+            display: inline-block; background: var(--teal); color: white;
+            padding: 5px 14px; border-radius: 100px;
+            font-size: 0.75rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px;
+        }
+        .section-title {
+            font-size: 1.9rem; font-weight: 700;
+            margin-bottom: 10px; letter-spacing: -0.02em;
+        }
+        .section-description {
+            color: var(--text-secondary); font-size: 1rem; max-width: none;
+        }
+
+        /* Sources & acknowledgments layout */
+        .ack-grid {
+            display: grid; grid-template-columns: 1.8fr 1fr;
+            gap: 48px; align-items: start;
+        }
+        .ack-prose { color: var(--text-secondary); font-size: 1.02rem; line-height: 1.9; }
+        .ack-prose p { margin-bottom: 18px; }
+        .ack-prose p:last-of-type { margin-bottom: 0; }
+        .ack-prose strong { color: var(--teal-dark); }
+        .ack-prose a { color: var(--teal-dark); font-weight: 600; text-decoration: none; }
+        .ack-prose a:hover { text-decoration: underline; }
+        .ack-ref {
+            font-size: 0.82rem; color: var(--text-muted); line-height: 1.65;
+            margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border-light);
+        }
+        .ack-panel {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 14px; padding: 24px 26px; position: sticky; top: 86px;
+        }
+        .ack-panel h3 {
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-muted); font-weight: 700; margin-bottom: 18px;
+        }
+        .ack-stat {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border-light);
+        }
+        .ack-stat:last-child { border-bottom: none; padding-bottom: 0; }
+        .ack-stat .num {
+            font-family: 'JetBrains Mono', monospace; font-size: 1.55rem;
+            font-weight: 800; color: var(--teal-dark); line-height: 1;
+        }
+        .ack-stat .cap { font-size: 0.88rem; color: var(--text-secondary); text-align: right; }
+        @media (max-width: 900px) {
+            .ack-grid { grid-template-columns: 1fr; gap: 28px; }
+            .ack-panel { position: static; }
+        }
+
+        /* Filter bar */
+        .filter-bar {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 18px; flex-wrap: wrap;
+        }
+        .filter-bar input[type="text"] {
+            flex: 1; min-width: 240px;
+            padding: 11px 18px; border: 2px solid var(--border);
+            border-radius: 10px; font-family: 'Inter', sans-serif;
+            font-size: 0.93rem; background: var(--bg-card);
+            color: var(--text-primary); transition: border-color 0.2s;
+        }
+        .filter-bar input[type="text"]:focus { outline: none; border-color: var(--teal); }
+        .filter-bar input[type="text"]::placeholder { color: var(--text-muted); }
+        .filter-count { font-size: 0.88rem; color: var(--text-muted); font-weight: 500; }
+        .filter-count strong { color: var(--teal); }
+
+        /* Group chips */
+        .group-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .group-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px; border-radius: 100px;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+            border: 1.5px solid var(--border);
+            background: var(--bg-card); color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.15s; user-select: none;
+        }
+        .group-chip:hover { border-color: var(--teal-light); color: var(--teal-dark); }
+        .group-chip .cnt { font-size: 0.68rem; opacity: 0.7; }
+        .group-chip.active {
+            background: rgba(74,154,143,0.12);
+            border-color: var(--teal-light); color: var(--teal-dark);
+        }
+        .group-chip.all-chip.active {
+            background: var(--charcoal); border-color: var(--charcoal); color: white;
+        }
+
+        /* Table */
+        .table-wrapper {
+            overflow-x: auto; border-radius: 12px;
+            border: 1px solid var(--border); background: var(--bg-card);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+        table {
+            width: 100%; border-collapse: collapse;
+            font-size: 0.875rem; table-layout: auto;
+        }
+        thead th {
+            background: var(--black); color: white;
+            padding: 13px 16px; text-align: left;
+            font-weight: 600; font-size: 0.8rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            white-space: nowrap; cursor: pointer; user-select: none;
+            position: sticky; top: 0; z-index: 10;
+        }
+        thead th:hover { background: var(--charcoal); }
+        thead th.no-sort { cursor: default; }
+        thead th.no-sort:hover { background: var(--black); }
+        .sort-arrow { display: inline-block; margin-left: 5px; opacity: 0.4; font-size: 0.65rem; }
+        th.sort-asc .sort-arrow, th.sort-desc .sort-arrow { opacity: 1; }
+        th.sort-asc  .sort-arrow::after { content: '\25B2'; }
+        th.sort-desc .sort-arrow::after { content: '\25BC'; }
+        th:not(.sort-asc):not(.sort-desc) .sort-arrow::after { content: '\25B4\25BE'; }
+
+        tbody tr { transition: background 0.12s; }
+        tbody tr:nth-child(even) { background: #f8f9fa; }
+        tbody tr:hover { background: rgba(74,154,143,0.08); }
+        tbody td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-light);
+            white-space: nowrap;
+        }
+        td.row-num { text-align: center; color: var(--text-muted); font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; }
+        td.mat-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500; font-size: 0.83rem;
+        }
+        td.mat-name a { color: var(--teal-dark); text-decoration: none; }
+        td.mat-name a:hover { color: var(--teal); text-decoration: underline; }
+        td.num {
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center; color: var(--text-secondary); font-size: 0.83rem;
+        }
+        td.group-cell { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); }
+        td.app-cell { font-size: 0.8rem; }
+
+        /* Application / domain badges */
+        .domain-tag {
+            display: inline-block; padding: 3px 11px; border-radius: 100px;
+            font-size: 0.73rem; font-weight: 600; white-space: nowrap;
+        }
+        .domain-Bayesian-Statistics          { background: rgba(74,154,143,0.13);  color: #2d7a71; }
+        .domain-Structural-Engineering       { background: rgba(224,140,90,0.13);  color: #b85e28; }
+        .domain-Thermal-Problem              { background: rgba(210,160,30,0.15);  color: #8a6200; }
+        .domain-Power-Network                { background: rgba(168,189,77,0.18);  color: #5a7010; }
+        .domain-2D-3D-Problem                { background: rgba(70,130,200,0.13);  color: #1e5799; }
+        .domain-Model-Reduction              { background: rgba(130,90,200,0.13);  color: #5a2ea0; }
+        .domain-Circuit-Simulation           { background: rgba(20,170,190,0.13);  color: #0a6e80; }
+        .domain-Computational-Fluid-Dynamics { background: rgba(40,160,110,0.13);  color: #0f6840; }
+        .domain-Computational-Science        { background: rgba(80,160,60,0.13);   color: #2a6a10; }
+        .domain-Computer-Graphics-Vision     { background: rgba(180,80,160,0.13);  color: #882060; }
+        .domain-Electromagnetics             { background: rgba(200,60,100,0.13);  color: #a01840; }
+        .domain-General                      { background: rgba(100,100,100,0.1);  color: #555; }
+
+        /* Sparsity thumbnail */
+        td.thumb-cell { text-align: center; padding: 8px 12px; }
+        .thumb-link img {
+            width: 104px; height: 104px; object-fit: contain;
+            border-radius: 6px; border: 1px solid var(--border);
+            display: block; margin: 0 auto;
+            transition: transform 0.15s, box-shadow 0.15s;
+            background: #fff;
+        }
+        .thumb-link:hover img { transform: scale(1.6); box-shadow: 0 6px 18px rgba(0,0,0,0.2); position: relative; z-index: 5; }
+        .no-thumb { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+
+        /* Footer */
+        footer {
+            background: var(--black); color: rgba(255,255,255,0.5);
+            padding: 32px 0; text-align: center; font-size: 0.85rem; margin-top: 40px;
+        }
+        footer strong { color: white; }
+    </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+    <div class="nav-content">
+        <a class="nav-brand" href="#">
+            <img src="imgs/stiles.jpeg" alt="sTiles">
+            <span class="nav-sub">/ Test Matrix Catalog</span>
+        </a>
+        <div style="display:flex;gap:18px;">
+            <a href="results.html" style="font-size:0.85rem;color:var(--teal);text-decoration:none;font-weight:600;">Solver benchmarks</a>
+            <a href="dense.html" style="font-size:0.85rem;color:var(--teal);text-decoration:none;font-weight:600;">Dense benchmark</a>
+            <a href="../index.html" style="font-size:0.85rem;color:var(--teal);text-decoration:none;font-weight:600;">Home</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+    <div class="container">
+        <div class="hero-content">
+            <img class="hero-logo" src="imgs/stiles.jpeg" alt="sTiles">
+            <h1>Test Matrix Catalog</h1>
+            <p class="subtitle">
+                SPD test matrices for sTiles development and benchmarking. INLA precision
+                matrices, structural and thermal FEM problems, circuits, and related
+                application areas.
+            </p>
+            <p class="subtitle" style="font-size: 0.85em; opacity: 0.7;">Prepared by Esmail Abdul Fattah</p>
+            <div class="hero-badges">
+                <span class="hero-badge lime" id="badgeCount">88 matrices</span>
+                <span class="hero-badge teal" id="badgeGroups">11 groups</span>
+                <span class="hero-badge orange">SPD matrices</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Catalog -->
+<section>
+    <div class="container">
+        <div class="section-header">
+            <div class="section-badge">Matrices</div>
+            <h2 class="section-title">Matrix Catalog</h2>
+            <p class="section-description">
+                Each matrix is stored in MatrixMarket coordinate format (<code>.mtx</code>) as the
+                lower triangle of a symmetric matrix. The dimension and number of nonzeros are taken
+                directly from the file header, and the reported density is computed with respect to the
+                stored lower triangle. Select a matrix name or its thumbnail to open the corresponding
+                page, including the full sparsity pattern and download.
+            </p>
+        </div>
+
+        <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Search by name or group&hellip;" oninput="filterTable(this.value)">
+            <span class="filter-count">Showing <strong id="visibleCount">0</strong> of <strong id="totalCount">0</strong> matrices</span>
+        </div>
+
+        <div class="group-chips" id="groupChips"></div>
+
+        <div class="table-wrapper">
+            <table id="catalogTable">
+                <colgroup>
+                    <col style="width: 44px;">
+                    <col style="width: 24%;">
+                    <col style="width: 100px;">
+                    <col style="width: 190px;">
+                    <col style="width: 120px;">
+                    <col style="width: 140px;">
+                    <col style="width: 110px;">
+                    <col style="width: 130px;">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="no-sort" style="text-align:center;">#</th>
+                        <th onclick="sortBy(1,'str')">Name <span class="sort-arrow"></span></th>
+                        <th onclick="sortBy(2,'grp')" style="text-align:center;">Group <span class="sort-arrow"></span></th>
+                        <th onclick="sortBy(3,'str')">Application <span class="sort-arrow"></span></th>
+                        <th onclick="sortBy(4,'num')" class="sort-asc" style="text-align:center;">Dimension <span class="sort-arrow"></span></th>
+                        <th onclick="sortBy(5,'num')" style="text-align:center;">NNZ (lower &#9651;) <span class="sort-arrow"></span></th>
+                        <th onclick="sortBy(6,'num')" style="text-align:center;" title="Stored NNZ / (n(n+1)/2)">Density <span class="sort-arrow"></span></th>
+                        <th class="no-sort" style="text-align:center;">Sparsity</th>
+                    </tr>
+                </thead>
+                <tbody id="catalogBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Sources & acknowledgments -->
+<section style="background:var(--bg-card); border-top:1px solid var(--border); padding:52px 0 60px;">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-badge" style="background:var(--orange-dark);">Sources</div>
+            <h2 class="section-title">Matrix sources and acknowledgments</h2>
+        </div>
+        <div class="ack-grid">
+            <div class="ack-prose">
+                <p>
+                    The benchmark suite comprises <strong id="ssTotal">88</strong> sparse symmetric
+                    positive definite matrices drawn from two complementary sources. Of these,
+                    <strong id="ssCount">62</strong> are obtained from the
+                    <a href="https://sparse.tamu.edu" target="_blank" rel="noopener">SuiteSparse Matrix
+                    Collection</a> (Davis and Hu, 2011) and span a broad range of application domains,
+                    including structural engineering, thermal and thermomechanical analysis, circuit
+                    simulation, computational fluid dynamics, model order reduction, and mesh and graph
+                    problems.
+                </p>
+                <p>
+                    The remaining <strong id="otherCount">28</strong> matrices are INLA precision matrices
+                    arising in Bayesian latent Gaussian models, generated with the integrated nested Laplace
+                    approximation (INLA) framework.
+                </p>
+                <p>
+                    Matrices that are not symmetric positive definite in their original form are modified
+                    to enforce positive definiteness, so that each admits a Cholesky factorization.
+                </p>
+                <p>
+                    The suite is assembled to cover a wide variety of sparsity structures across distinct
+                    application areas, so that the solver is evaluated on a heterogeneous set of problems
+                    rather than on a single problem class.
+                </p>
+                <p class="ack-ref">
+                    We acknowledge the SuiteSparse Matrix Collection and its maintainers for making these
+                    problems publicly available. Reference: T.&nbsp;A.&nbsp;Davis and Y.&nbsp;Hu,
+                    &ldquo;The University of Florida Sparse Matrix Collection,&rdquo;
+                    <em>ACM Transactions on Mathematical Software</em>, vol.&nbsp;38, no.&nbsp;1, 2011.
+                </p>
+            </div>
+            <aside class="ack-panel">
+                <h3>Sources at a glance</h3>
+                <div class="ack-stat"><span class="num" id="pTotal">88</span><span class="cap">matrices total</span></div>
+                <div class="ack-stat"><span class="num" id="pSS">62</span><span class="cap">SuiteSparse Collection</span></div>
+                <div class="ack-stat"><span class="num" id="pInla">28</span><span class="cap">INLA precision matrices</span></div>
+            </aside>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p><strong>sTiles</strong> &middot; KAUST &middot; Test Suite &middot; &copy; 2026</p>
+        <p style="font-size:0.78rem; margin-top:6px; opacity:0.8;">
+            Includes matrices from the
+            <a href="https://sparse.tamu.edu" target="_blank" rel="noopener"
+               style="color:rgba(255,255,255,0.75);">SuiteSparse Matrix Collection</a>
+            (Davis &amp; Hu).
+        </p>
+    </div>
+</footer>
+
+<!-- Single source of truth: matrix list, generated by gen_catalog.py -->
+<script src="data/catalog.js"></script>
+<script>
+const matrices = MATRIX_CATALOG;
+const PLOTS_REL = "plots/";
+
+function fmtInt(n) { return n.toLocaleString('en-US'); }
+function fmtPct(x) {
+    if (x >= 1)   return x.toFixed(2) + '%';
+    if (x >= 0.01) return x.toFixed(3) + '%';
+    return x.toFixed(4) + '%';
+}
+function gnum(g) { return parseInt(String(g).replace(/[^0-9]/g, ''), 10) || 0; }
+
+let sortCol = 4, sortDir = 'asc';
+
+// Persist the active group filter across reloads (per-browser).
+const GROUP_FILTER_KEY = 'sTiles_group_filter_v2';
+let groupFilter = (function() {
+    try {
+        const saved = localStorage.getItem(GROUP_FILTER_KEY);
+        if (!saved) return null;
+        return matrices.some(function(m) { return m.group === saved; }) ? saved : null;
+    } catch (e) { return null; }
+})();
+
+function buildGroupChips() {
+    const groups = [...new Set(matrices.map(m => m.group))].sort((a, b) => gnum(a) - gnum(b));
+    const counts = {};
+    matrices.forEach(m => { counts[m.group] = (counts[m.group] || 0) + 1; });
+    const container = document.getElementById('groupChips');
+    container.innerHTML = '';
+    const all = document.createElement('span');
+    all.className = 'group-chip all-chip' + (groupFilter === null ? ' active' : '');
+    all.innerHTML = 'All <span class="cnt">' + matrices.length + '</span>';
+    all.onclick = function() { setGroupFilter(null); };
+    container.appendChild(all);
+    groups.forEach(function(g) {
+        const chip = document.createElement('span');
+        chip.className = 'group-chip' + (groupFilter === g ? ' active' : '');
+        chip.innerHTML = g + ' <span class="cnt">' + counts[g] + '</span>';
+        chip.onclick = function() { setGroupFilter(g); };
+        container.appendChild(chip);
+    });
+}
+
+function setGroupFilter(g) {
+    groupFilter = g;
+    try {
+        if (g === null) localStorage.removeItem(GROUP_FILTER_KEY);
+        else            localStorage.setItem(GROUP_FILTER_KEY, g);
+    } catch (e) {}
+    buildGroupChips();
+    renderFiltered();
+}
+
+function buildTable(data) {
+    const tbody = document.getElementById('catalogBody');
+    tbody.innerHTML = '';
+    data.forEach(function(m, i) {
+        const thumbFile = PLOTS_REL + m.name + '_sparsity.png';
+        const pageFile  = 'matrix_' + m.name + '.html';
+        const tr = document.createElement('tr');
+        const dom = m.domain || 'General';
+        const domClass = 'domain-' + dom.replace(/[^A-Za-z0-9]+/g, '-');
+        tr.innerHTML =
+            '<td class="row-num">' + (i + 1) + '</td>' +
+            '<td class="mat-name"><a href="' + pageFile + '">' + m.name + '</a></td>' +
+            '<td class="group-cell">' + m.group + '</td>' +
+            '<td class="app-cell"><span class="domain-tag ' + domClass + '">' + dom + '</span></td>' +
+            '<td class="num">' + fmtInt(m.dim) + '</td>' +
+            '<td class="num">' + fmtInt(m.nnz) + '</td>' +
+            '<td class="num">' + fmtPct(m.density) + '</td>' +
+            '<td class="thumb-cell"><a class="thumb-link" href="' + pageFile + '"><img src="' + thumbFile + '" alt="sparsity" loading="lazy" onerror="this.parentElement.outerHTML=\'<span class=no-thumb>no plot</span>\'"></a></td>';
+        tbody.appendChild(tr);
+    });
+    document.getElementById('visibleCount').textContent = data.length;
+}
+
+function currentData() {
+    return matrices.slice().sort(function(a, b) {
+        let av, bv;
+        if (sortCol === 1)      { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+        else if (sortCol === 2) { av = gnum(a.group); bv = gnum(b.group); }
+        else if (sortCol === 3) { av = (a.domain||'').toLowerCase(); bv = (b.domain||'').toLowerCase(); }
+        else if (sortCol === 4) { av = a.dim; bv = b.dim; }
+        else if (sortCol === 5) { av = a.nnz; bv = b.nnz; }
+        else if (sortCol === 6) { av = a.density; bv = b.density; }
+        else                    { av = a.dim; bv = b.dim; }
+        if (av < bv) return sortDir === 'asc' ? -1 : 1;
+        if (av > bv) return sortDir === 'asc' ?  1 : -1;
+        return 0;
+    });
+}
+
+function sortBy(col, type) {
+    if (sortCol === col) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortCol = col; sortDir = 'asc';
+    }
+    const ths = document.querySelectorAll('#catalogTable thead th');
+    ths.forEach(function(th, idx) {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (idx === col) th.classList.add('sort-' + sortDir);
+    });
+    renderFiltered();
+}
+
+let currentQuery = '';
+function filterTable(q) {
+    currentQuery = q.toLowerCase().trim();
+    renderFiltered();
+}
+
+function renderFiltered() {
+    let data = currentData();
+    if (groupFilter !== null) {
+        data = data.filter(function(m) { return m.group === groupFilter; });
+    }
+    if (currentQuery) {
+        data = data.filter(function(m) {
+            return (m.name + ' ' + m.group + ' ' + (m.domain||'')).toLowerCase().includes(currentQuery);
+        });
+    }
+    document.getElementById('totalCount').textContent = groupFilter !== null
+        ? matrices.filter(function(m) { return m.group === groupFilter; }).length
+        : matrices.length;
+    buildTable(data);
+}
+
+function isSuiteSparse(m) {
+    return !/^inla_graph_/.test(m.name) && !/^lme4_/.test(m.name);
+}
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Source counts (prose + at-a-glance panel), computed live from the catalog
+    const total = matrices.length;
+    const ss    = matrices.filter(isSuiteSparse).length;
+    // lme4 mixed-effects precisions are grouped with the INLA / Bayesian set
+    const inla  = total - ss;
+    const ngroups = new Set(matrices.map(function(m){ return m.group; })).size;
+    setText('badgeCount', total + ' matrices');
+    setText('badgeGroups', ngroups + ' groups');
+    setText('ssTotal', total); setText('ssCount', ss); setText('otherCount', total - ss);
+    setText('pTotal', total); setText('pSS', ss); setText('pInla', inla);
+    const ths = document.querySelectorAll('#catalogTable thead th');
+    ths[4].classList.add('sort-asc');
+    buildGroupChips();
+    renderFiltered();
+});
+</script>
+
+<script src="data/banner.js"></script>
+</body>
+</html>

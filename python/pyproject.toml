@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sTiles"
+dynamic = ["version"]
+description = "Python bindings for the sTiles sparse Cholesky / selected-inverse framework"
+requires-python = ">=3.8"
+authors = [{ name = "Esmail Abdul Fattah", email = "esmail.abdulfattah@kaust.edu.sa" }]
+dependencies = ["numpy>=1.20", "scipy>=1.5"]
+classifiers = [
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+
+[project.urls]
+Homepage = "https://esmail-abdulfattah.github.io/sTiles/"
+Repository = "https://github.com/esmail-abdulfattah/sTiles"
+
+[tool.setuptools]
+packages = ["sTiles"]
+
+[tool.setuptools.dynamic]
+version = { attr = "sTiles._version.__version__" }
+
+[tool.setuptools.package-data]
+# Prebuilt libstiles binaries dropped in by CI (per platform sub-directory).
+# These are large and are NOT committed to git; a release wheel bundles the
+# matching one. Layout: _libs/<os>-<arch>/libstiles.{so,dylib} (see sync_binaries.sh).
+sTiles = ["_libs/**/*.so", "_libs/**/*.dylib", "_libs/*.so", "_libs/*.dylib"]

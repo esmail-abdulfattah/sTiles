@@ -1,0 +1,2831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sTiles | Accelerated Sparse Factorization Framework</title>
+    <meta name="description" content="sTiles accelerates the sparse-matrix pipeline of Cholesky factorization, triangular solves, and selected inversion on shared-memory systems, covering matrices from very sparse to fully dense.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* sTiles Brand Colors from Logo */
+            --lime: #c5d86d;
+            --lime-light: #d4e48a;
+            --lime-dark: #a8bd4d;
+            --orange: #e08c5a;
+            --orange-light: #e9a67a;
+            --orange-dark: #c97442;
+            --teal: #4a9a8f;
+            --teal-light: #6bb3a8;
+            --teal-dark: #3a7a71;
+            --black: #1a1a1a;
+            --charcoal: #2d2d2d;
+
+            /* UI Colors */
+            --bg-primary: #fafafa;
+            --bg-secondary: #ffffff;
+            --bg-dark: #1a1a1a;
+            --bg-card: #ffffff;
+            --bg-code: #1e1e1e;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+            --text-light: #ffffff;
+            --border: #e0e0e0;
+            --border-light: #f0f0f0;
+
+            /* Gradients */
+            --gradient-brand: linear-gradient(135deg, var(--lime) 0%, var(--teal) 50%, var(--orange) 100%);
+            --gradient-hero: linear-gradient(180deg, var(--black) 0%, var(--charcoal) 100%);
+            --gradient-lime: linear-gradient(135deg, var(--lime) 0%, var(--lime-dark) 100%);
+            --gradient-teal: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+            --gradient-orange: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo-nav {
+            height: 40px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--teal);
+        }
+
+        .nav-cta {
+            background: var(--black);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .nav-cta:hover {
+            background: var(--teal);
+            transform: translateY(-1px);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 140px 0 80px;
+            background: var(--gradient-hero);
+            color: var(--text-light);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 120px;
+            background: linear-gradient(to bottom, transparent, var(--bg-primary));
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        /* S-Tagline */
+        .s-tagline {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .s-word {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: 0.02em;
+        }
+
+        .s-letter {
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+
+        .s-word:nth-child(1) .s-letter { color: var(--lime); }
+        .s-word:nth-child(3) .s-letter { color: var(--orange); }
+        .s-word:nth-child(5) .s-letter { color: var(--teal); }
+        .s-word:nth-child(7) .s-letter { color: #ffffff; }
+
+        .s-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+        }
+
+        .hero-text h1 {
+            font-size: 3.2rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            letter-spacing: -0.03em;
+        }
+
+        .hero-text h1 .highlight {
+            background: var(--gradient-brand);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-description {
+            font-size: 1.15rem;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 32px;
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-lime {
+            background: var(--lime);
+            color: var(--black);
+        }
+
+        .btn-lime:hover {
+            background: var(--lime-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(197, 216, 109, 0.4);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--lime);
+            color: var(--lime);
+        }
+
+        .hero-logo {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero-logo img {
+            max-width: 400px;
+            width: 100%;
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+
+        /* Tiles visualization */
+        .tiles-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 40px;
+        }
+
+        .tiles-row > div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .tile {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .tile-label {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Section Styles */
+        section {
+            padding: 100px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-badge {
+            display: inline-block;
+            background: var(--lime);
+            color: var(--black);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+
+        .section-badge.teal { background: var(--teal); color: white; }
+        .section-badge.orange { background: var(--orange); color: white; }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+            color: var(--black);
+        }
+
+        .section-description {
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            font-size: 1.1rem;
+        }
+
+        /* Publications Section */
+        #publications {
+            background: var(--bg-secondary);
+        }
+
+        .publications-grid {
+            display: grid;
+            gap: 24px;
+        }
+
+        .publication-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 24px;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .publication-card:hover {
+            border-color: var(--teal);
+            box-shadow: 0 8px 30px rgba(74, 154, 143, 0.1);
+        }
+
+        .publication-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .publication-icon.lime { background: rgba(197, 216, 109, 0.2); }
+        .publication-icon.teal { background: rgba(74, 154, 143, 0.2); }
+        .publication-icon.orange { background: rgba(224, 140, 90, 0.2); }
+
+        .publication-content h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--black);
+        }
+
+        .publication-authors {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-bottom: 8px;
+        }
+
+        .publication-content p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .publication-badge {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-published { background: var(--lime); color: var(--black); }
+        .badge-review { background: var(--orange); color: white; }
+        .badge-progress { background: var(--text-muted); color: white; }
+
+        .publication-link {
+            color: var(--teal);
+            text-decoration: none;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .publication-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+        }
+
+        .feature-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .feature-icon.lime { background: var(--lime); color: var(--black); }
+        .feature-icon.teal { background: var(--teal); color: white; }
+        .feature-icon.orange { background: var(--orange); color: white; }
+        .feature-icon.black { background: var(--black); color: white; }
+
+        .feature-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 12px;
+            color: var(--black);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Presentations */
+        .presentations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .presentation-card {
+            background: var(--bg-dark);
+            border-radius: 16px;
+            overflow: hidden;
+            color: white;
+            position: relative;
+        }
+
+        .talk-type {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .talk-type.invited {
+            background: var(--lime);
+            color: var(--black);
+        }
+
+        .talk-type.contributed {
+            background: var(--teal);
+            color: white;
+        }
+
+        .presentation-header {
+            padding: 32px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .presentation-header h3 {
+            font-size: 1.15rem;
+            margin-bottom: 8px;
+        }
+
+        .presentation-header p {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+        }
+
+        .presentation-footer {
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .presentation-footer a {
+            color: var(--lime);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .presentation-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* API Reference */
+        #api {
+            background: var(--bg-secondary);
+        }
+
+        .api-category {
+            margin-bottom: 48px;
+        }
+
+        .api-category-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--black);
+        }
+
+        .api-category-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        .api-category-dot.lime { background: var(--lime); }
+        .api-category-dot.teal { background: var(--teal); }
+        .api-category-dot.orange { background: var(--orange); }
+        .api-category-dot.black { background: var(--black); }
+
+        /* Group / Calls concept diagram */
+        .concept-box {
+            background: linear-gradient(135deg, rgba(74,154,143,0.04) 0%, rgba(197,216,109,0.04) 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 28px;
+        }
+        .concept-box-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 2px 0;
+        }
+        .concept-box-header h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--black);
+            margin-bottom: 0;
+        }
+        .concept-toggle {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            white-space: nowrap;
+            margin-left: 16px;
+            flex-shrink: 0;
+        }
+        .concept-box-body {
+            display: none;
+            margin-top: 18px;
+        }
+        .concept-box.expanded .concept-box-body {
+            display: block;
+        }
+        .concept-intro {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            margin-bottom: 22px;
+            line-height: 1.65;
+        }
+        .concept-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .concept-root-node {
+            background: var(--black);
+            color: #fff;
+            padding: 8px 24px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .concept-connector-v {
+            width: 2px;
+            height: 14px;
+            background: var(--border);
+        }
+        .concept-connector-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .concept-group-box {
+            border: 2px solid;
+            border-radius: 10px;
+            padding: 12px 14px;
+            min-width: 190px;
+        }
+        .concept-group-box.cg-lime   { border-color: var(--lime);   background: rgba(197,216,109,0.08); }
+        .concept-group-box.cg-teal   { border-color: var(--teal);   background: rgba(74,154,143,0.08);  }
+        .concept-group-box.cg-orange { border-color: var(--orange); background: rgba(224,140,90,0.08);  }
+        .concept-group-tag {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 2px;
+        }
+        .concept-group-box.cg-lime   .concept-group-tag { color: var(--lime-dark);   }
+        .concept-group-box.cg-teal   .concept-group-tag { color: var(--teal-dark);   }
+        .concept-group-box.cg-orange .concept-group-tag { color: var(--orange-dark); }
+        .concept-group-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--black);
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .concept-calls-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .concept-call-chip {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .concept-call-chip strong { display: block; font-size: 0.73rem; }
+        .concept-call-chip span   { color: var(--orange-dark); font-size: 0.67rem; }
+        .concept-legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-light);
+            font-size: 0.79rem;
+            color: var(--text-secondary);
+        }
+        .concept-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .concept-legend-dot {
+            width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+        }
+        .concept-note {
+            margin-top: 16px;
+            font-size: 0.82rem;
+            background: rgba(74,154,143,0.07);
+            border-left: 3px solid var(--teal);
+            padding: 10px 14px;
+            border-radius: 0 6px 6px 0;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .api-function {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .api-function-header {
+            padding: 16px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
+        }
+
+        .api-function-header:hover {
+            background: rgba(74, 154, 143, 0.05);
+        }
+
+        .api-function-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--teal);
+        }
+
+        .api-function-brief {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-left: 16px;
+        }
+
+        .api-function-toggle {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .api-function-details {
+            padding: 0 20px 20px;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+
+        .api-function.expanded .api-function-details {
+            display: block;
+        }
+
+        .api-signature {
+            background: var(--bg-code);
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+
+        .api-signature code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--lime);
+        }
+
+        .api-params h4 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .api-param {
+            display: flex;
+            gap: 16px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .api-param:last-child {
+            border-bottom: none;
+        }
+
+        .api-param-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--orange);
+            font-size: 0.85rem;
+            min-width: 140px;
+        }
+
+        .api-param-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Code Examples */
+        .code-example {
+            background: var(--bg-code);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 32px 0;
+        }
+
+        .code-header {
+            background: var(--charcoal);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .code-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: white;
+        }
+
+        .code-lang {
+            background: var(--lime);
+            color: var(--black);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        pre {
+            margin: 0;
+            padding: 24px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.7;
+            color: #e0e0e0;
+        }
+
+        /* Inline code in light sections */
+        p code, li code, .api-function-details p code {
+            background: rgba(0, 0, 0, 0.08);
+            color: #3a7a71;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .keyword { color: #c792ea; }
+        .type { color: #82aaff; }
+        .function { color: #c5d86d; }
+        .string { color: #c3e88d; }
+        .number { color: #f78c6c; }
+        .comment { color: #676e95; }
+
+        /* Installation Section */
+        #installation {
+            background: var(--bg-dark);
+            color: white;
+        }
+
+        #installation .section-title {
+            color: white;
+        }
+
+        #installation .section-description {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .install-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 48px;
+        }
+
+        .install-steps h3 {
+            font-size: 1.3rem;
+            margin-bottom: 24px;
+            color: var(--lime);
+        }
+
+        .install-step {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .step-num {
+            width: 32px;
+            height: 32px;
+            background: var(--teal);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .step-content h4 {
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+        }
+
+        .install-options {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .install-options h3 {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: var(--lime);
+        }
+
+        .install-option {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 12px;
+            align-items: baseline;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .install-option:last-child {
+            border-bottom: none;
+        }
+
+        .option-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--orange);
+            font-size: 0.85rem;
+        }
+
+        .option-desc {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.85rem;
+        }
+
+        /* Download Table */
+        .download-section {
+            margin-top: 48px;
+        }
+
+        .download-section h3 {
+            font-size: 1.3rem;
+            margin-bottom: 24px;
+            color: var(--black);
+        }
+
+        .download-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .download-table th {
+            background: var(--black);
+            color: white;
+            padding: 16px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .download-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            color: var(--black);
+        }
+
+        .download-table code {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--teal-dark);
+        }
+
+        .download-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .download-table tr:hover td {
+            background: rgba(74, 154, 143, 0.05);
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--teal);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .download-btn:hover {
+            background: var(--teal-dark);
+        }
+
+        .platform-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .platform-badge.mac { background: rgba(197, 216, 109, 0.2); color: var(--lime-dark); }
+        .platform-badge.linux { background: rgba(224, 140, 90, 0.2); color: var(--orange); }
+        .platform-badge.hpc { background: rgba(74, 154, 143, 0.2); color: var(--teal); }
+        .platform-badge.arm { background: rgba(147, 112, 219, 0.2); color: #7B5CB8; }
+
+        /* Contact Section */
+        #contact {
+            background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+            color: white;
+        }
+
+        #contact .section-title {
+            color: white;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 32px;
+            margin-top: 48px;
+        }
+
+        .contact-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 32px;
+            backdrop-filter: blur(10px);
+        }
+
+        .contact-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .contact-card p {
+            color: rgba(255,255,255,0.85);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+        }
+
+        .contact-card a {
+            color: var(--lime);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .contact-card a:hover {
+            text-decoration: underline;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--black);
+            color: white;
+            padding: 60px 0 40px;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+        }
+
+        .footer-brand img {
+            height: 50px;
+            margin-bottom: 16px;
+        }
+
+        .footer-brand p {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .footer-links h4 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--lime);
+            margin-bottom: 20px;
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.85rem;
+        }
+
+        .footer-bottom a {
+            color: var(--lime);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .nav-links { display: none; }
+            .hero-content { grid-template-columns: 1fr; text-align: center; }
+            .hero-logo { order: -1; }
+            .hero-logo img { max-width: 280px; }
+            .hero-buttons { justify-content: center; }
+            .tiles-row { justify-content: center; }
+            .s-tagline { justify-content: center; }
+            .footer-content { grid-template-columns: 1fr 1fr; }
+            .install-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            .hero-text h1 { font-size: 2.2rem; }
+            .section-title { font-size: 1.8rem; }
+            .footer-content { grid-template-columns: 1fr; }
+            .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+        }
+
+        /* Examples Section - List Design */
+        .examples-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .example-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-item:hover {
+            border-color: var(--teal);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .example-item.open {
+            border-color: var(--teal);
+        }
+
+        .example-header {
+            display: flex;
+            align-items: center;
+            padding: 20px 24px;
+            gap: 20px;
+        }
+
+        .example-number {
+            width: 40px;
+            height: 40px;
+            background: var(--teal);
+            color: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .example-info {
+            flex: 1;
+        }
+
+        .example-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+            color: var(--black);
+        }
+
+        .example-info p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .example-level {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .example-level.beginner {
+            background: rgba(197, 216, 109, 0.2);
+            color: var(--lime-dark);
+        }
+
+        .example-level.intermediate {
+            background: rgba(74, 154, 143, 0.15);
+            color: var(--teal);
+        }
+
+        .example-level.advanced {
+            background: rgba(242, 133, 81, 0.15);
+            color: var(--orange);
+        }
+
+        .example-toggle {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+            transition: transform 0.2s;
+        }
+
+        .example-item.open .example-toggle {
+            transform: rotate(45deg);
+        }
+
+        .example-body {
+            display: none;
+            padding: 0 24px 24px 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .example-item.open .example-body {
+            display: block;
+        }
+
+        .example-body .code-example {
+            margin-top: 20px;
+        }
+
+        .preprocessor { color: #c792ea; }
+
+        @media (max-width: 768px) {
+            .example-header {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .example-level {
+                order: -1;
+                margin-left: 60px;
+            }
+            .example-toggle {
+                position: absolute;
+                right: 24px;
+            }
+            .example-header {
+                position: relative;
+            }
+        }
+
+        /* INLA Banner */
+        .inla-banner {
+            background: linear-gradient(135deg, var(--black) 0%, #1a1a2e 100%);
+            padding: 60px 0;
+        }
+
+        .inla-content {
+            display: flex;
+            align-items: center;
+            gap: 60px;
+            flex-wrap: wrap;
+        }
+
+        .inla-text {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .inla-badge {
+            display: inline-block;
+            background: var(--teal);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .inla-text h2 {
+            color: white;
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+
+        .inla-text p {
+            color: rgba(255,255,255,0.8);
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+
+        .inla-stats {
+            display: flex;
+            gap: 40px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            display: block;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--lime);
+        }
+
+        .stat-label {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .inla-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            .inla-stats {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-content">
+            <img src="images/stiles.jpeg" alt="sTiles" class="logo-nav">
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#examples">Examples</a></li>
+                <li><a href="#api">API</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#publications">Publications</a></li>
+                <li><a href="#cite">Cite</a></li>
+                <li><a href="#acknowledgments">Acknowledgments</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li><a href="benchmarks.html">Benchmarks</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <div class="s-tagline">
+                        <span class="s-word"><span class="s-letter">s</span>parse</span>
+                        <span class="s-dot"></span>
+                        <span class="s-word"><span class="s-letter">s</span>mart</span>
+                        <span class="s-dot"></span>
+                        <span class="s-word"><span class="s-letter">s</span>tructured</span>
+                        <span class="s-dot"></span>
+                        <span class="s-word"><span class="s-letter">s</span>calable</span>
+                    </div>
+                    <h1>A High-Performance Framework for <span class="highlight">Sparse Matrices</span></h1>
+                    <p class="hero-description">
+                        sTiles targets the full <strong>Cholesky&nbsp;&rarr;&nbsp;solve&nbsp;&rarr;&nbsp;selected&nbsp;inverse</strong>
+                        pipeline on a single shared-memory node, using tile-based parallelism and GPU
+                        acceleration. Today's release handles symmetric positive-definite matrices
+                        across the entire spectrum, from very sparse to fully dense, with one unified
+                        solver. Distributed-memory support is on the roadmap.
+                    </p>
+                    <div class="hero-buttons">
+                        <a href="#examples" class="btn btn-lime">View Examples</a>
+                        <a href="#api" class="btn btn-outline">API Documentation</a>
+                    </div>
+                    <div class="tiles-row">
+                        <div>
+                            <img class="tile" src="images/tile-sparse.svg" alt="Sparse density pattern">
+                            <div class="tile-label">Sparse</div>
+                        </div>
+                        <div>
+                            <img class="tile" src="images/tile-semi-sparse.svg" alt="Semi-Sparse density pattern">
+                            <div class="tile-label">Semi-Sparse</div>
+                        </div>
+                        <div>
+                            <img class="tile" src="images/tile-semi-dense.svg" alt="Semi-Dense density pattern">
+                            <div class="tile-label">Semi-Dense</div>
+                        </div>
+                        <div>
+                            <img class="tile" src="images/tile-dense.svg" alt="Dense density pattern">
+                            <div class="tile-label">Dense</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-logo">
+                    <img src="images/stiles.jpeg" alt="sTiles Logo">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- In Production Banner -->
+    <section class="inla-banner">
+        <div class="container">
+            <div class="inla-content">
+                <div class="inla-text">
+                    <div class="inla-badge">In Production</div>
+                    <h2>Deployed in <a href="https://www.r-inla.org/" target="_blank" style="color: var(--lime); text-decoration: underline; text-underline-offset: 4px;">R-INLA</a></h2>
+                    <p>sTiles powers the sparse matrix engine of R-INLA, a widely-used package for Bayesian inference with applications in spatial statistics, epidemiology, and ecology. The framework is designed for any application requiring high-performance sparse Cholesky factorization and selective inversion.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Publications Section -->
+    <section id="publications">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge">Research</div>
+                <h2 class="section-title">Publications</h2>
+                <p class="section-description">
+                    Peer-reviewed research papers describing the sTiles framework and its applications.
+                </p>
+            </div>
+
+            <div class="publications-grid">
+                <div class="publication-card">
+                    <div class="publication-icon lime">&#x1F4C4;</div>
+                    <div class="publication-content">
+                        <h3>sTiles: An Accelerated Computational Framework for Sparse Factorizations of Structured Matrices</h3>
+                        <p class="publication-authors">Esmail Abdul Fattah, Hatem Ltaief, Håvard Rue, David Keyes</p>
+                        <p>Core paper focused on the sTiles solver architecture and tile-based algorithms.</p>
+                        <a href="https://ieeexplore.ieee.org/abstract/document/11017730" target="_blank" class="publication-link">Read on IEEE Xplore &rarr;</a>
+                    </div>
+                    <span class="publication-badge badge-published">ISC 2025</span>
+                </div>
+
+                <div class="publication-card">
+                    <div class="publication-icon teal">&#x1F4C4;</div>
+                    <div class="publication-content">
+                        <h3>GPU-Accelerated Parallel Selected Inversion for Structured Matrices Using sTiles</h3>
+                        <p class="publication-authors">Esmail Abdul Fattah, Hatem Ltaief, Håvard Rue, David Keyes</p>
+                        <p>Focus on GPU acceleration for selected inversion computations.</p>
+                        <a href="https://arxiv.org/abs/2504.19171" target="_blank" class="publication-link">Read on arXiv &rarr;</a>
+                    </div>
+                    <span class="publication-badge badge-review">Under Review</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge teal">Capabilities</div>
+                <h2 class="section-title">Key Features</h2>
+                <p class="section-description">
+                    Designed for high-performance sparse matrix computations with modern hardware.
+                </p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon lime">&#x2B1C;</div>
+                    <h3>Tile-Based Factorization</h3>
+                    <p>Configurable tile sizes for cache-friendly Cholesky factorizations. Smart tiles adapt storage format based on fill-in density.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon teal">&#x21BB;</div>
+                    <h3>Intelligent Ordering</h3>
+                    <p>Multiple ordering algorithms including AMD, RCM, and SCOTCH nested dissection, with auto, parallel, and smart ordering strategies.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon orange">&#x26A1;</div>
+                    <h3>GPU Acceleration</h3>
+                    <p>Optional CUDA + cuSOLVER integration for GPU-accelerated dense kernels. Mix CPU tiling with accelerator compute.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon black">&#x2714;</div>
+                    <h3>Selected Inversion</h3>
+                    <p>Efficient computation of selected inverse elements matching the sparsity pattern. Much faster than full matrix inversion.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon lime">&#x2263;</div>
+                    <h3>Multi-RHS Solvers</h3>
+                    <p>Solve multiple right-hand sides efficiently by reusing factorizations. Triangular solves: L, L^T, LL^T.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon teal">&#x1F4CA;</div>
+                    <h3>Diagnostics</h3>
+                    <p>Built-in timing, log-determinant computation, memory tracking, and export capabilities for benchmarking.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Examples Section -->
+    <section id="examples">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge orange">Learn</div>
+                <h2 class="section-title">Examples</h2>
+                <p class="section-description">
+                    Click any example to view the full code. Ordered from basic to advanced.
+                </p>
+            </div>
+
+            <div class="examples-list">
+                <!-- Example 1 -->
+                <div class="example-item" onclick="toggleExample(this)">
+                    <div class="example-header">
+                        <div class="example-number">1</div>
+                        <div class="example-info">
+                            <h3>Minimal Cholesky Factorization</h3>
+                            <p>Factorize a sparse SPD matrix and compute log-determinant. Shows the core workflow.</p>
+                        </div>
+                        <div class="example-level beginner">Beginner</div>
+                        <span class="example-toggle">+</span>
+                    </div>
+                    <div class="example-body">
+                        <div class="code-example">
+                            <div class="code-header">
+                                <span class="code-title">example_minimal.cpp</span>
+                                <span class="code-lang">C++</span>
+                            </div>
+                            <pre><code><span class="comment">// Minimal sTiles example: Cholesky + log-determinant</span>
+<span class="preprocessor">#include</span> <span class="string">"stiles.h"</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;vector&gt;</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;cstdio&gt;</span>
+
+<span class="type">int</span> <span class="function">main</span>() {
+    <span class="type">int</span> N = <span class="number">4</span>, NNZ = <span class="number">7</span>;
+    std::vector&lt;<span class="type">int</span>&gt; rows = {<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">int</span>&gt; cols = {<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">double</span>&gt; vals = {<span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>};
+
+    <span class="type">int</span> calls[] = {<span class="number">1</span>}, cores[] = {<span class="number">4</span>}, variant[] = {<span class="number">0</span>};
+    <span class="type">bool</span> need_inv[] = {<span class="keyword">false</span>};
+
+    <span class="type">void</span>* stile = <span class="keyword">nullptr</span>;
+    <span class="function">sTiles_create</span>(&stile, <span class="number">1</span>, calls, cores, variant, need_inv);
+    <span class="function">sTiles_assign_graph_one_call</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, N, NNZ, rows.data(), cols.data());
+    <span class="function">sTiles_init_group</span>(<span class="number">0</span>, &stile);
+    <span class="function">sTiles_assign_values</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, vals.data());
+
+    <span class="function">sTiles_bind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+    <span class="function">sTiles_chol</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+    <span class="type">double</span> logdet = <span class="function">sTiles_get_logdet</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+    <span class="function">sTiles_unbind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+
+    printf(<span class="string">"Log-determinant: %.10f\n"</span>, logdet);
+    <span class="function">sTiles_quit</span>();
+    <span class="keyword">return</span> <span class="number">0</span>;
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Example 2 -->
+                <div class="example-item" onclick="toggleExample(this)">
+                    <div class="example-header">
+                        <div class="example-number">2</div>
+                        <div class="example-info">
+                            <h3>Solving Linear Systems (Ax = b)</h3>
+                            <p>Solve one or more right-hand sides using the Cholesky factorization.</p>
+                        </div>
+                        <div class="example-level intermediate">Intermediate</div>
+                        <span class="example-toggle">+</span>
+                    </div>
+                    <div class="example-body">
+                        <div class="code-example">
+                    <div class="code-header">
+                        <span class="code-title">example_solve.cpp</span>
+                        <span class="code-lang">C++</span>
+                    </div>
+                    <pre><code><span class="comment">// sTiles example: Solving Ax = b using Cholesky factorization</span>
+<span class="preprocessor">#include</span> <span class="string">"stiles.h"</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;vector&gt;</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;cstdio&gt;</span>
+
+<span class="type">int</span> <span class="function">main</span>() {
+    <span class="comment">// 4x4 tridiagonal SPD matrix (same as before)</span>
+    <span class="type">int</span> N = <span class="number">4</span>, NNZ = <span class="number">7</span>;
+    std::vector&lt;<span class="type">int</span>&gt; rows = {<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">int</span>&gt; cols = {<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">double</span>&gt; vals = {<span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>};
+
+    <span class="comment">// Right-hand side vectors (2 RHS, column-major)</span>
+    <span class="type">int</span> nrhs = <span class="number">2</span>;
+    std::vector&lt;<span class="type">double</span>&gt; b = {
+        <span class="number">9.0</span>, <span class="number">8.0</span>, <span class="number">8.0</span>, <span class="number">9.0</span>,   <span class="comment">// First RHS</span>
+        <span class="number">1.0</span>, <span class="number">1.0</span>, <span class="number">1.0</span>, <span class="number">1.0</span>    <span class="comment">// Second RHS</span>
+    };
+
+    <span class="comment">// Setup</span>
+    <span class="type">int</span> calls[] = {<span class="number">1</span>}, cores[] = {<span class="number">4</span>}, variant[] = {<span class="number">0</span>};
+    <span class="type">bool</span> need_inv[] = {<span class="keyword">false</span>};
+
+    <span class="type">void</span>* stile = <span class="keyword">nullptr</span>;
+    <span class="function">sTiles_create</span>(&stile, <span class="number">1</span>, calls, cores, variant, need_inv);
+    <span class="function">sTiles_assign_graph_one_call</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, N, NNZ, rows.data(), cols.data());
+    <span class="function">sTiles_init_group</span>(<span class="number">0</span>, &stile);
+    <span class="function">sTiles_assign_values</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, vals.data());
+
+    <span class="comment">// Factorize and solve</span>
+    <span class="function">sTiles_bind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+    <span class="function">sTiles_chol</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+    <span class="function">sTiles_solve_LLT</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, b.data(), nrhs);  <span class="comment">// b is overwritten with x</span>
+    <span class="function">sTiles_unbind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+
+    <span class="comment">// Print solutions</span>
+    printf(<span class="string">"Solution 1: [%.4f, %.4f, %.4f, %.4f]\n"</span>, b[<span class="number">0</span>], b[<span class="number">1</span>], b[<span class="number">2</span>], b[<span class="number">3</span>]);
+    printf(<span class="string">"Solution 2: [%.4f, %.4f, %.4f, %.4f]\n"</span>, b[<span class="number">4</span>], b[<span class="number">5</span>], b[<span class="number">6</span>], b[<span class="number">7</span>]);
+
+    <span class="function">sTiles_quit</span>();
+    <span class="keyword">return</span> <span class="number">0</span>;
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Example 3 -->
+                <div class="example-item" onclick="toggleExample(this)">
+                    <div class="example-header">
+                        <div class="example-number">3</div>
+                        <div class="example-info">
+                            <h3>Selected Inversion (Marginal Variances)</h3>
+                            <p>Compute diagonal of A⁻¹ efficiently. Much faster than full matrix inversion.</p>
+                        </div>
+                        <div class="example-level intermediate">Intermediate</div>
+                        <span class="example-toggle">+</span>
+                    </div>
+                    <div class="example-body">
+                <div class="code-example">
+                    <div class="code-header">
+                        <span class="code-title">example_selinv.cpp</span>
+                        <span class="code-lang">C++</span>
+                    </div>
+                    <pre><code><span class="comment">// sTiles example: Selected inversion for marginal variances</span>
+<span class="preprocessor">#include</span> <span class="string">"stiles.h"</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;vector&gt;</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;cstdio&gt;</span>
+
+<span class="type">int</span> <span class="function">main</span>() {
+    <span class="comment">// 4x4 tridiagonal SPD matrix</span>
+    <span class="type">int</span> N = <span class="number">4</span>, NNZ = <span class="number">7</span>;
+    std::vector&lt;<span class="type">int</span>&gt; rows = {<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">int</span>&gt; cols = {<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">double</span>&gt; vals = {<span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>};
+
+    <span class="comment">// Enable selected inversion for this group</span>
+    <span class="type">int</span> calls[] = {<span class="number">1</span>}, cores[] = {<span class="number">4</span>}, variant[] = {<span class="number">0</span>};
+    <span class="type">bool</span> need_inv[] = {<span class="keyword">true</span>};  <span class="comment">// ← Enable selinv!</span>
+
+    <span class="type">void</span>* stile = <span class="keyword">nullptr</span>;
+    <span class="function">sTiles_create</span>(&stile, <span class="number">1</span>, calls, cores, variant, need_inv);
+    <span class="function">sTiles_assign_graph_one_call</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, N, NNZ, rows.data(), cols.data());
+    <span class="function">sTiles_init_group</span>(<span class="number">0</span>, &stile);
+    <span class="function">sTiles_assign_values</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, vals.data());
+
+    <span class="comment">// Factorize then compute selected inverse</span>
+    <span class="function">sTiles_bind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+    <span class="function">sTiles_chol</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+    <span class="function">sTiles_selinv</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);  <span class="comment">// Compute inverse elements</span>
+    <span class="function">sTiles_unbind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+
+    <span class="comment">// Query diagonal elements (marginal variances)</span>
+    printf(<span class="string">"Marginal variances (diagonal of A^-1):\n"</span>);
+    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i < N; i++) {
+        <span class="type">double</span> var_i = <span class="function">sTiles_get_selinv_elm</span>(<span class="number">0</span>, <span class="number">0</span>, i, i, &stile);
+        printf(<span class="string">"  Var[%d] = %.6f\n"</span>, i, var_i);
+    }
+
+    <span class="comment">// Query off-diagonal elements (covariances within sparsity pattern)</span>
+    printf(<span class="string">"\nCovariances (off-diagonal of A^-1):\n"</span>);
+    printf(<span class="string">"  Cov[0,1] = %.6f\n"</span>, <span class="function">sTiles_get_selinv_elm</span>(<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, &stile));
+    printf(<span class="string">"  Cov[1,2] = %.6f\n"</span>, <span class="function">sTiles_get_selinv_elm</span>(<span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>, <span class="number">1</span>, &stile));
+    printf(<span class="string">"  Cov[2,3] = %.6f\n"</span>, <span class="function">sTiles_get_selinv_elm</span>(<span class="number">0</span>, <span class="number">0</span>, <span class="number">3</span>, <span class="number">2</span>, &stile));
+
+    <span class="function">sTiles_quit</span>();
+    <span class="keyword">return</span> <span class="number">0</span>;
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Example 4 -->
+                <div class="example-item" onclick="toggleExample(this)">
+                    <div class="example-header">
+                        <div class="example-number">4</div>
+                        <div class="example-info">
+                            <h3>Multi-Call Parallel Processing</h3>
+                            <p>Process multiple matrices with same sparsity pattern in parallel using OpenMP.</p>
+                        </div>
+                        <div class="example-level advanced">Advanced</div>
+                        <span class="example-toggle">+</span>
+                    </div>
+                    <div class="example-body">
+                <div class="code-example">
+                    <div class="code-header">
+                        <span class="code-title">example_multicall.cpp</span>
+                        <span class="code-lang">C++</span>
+                    </div>
+                    <pre><code><span class="comment">// sTiles example: Multiple matrices with same sparsity, processed in parallel</span>
+<span class="preprocessor">#include</span> <span class="string">"stiles.h"</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;vector&gt;</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;cstdio&gt;</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;omp.h&gt;</span>
+
+<span class="type">int</span> <span class="function">main</span>() {
+    <span class="comment">// Shared sparsity pattern (4x4 tridiagonal)</span>
+    <span class="type">int</span> N = <span class="number">4</span>, NNZ = <span class="number">7</span>;
+    <span class="type">int</span> num_calls = <span class="number">4</span>;  <span class="comment">// 4 matrices to process</span>
+
+    <span class="comment">// Each call needs its own copy of row/col indices</span>
+    std::vector&lt;std::vector&lt;<span class="type">int</span>&gt;&gt; all_rows(num_calls), all_cols(num_calls);
+    std::vector&lt;std::vector&lt;<span class="type">double</span>&gt;&gt; all_vals(num_calls);
+
+    <span class="keyword">for</span> (<span class="type">int</span> c = <span class="number">0</span>; c < num_calls; c++) {
+        all_rows[c] = {<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>};
+        all_cols[c] = {<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>};
+        <span class="comment">// Different diagonal values for each call</span>
+        <span class="type">double</span> diag = <span class="number">10.0</span> + c * <span class="number">2.0</span>;
+        all_vals[c] = {diag, <span class="number">-1.0</span>, diag, <span class="number">-1.0</span>, diag, <span class="number">-1.0</span>, diag};
+    }
+
+    <span class="comment">// Setup: 1 group with 4 calls, 2 cores per call</span>
+    <span class="type">int</span> calls[] = {num_calls};
+    <span class="type">int</span> cores[] = {<span class="number">2</span>};  <span class="comment">// 2 cores per call = 8 total threads</span>
+    <span class="type">int</span> variant[] = {<span class="number">0</span>};
+    <span class="type">bool</span> need_inv[] = {<span class="keyword">true</span>};
+
+    <span class="type">void</span>* stile = <span class="keyword">nullptr</span>;
+    <span class="function">sTiles_create</span>(&stile, <span class="number">1</span>, calls, cores, variant, need_inv);
+
+    <span class="comment">// Assign graph for each call (same pattern, different arrays)</span>
+    <span class="keyword">for</span> (<span class="type">int</span> c = <span class="number">0</span>; c < num_calls; c++) {
+        <span class="function">sTiles_assign_graph_one_call</span>(<span class="number">0</span>, c, &stile, N, NNZ,
+            all_rows[c].data(), all_cols[c].data());
+    }
+    <span class="function">sTiles_init_group</span>(<span class="number">0</span>, &stile);
+
+    <span class="comment">// Assign values for each call</span>
+    <span class="keyword">for</span> (<span class="type">int</span> c = <span class="number">0</span>; c < num_calls; c++) {
+        <span class="function">sTiles_assign_values</span>(<span class="number">0</span>, c, &stile, all_vals[c].data());
+    }
+
+    <span class="comment">// Process all calls in parallel using OpenMP</span>
+    <span class="preprocessor">#pragma omp parallel for num_threads(num_calls)</span>
+    <span class="keyword">for</span> (<span class="type">int</span> c = <span class="number">0</span>; c < num_calls; c++) {
+        <span class="function">sTiles_bind</span>(<span class="number">0</span>, c, &stile);
+        <span class="function">sTiles_chol</span>(<span class="number">0</span>, c, &stile);
+        <span class="function">sTiles_selinv</span>(<span class="number">0</span>, c, &stile);
+        <span class="function">sTiles_unbind</span>(<span class="number">0</span>, c, &stile);
+    }
+
+    <span class="comment">// Collect results</span>
+    printf(<span class="string">"Results from %d parallel factorizations:\n"</span>, num_calls);
+    <span class="keyword">for</span> (<span class="type">int</span> c = <span class="number">0</span>; c < num_calls; c++) {
+        <span class="type">double</span> logdet = <span class="function">sTiles_get_logdet</span>(<span class="number">0</span>, c, &stile);
+        <span class="type">double</span> var0 = <span class="function">sTiles_get_selinv_elm</span>(<span class="number">0</span>, c, <span class="number">0</span>, <span class="number">0</span>, &stile);
+        printf(<span class="string">"  Call %d: logdet=%.4f, Var[0]=%.6f\n"</span>, c, logdet, var0);
+    }
+
+    <span class="function">sTiles_quit</span>();
+    <span class="keyword">return</span> <span class="number">0</span>;
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Example 5 -->
+                <div class="example-item" onclick="toggleExample(this)">
+                    <div class="example-header">
+                        <div class="example-number">5</div>
+                        <div class="example-info">
+                            <h3>Iterative Value Updates (Reuse Pattern)</h3>
+                            <p>Update values and re-factorize without re-initialization. For iterative algorithms.</p>
+                        </div>
+                        <div class="example-level advanced">Advanced</div>
+                        <span class="example-toggle">+</span>
+                    </div>
+                    <div class="example-body">
+                <div class="code-example">
+                    <div class="code-header">
+                        <span class="code-title">example_reuse.cpp</span>
+                        <span class="code-lang">C++</span>
+                    </div>
+                    <pre><code><span class="comment">// sTiles example: Update values and re-factorize without re-initialization</span>
+<span class="preprocessor">#include</span> <span class="string">"stiles.h"</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;vector&gt;</span>
+<span class="preprocessor">#include</span> <span class="string">&lt;cstdio&gt;</span>
+
+<span class="type">int</span> <span class="function">main</span>() {
+    <span class="comment">// 4x4 tridiagonal SPD matrix</span>
+    <span class="type">int</span> N = <span class="number">4</span>, NNZ = <span class="number">7</span>;
+    std::vector&lt;<span class="type">int</span>&gt; rows = {<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">int</span>&gt; cols = {<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">3</span>};
+    std::vector&lt;<span class="type">double</span>&gt; vals = {<span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>, <span class="number">-1.0</span>, <span class="number">10.0</span>};
+
+    <span class="type">int</span> calls[] = {<span class="number">1</span>}, cores[] = {<span class="number">4</span>}, variant[] = {<span class="number">0</span>};
+    <span class="type">bool</span> need_inv[] = {<span class="keyword">true</span>};
+
+    <span class="type">void</span>* stile = <span class="keyword">nullptr</span>;
+    <span class="function">sTiles_create</span>(&stile, <span class="number">1</span>, calls, cores, variant, need_inv);
+    <span class="function">sTiles_assign_graph_one_call</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, N, NNZ, rows.data(), cols.data());
+    <span class="function">sTiles_init_group</span>(<span class="number">0</span>, &stile);  <span class="comment">// Called once!</span>
+
+    <span class="comment">// Simulate iterative algorithm with 5 iterations</span>
+    <span class="keyword">for</span> (<span class="type">int</span> iter = <span class="number">0</span>; iter < <span class="number">5</span>; iter++) {
+        <span class="comment">// Update diagonal values (simulate parameter changes)</span>
+        <span class="type">double</span> diag = <span class="number">10.0</span> + iter * <span class="number">1.5</span>;
+        vals[<span class="number">0</span>] = vals[<span class="number">2</span>] = vals[<span class="number">4</span>] = vals[<span class="number">6</span>] = diag;
+
+        <span class="comment">// Assign new values (no re-init needed!)</span>
+        <span class="function">sTiles_assign_values</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, vals.data());
+
+        <span class="comment">// Re-factorize with updated values</span>
+        <span class="function">sTiles_bind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+        <span class="function">sTiles_chol</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+        <span class="function">sTiles_selinv</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+        <span class="function">sTiles_unbind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+
+        <span class="comment">// Query results for this iteration</span>
+        <span class="type">double</span> logdet = <span class="function">sTiles_get_logdet</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+        <span class="type">double</span> var0 = <span class="function">sTiles_get_selinv_elm</span>(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, &stile);
+
+        printf(<span class="string">"Iter %d: diag=%.1f, logdet=%.4f, Var[0]=%.6f\n"</span>,
+               iter, diag, logdet, var0);
+    }
+
+    <span class="function">sTiles_quit</span>();
+    <span class="keyword">return</span> <span class="number">0</span>;
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Presentations Section -->
+    <section id="presentations" style="background: var(--bg-secondary);">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge orange">Talks</div>
+                <h2 class="section-title">Presentations</h2>
+                <p class="section-description">
+                    Conference talks and workshop presentations on sTiles.
+                </p>
+            </div>
+
+            <div class="presentations-grid">
+                <div class="presentation-card">
+                    <div class="presentation-header">
+                        <h3>From Single Core to Many Cores to GPUs</h3>
+                        <p>INLA Workshop, University of Glasgow, Scotland (2025)</p>
+                        <p style="margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                            Tailored for statisticians working with INLA methodology.
+                        </p>
+                    </div>
+                    <div class="presentation-footer">
+                        <span class="talk-type invited">Invited Talk</span>
+                        <a href="./pdfs/sTiles_presentation1.pdf" target="_blank">Download &darr;</a>
+                    </div>
+                </div>
+
+                <div class="presentation-card">
+                    <div class="presentation-header">
+                        <h3>sTiles: Accelerated Sparse Factorizations</h3>
+                        <p>ISC High Performance 2025, Hamburg, Germany</p>
+                        <p style="margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                            Technical presentation for HPC audience.
+                        </p>
+                    </div>
+                    <div class="presentation-footer">
+                        <span class="talk-type contributed">Contributed Talk</span>
+                        <a href="./pdfs/sTiles_presentation2.pdf" target="_blank">Download &darr;</a>
+                    </div>
+                </div>
+
+                <div class="presentation-card">
+                    <div class="presentation-header">
+                        <h3>What's Slowing Down Your Statistical Model, and How Tiling Fixes It?</h3>
+                        <p>CIRAD, Montpellier, France (Apr. 2026)</p>
+                        <p style="margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                            Seminar on computational bottlenecks in spatial statistical models and how tiling-based algorithms (sTiles) accelerate them.
+                        </p>
+                    </div>
+                    <div class="presentation-footer">
+                        <span class="talk-type invited">Seminar</span>
+                        <a href="./presentations/Montpellier/index.html" target="_blank">View &rarr;</a>
+                    </div>
+                </div>
+
+                <div class="presentation-card">
+                    <div class="presentation-header">
+                        <h3>Dense Tiling Meets Structured Sparsity: Scalable Algorithms with sTiles</h3>
+                        <p>SIAM PP26 – Minisymposium (Mar. 4, 2026)</p>
+                        <p style="margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                            Minisymposium talk on scalable tiling algorithms for structured sparse matrices.
+                        </p>
+                    </div>
+                    <div class="presentation-footer">
+                        <span class="talk-type invited">Invited Talk</span>
+                        <a href="./presentations/SIAMPP26/index_talk1.html" target="_blank">View &rarr;</a>
+                    </div>
+                </div>
+
+                <div class="presentation-card">
+                    <div class="presentation-header">
+                        <h3>GPU-Accelerated Parallel Selected Inversion for Structured Matrices</h3>
+                        <p>SIAM PP26 – Contributed Talk (2026)</p>
+                        <p style="margin-top: 12px; font-size: 0.85rem; color: rgba(255,255,255,0.5);">
+                            GPU-accelerated selected inversion using sTiles for structured sparse matrices.
+                        </p>
+                    </div>
+                    <div class="presentation-footer">
+                        <span class="talk-type contributed">Contributed Talk</span>
+                        <a href="./presentations/SIAMPP26/index_talk2.html" target="_blank">View &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- API Reference Section -->
+    <section id="api">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge">Documentation</div>
+                <h2 class="section-title">API Reference</h2>
+                <p class="section-description">
+                    C API for integrating sTiles into your applications. Click to expand function details.
+                </p>
+            </div>
+
+            <!-- Object Creation -->
+            <div class="api-category">
+                <h3 class="api-category-title">
+                    <span class="api-category-dot teal"></span>
+                    Object Creation & Initialization
+                </h3>
+
+                <!-- Group / Calls concept diagram -->
+                <div class="concept-box">
+                    <div class="concept-box-header" onclick="toggleConcept(this)">
+                        <div>
+                            <h4>Groups and Calls: the two-level parallelism model</h4>
+                            <span style="font-size:0.85rem; color:var(--text-muted);">Required reading before calling <code style="color:var(--teal);font-family:'JetBrains Mono',monospace;">sTiles_create</code> and <code style="color:var(--teal);font-family:'JetBrains Mono',monospace;">sTiles_assign_graph_one_call</code></span>
+                        </div>
+                        <span class="concept-toggle">+ expand</span>
+                    </div>
+                    <div class="concept-box-body">
+                    <p class="concept-intro">
+                        Use <code>sTiles_create</code> to declare how many matrices you need to factorize and how many threads to use, then
+                        <code>sTiles_assign_graph_one_call</code> to hand off each matrix's sparsity pattern, and
+                        <code>sTiles_init_group</code> to run the symbolic phase.
+                        The two parameters that govern this setup are <strong>groups</strong> and <strong>calls per group</strong>:
+                        a <strong>group</strong> owns a sparsity pattern (symbolic factorization runs once per group), and each group holds one or more <strong>calls</strong>,
+                        independent matrices with different values that are factorized in parallel.
+                    </p>
+                    <div class="concept-diagram">
+                        <div class="concept-root-node">sTiles_create( num_groups=2, calls_per_group={2,3}, cores_per_group={8,6} )</div>
+                        <div class="concept-connector-v"></div>
+                        <div class="concept-connector-row">
+                            <!-- Group 0 -->
+                            <div class="concept-group-box cg-lime">
+                                <div class="concept-group-tag">Group 0</div>
+                                <div class="concept-group-name">Sparsity pattern A<br>
+                                    <span style="color:var(--text-muted);font-size:0.72rem">symbolic phase → once</span>
+                                </div>
+                                <div class="concept-calls-row">
+                                    <div class="concept-call-chip"><strong>Call 0</strong><span>vals₀ · 8 cores</span></div>
+                                    <div class="concept-call-chip"><strong>Call 1</strong><span>vals₁ · 8 cores</span></div>
+                                </div>
+                            </div>
+                            <!-- Group 1 -->
+                            <div class="concept-group-box cg-teal">
+                                <div class="concept-group-tag">Group 1</div>
+                                <div class="concept-group-name">Sparsity pattern B<br>
+                                    <span style="color:var(--text-muted);font-size:0.72rem">symbolic phase → once</span>
+                                </div>
+                                <div class="concept-calls-row">
+                                    <div class="concept-call-chip"><strong>Call 0</strong><span>vals₀ · 6 cores</span></div>
+                                    <div class="concept-call-chip"><strong>Call 1</strong><span>vals₁ · 6 cores</span></div>
+                                    <div class="concept-call-chip"><strong>Call 2</strong><span>vals₂ · 6 cores</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="concept-legend">
+                            <div class="concept-legend-item">
+                                <div class="concept-legend-dot" style="background:var(--lime)"></div>
+                                <span><strong>Group</strong>: one sparsity pattern; symbolic phase runs once</span>
+                            </div>
+                            <div class="concept-legend-item">
+                                <div class="concept-legend-dot" style="background:var(--teal)"></div>
+                                <span><strong>Call</strong>: one numerical matrix; chol / selinv / solve run per call</span>
+                            </div>
+                            <div class="concept-legend-item">
+                                <div class="concept-legend-dot" style="background:var(--orange)"></div>
+                                <span><strong>Cores</strong>: threads per call for tile-parallel computation</span>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_create</span>
+                            <span class="api-function-brief">Create sTiles solver object</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_create</span>(<span class="type">void</span>** stile, <span class="type">int</span> num_groups, <span class="keyword">const</span> <span class="type">int</span>* calls_per_group, <span class="keyword">const</span> <span class="type">int</span>* cores_per_group, <span class="keyword">const</span> <span class="type">int</span>* factor_type, <span class="keyword">const</span> <span class="type">bool</span>* get_inverse);</code>
+                        </div>
+                        <div class="api-params">
+                            <h4>Parameters</h4>
+                            <div class="api-param">
+                                <span class="api-param-name">stile</span>
+                                <span class="api-param-desc">Output pointer to the created sTiles object. Pass the address of a <code>void*</code> variable.</span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">num_groups</span>
+                                <span class="api-param-desc">
+                                    Number of groups. Each group owns one sparsity pattern; <strong>symbolic factorization runs once per group</strong> (ordering, fill analysis, tile layout) and is reused by every call in that group.
+                                    Use multiple groups when you have matrices with structurally different sparsity patterns that you want to factorize together.
+                                    Most single-matrix problems use <code>num_groups = 1</code>.
+                                </span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">calls_per_group</span>
+                                <span class="api-param-desc">
+                                    Array of length <code>num_groups</code>.
+                                    <code>calls_per_group[g]</code> is the number of independent matrices in group g, all sharing group g's sparsity pattern but with different numerical values.
+                                    Each call gets its own factor storage and is factorized independently via <code>sTiles_chol</code> / <code>sTiles_selinv</code>.
+                                    <strong>Calls within a group run in parallel</strong> (launch one OpenMP thread per call).
+                                    Use <code>calls_per_group[g] = 1</code> for a single matrix.
+                                    Use <code>calls_per_group[g] = N_θ</code> to factorize N<sub>θ</sub> hyperparameter samples simultaneously (INLA pattern).
+                                </span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">cores_per_group</span>
+                                <span class="api-param-desc">
+                                    Array of length <code>num_groups</code>.
+                                    <code>cores_per_group[g]</code> is the number of CPU threads allocated to <em>each call</em> in group g for tile-level parallelism inside <code>sTiles_chol</code> / <code>sTiles_selinv</code>.
+                                    Total threads consumed at peak ≈ <code>calls_per_group[g] × cores_per_group[g]</code> per group.
+                                    For a single-call setup this is simply the number of cores for the factorization.
+                                </span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">factor_type</span>
+                                <span class="api-param-desc">Array of length <code>num_groups</code>. Factorization variant per group (0 = standard Cholesky).</span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">get_inverse</span>
+                                <span class="api-param-desc">Array of length <code>num_groups</code>. Set <code>get_inverse[g] = true</code> to enable selected inversion (<code>sTiles_selinv</code>) for group g. Memory for the inverse is pre-allocated during <code>sTiles_init_group</code>; calling <code>sTiles_selinv</code> on a group where this is <code>false</code> will fail.</span>
+                            </div>
+                        </div>
+                        <p style="margin-top: 12px;"><strong>Returns:</strong> 0 on success, negative error code on failure.</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_assign_graph_one_call</span>
+                            <span class="api-function-brief">Assign sparsity pattern for one call</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_assign_graph_one_call</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile, <span class="type">int</span> N, <span class="type">int</span> NNZ, <span class="type">int</span>* rows, <span class="type">int</span>* cols);</code>
+                        </div>
+                        <div class="api-params">
+                            <h4>Parameters</h4>
+                            <div class="api-param">
+                                <span class="api-param-name">group_id, call_id</span>
+                                <span class="api-param-desc">Target group and call indices (0-based)</span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">N</span>
+                                <span class="api-param-desc">Matrix dimension (N x N)</span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">NNZ</span>
+                                <span class="api-param-desc">Number of stored non-zeros in one triangle, diagonal included. Pass a single triangle of the symmetric matrix; the examples use the lower triangle (row &ge; col).</span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">rows, cols</span>
+                                <span class="api-param-desc">COO format row/column indices (0-based). <strong>Important:</strong> sTiles takes ownership of these pointers directly (no copy). Arrays must remain valid until sTiles_quit() or the call is reassigned.</span>
+                            </div>
+                        </div>
+                        <p style="margin-top: 12px;"><strong>Returns:</strong> 0 on success.</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_init_group</span>
+                            <span class="api-function-brief">Initialize group (symbolic factorization)</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_init_group</span>(<span class="type">int</span> group_id, <span class="type">void</span>** stile);</code>
+                        </div>
+                        <p style="margin-top: 12px;">Performs symbolic factorization, ordering, and memory allocation. Call after assigning graphs.</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_assign_values</span>
+                            <span class="api-function-brief">Assign numerical values to matrix</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_assign_values</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile, <span class="type">double</span>* values);</code>
+                        </div>
+                        <p style="margin-top: 12px;">Values can be updated between solves without re-initializing.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Core Configuration -->
+            <div class="api-category">
+                <h3 class="api-category-title">
+                    <span class="api-category-dot lime"></span>
+                    Core Configuration
+                </h3>
+
+                <div class="concept-note" style="margin-bottom: 24px;">
+                    <strong>Prerequisite:</strong> call <code>sTiles_expert_user()</code> once at startup before any of the configuration setters below
+                    (<code>sTiles_set_tile_size</code>, <code>sTiles_set_tile_type_mode</code>, <code>sTiles_set_ordering_mode</code>, <code>sTiles_set_control_param</code>, <code>sTiles_force_ND</code>, &hellip;).
+                    Without it, these calls print a warning and return without changing anything.
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_set_tile_size</span>
+                            <span class="api-function-brief">Set tile dimension for blocked operations</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">void</span> <span class="function">sTiles_set_tile_size</span>(<span class="type">int</span> size);</code>
+                        </div>
+                        <div class="api-params">
+                            <h4>Parameters</h4>
+                            <div class="api-param">
+                                <span class="api-param-name">size</span>
+                                <span class="api-param-desc">Tile dimension in elements. Typical values: 32, 40, 64, 128.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_set_tile_type_mode</span>
+                            <span class="api-function-brief">Choose tile storage format</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">void</span> <span class="function">sTiles_set_tile_type_mode</span>(<span class="type">int</span> value);</code>
+                        </div>
+                        <div class="api-params">
+                            <h4>Parameters</h4>
+                            <div class="api-param">
+                                <span class="api-param-name">value</span>
+                                <span class="api-param-desc">0 = dense tiles (standard column-major storage), 1 = semisparse tiles (LAPACK banded storage that reduces memory for low fill-in tiles), 2 = non-uniform tiles, 3 = auto (resolve to 0/1/2 after the symbolic phase). Default is 1 (semisparse), which suits most large sparse matrices.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_set_control_param / sTiles_get_control_param</span>
+                            <span class="api-function-brief">Direct access to internal control parameters</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">void</span> <span class="function">sTiles_set_control_param</span>(<span class="type">int</span> index, <span class="type">int</span> value);<br><span class="type">int</span> <span class="function">sTiles_get_control_param</span>(<span class="type">int</span> index);</code>
+                        </div>
+                        <div class="api-params">
+                            <h4>Parameters</h4>
+                            <div class="api-param">
+                                <span class="api-param-name">index</span>
+                                <span class="api-param-desc">Parameter index (0-26). Use <code>sTiles_get_param_description(index)</code> for the per-value meaning of each slot:<br>
+                                    • 0: Semisparse pruning mode (prefer sTiles_set_correction_mode)<br>
+                                    • 1: Tile size (prefer sTiles_set_tile_size; -1 = auto, the default)<br>
+                                    • 2: Ordering candidate list (prefer sTiles_set_ordering_mode; 0 = adaptive, the default)<br>
+                                    • 3: Tile type mode (prefer sTiles_set_tile_type_mode; default 1 = semisparse)<br>
+                                    • 4: Tile ordering mode (prefer sTiles_set_tile_ordering_mode)<br>
+                                    • 5: Tile ordering size (prefer sTiles_set_tile_ordering_size; -1 = auto)<br>
+                                    • 6: Force nested dissection mode (prefer sTiles_force_ND)<br>
+                                    • 7: Inverse storage mode (prefer sTiles_set_inverse_storage_mode)<br>
+                                    • 8: Parallelization mode (prefer sTiles_set_use_omp; 0 = pthreads, 1 = OpenMP)<br>
+                                    • 9: Semisparse implementation (prefer sTiles_set_semisparse_impl)<br>
+                                    • 10-11: GPU compare mode / GPU enable<br>
+                                    • 12: Memory-estimate mode (prefer sTiles_set_memory_estimate)<br>
+                                    • 14-15: Serial mode / Bandwidth mode<br>
+                                    • 20: Force SCOTCH ordering (prefer sTiles_set_force_scotch_ordering)<br>
+                                    • 21: SCOTCH padding (prefer sTiles_set_scotch_padding)<br>
+                                    • 22: Path-2 ND scheduling depth<br>
+                                    • 25: Tree-reduction path enable (prefer sTiles_set_tree_path_enable; default 1)<br>
+                                    • 26: Tree-reduction path force (prefer sTiles_set_tree_path_force)<br>
+                                    • 13, 16-19, 23-24: reserved / deprecated</span>
+                            </div>
+                            <div class="api-param">
+                                <span class="api-param-name">value</span>
+                                <span class="api-param-desc">Value to set (for set function)</span>
+                            </div>
+                        </div>
+                        <p style="margin-top: 12px;"><strong>Returns (get):</strong> Parameter value, or -1 if index out of range.</p>
+                        <p style="margin-top: 8px;"><strong>Note:</strong> Prefer the dedicated setter functions (sTiles_set_tile_size, etc.) for type safety and validation. Use these functions for advanced scenarios or querying current state.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Execution -->
+            <div class="api-category">
+                <h3 class="api-category-title">
+                    <span class="api-category-dot orange"></span>
+                    Execution
+                </h3>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_bind / sTiles_unbind</span>
+                            <span class="api-function-brief">Activate/deactivate persistent thread teams</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_bind</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile);<br><span class="type">int</span> <span class="function">sTiles_unbind</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile);</code>
+                        </div>
+                        <p style="margin-top: 12px;"><strong>sTiles_bind:</strong> Activates a persistent thread team for the specified call. This does not create new threads but activates pre-allocated worker threads for parallel tile operations. Must be called before sTiles_chol, sTiles_selinv, or solve functions.</p>
+                        <p style="margin-top: 8px;"><strong>sTiles_unbind:</strong> Deactivates the thread team, releasing workers back to the pool. Always call after finishing computations on a call. Forgetting to unbind may cause resource leaks or deadlocks.</p>
+                        <p style="margin-top: 8px;"><strong>Returns:</strong> 0 on success.</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_chol</span>
+                            <span class="api-function-brief">Perform Cholesky factorization (A = LL^T)</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_chol</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile);</code>
+                        </div>
+                        <p style="margin-top: 12px;">Returns 0 on success, non-zero if matrix is not positive definite.</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_selinv</span>
+                            <span class="api-function-brief">Compute selected inverse elements</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_selinv</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile);</code>
+                        </div>
+                        <p style="margin-top: 12px;">Computes A^{-1} elements matching the sparsity pattern. Call sTiles_chol first.</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_solve_LLT</span>
+                            <span class="api-function-brief">Solve Ax = b using Cholesky factorization</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">int</span> <span class="function">sTiles_solve_LLT</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile, <span class="type">double</span>* b, <span class="type">int</span> nrhs);</code>
+                        </div>
+                        <p style="margin-top: 12px;">In-place solve. b is overwritten with solution x. Column-major for multiple RHS.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query & Cleanup -->
+            <div class="api-category">
+                <h3 class="api-category-title">
+                    <span class="api-category-dot black"></span>
+                    Query & Cleanup
+                </h3>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_get_logdet</span>
+                            <span class="api-function-brief">Get log-determinant of factored matrix</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">double</span> <span class="function">sTiles_get_logdet</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">void</span>** stile);</code>
+                        </div>
+                        <p style="margin-top: 12px;">Returns log|A| = 2 * sum(log(L_ii)). Computed efficiently during factorization.</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_get_selinv_elm</span>
+                            <span class="api-function-brief">Retrieve inverse element A^{-1}[i][j]</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">double</span> <span class="function">sTiles_get_selinv_elm</span>(<span class="type">int</span> group_id, <span class="type">int</span> call_id, <span class="type">int</span> row, <span class="type">int</span> col, <span class="type">void</span>** stile);</code>
+                        </div>
+                        <p style="margin-top: 12px;">Returns A^{-1}[row][col] if within the sparsity pattern (0-based indices).</p>
+                    </div>
+                </div>
+
+                <div class="api-function">
+                    <div class="api-function-header" onclick="toggleApi(this)">
+                        <div>
+                            <span class="api-function-name">sTiles_quit</span>
+                            <span class="api-function-brief">Clean shutdown of sTiles</span>
+                        </div>
+                        <span class="api-function-toggle">+ expand</span>
+                    </div>
+                    <div class="api-function-details">
+                        <div class="api-signature">
+                            <code><span class="type">void</span> <span class="function">sTiles_quit</span>(<span class="type">void</span>);</code>
+                        </div>
+                        <p style="margin-top: 12px;">Releases all allocated memory across all internal memory managers: MemoryManager, TileMemoryManager, TreeMemoryManager, AlgorithmsMemoryManager, OrderingMemoryManager, CpuSmartTileMemoryManager, TileIndexerMemoryManager, and GpuMemoryManager (if GPU enabled). Also destroys all thread contexts and CUDA handles. Call once at program termination.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Example -->
+            <div class="code-example">
+                <div class="code-header">
+                    <span class="code-title">Basic Usage Example</span>
+                    <span class="code-lang">C++</span>
+                </div>
+                <pre><code><span class="comment">// Setup arrays</span>
+<span class="type">int</span> num_groups = <span class="number">1</span>;
+<span class="type">int</span> calls_per_group[] = {<span class="number">1</span>};
+<span class="type">int</span> cores_per_group[] = {<span class="number">4</span>};      <span class="comment">// 4 cores for parallel factorization</span>
+<span class="type">int</span> factor_type[] = {<span class="number">0</span>};          <span class="comment">// Standard sparse factorization</span>
+<span class="type">bool</span> get_inverse[] = {<span class="keyword">true</span>};     <span class="comment">// Compute selected inverse</span>
+
+<span class="comment">// Create solver object</span>
+<span class="type">void</span>* stile = <span class="keyword">nullptr</span>;
+<span class="function">sTiles_create</span>(&stile, num_groups, calls_per_group,
+              cores_per_group, factor_type, get_inverse);
+
+<span class="comment">// Assign sparsity pattern (sTiles takes ownership of rows/cols pointers!)</span>
+<span class="function">sTiles_assign_graph_one_call</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, N, NNZ, rows, cols);
+
+<span class="comment">// Initialize: symbolic factorization, ordering, memory allocation</span>
+<span class="function">sTiles_init_group</span>(<span class="number">0</span>, &stile);
+
+<span class="comment">// Assign numerical values (can be updated without re-init)</span>
+<span class="function">sTiles_assign_values</span>(<span class="number">0</span>, <span class="number">0</span>, &stile, values);
+
+<span class="comment">// Compute: bind -> chol -> selinv -> unbind</span>
+<span class="function">sTiles_bind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+<span class="function">sTiles_chol</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+<span class="function">sTiles_selinv</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+<span class="function">sTiles_unbind</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+
+<span class="comment">// Query results</span>
+<span class="type">double</span> logdet = <span class="function">sTiles_get_logdet</span>(<span class="number">0</span>, <span class="number">0</span>, &stile);
+<span class="type">double</span> var_i = <span class="function">sTiles_get_selinv_elm</span>(<span class="number">0</span>, <span class="number">0</span>, i, i, &stile);  <span class="comment">// Diagonal = variance</span>
+
+<span class="comment">// Cleanup all memory</span>
+<span class="function">sTiles_quit</span>();</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge" style="background: var(--orange);">Setup</div>
+                <h2 class="section-title">Getting Started</h2>
+                <p class="section-description">
+                    Install the Python or R package in one line, or use the pre-built C/C++ library directly.
+                </p>
+            </div>
+
+            <!-- Language packages: the easiest path -->
+            <div style="max-width: 920px; margin: 0 auto 56px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+                    <div class="code-example" style="margin: 0;">
+                        <div class="code-header">
+                            <span class="code-title">Python &mdash; from PyPI</span>
+                            <span class="code-lang">pip</span>
+                        </div>
+                        <pre><code><span class="comment"># the native libstiles is fetched</span>
+<span class="comment"># automatically on first import</span>
+pip install sTiles
+
+<span class="keyword">from</span> sTiles <span class="keyword">import</span> sTiles
+s = <span class="function">sTiles</span>(Q, inverse=<span class="keyword">True</span>)
+s.logdet; s.solve(b); s.selinv_diag()</code></pre>
+                    </div>
+                    <div class="code-example" style="margin: 0;">
+                        <div class="code-header">
+                            <span class="code-title">R &mdash; from GitHub</span>
+                            <span class="code-lang" style="background: var(--teal); color: #fff;">R</span>
+                        </div>
+                        <pre><code><span class="comment"># libstiles is fetched automatically</span>
+<span class="comment"># on first use</span>
+remotes::<span class="function">install_github</span>(
+  <span class="string">"esmail-abdulfattah/sTiles"</span>, subdir=<span class="string">"R/sTiles"</span>)
+
+<span class="function">library</span>(sTiles)
+s &lt;- <span class="function">sTiles</span>(Q, inverse=<span class="keyword">TRUE</span>)
+<span class="function">sTiles_logdet</span>(s); <span class="function">sTiles_solve</span>(s, b)</code></pre>
+                    </div>
+                </div>
+                <p style="text-align: center; color: var(--text-secondary); font-size: 0.92rem; margin-top: 18px;">
+                    The easiest way to use sTiles &mdash; no compiler needed. Prefer C/C++? See the pre-built library and linking steps below.
+                </p>
+            </div>
+
+            <div class="install-grid">
+                <div class="install-steps">
+                    <h3>Quick Start (C/C++)</h3>
+
+                    <div class="install-step">
+                        <div class="step-num">1</div>
+                        <div class="step-content">
+                            <h4>Download</h4>
+                            <p><a href="./download.html" style="color: var(--teal); font-weight: 600; text-decoration: none;">Register and download &rarr;</a> the sTiles package for your platform</p>
+                        </div>
+                    </div>
+
+                    <div class="install-step">
+                        <div class="step-num">2</div>
+                        <div class="step-content">
+                            <h4>Include Header</h4>
+                            <p>#include "stiles.h"</p>
+                        </div>
+                    </div>
+
+                    <div class="install-step">
+                        <div class="step-num">3</div>
+                        <div class="step-content">
+                            <h4>Link Library</h4>
+                            <p>Link against libstiles.so (Linux), libstiles.dylib (macOS), or libstiles.dll (Windows)</p>
+                        </div>
+                    </div>
+
+                    <div class="install-step">
+                        <div class="step-num">4</div>
+                        <div class="step-content">
+                            <h4>Run</h4>
+                            <p>Call sTiles API functions from your C/C++ application</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="download-section" style="text-align: center;">
+                <h3>Pre-built Binaries</h3>
+                <p style="color: var(--text-secondary); margin: 8px auto 24px; max-width: 560px;">Pre-built binaries are available for Linux (x86_64 and arm64), macOS (Apple Silicon), and Windows (x86_64). The x86_64 build runs on any x86-64 CPU (AVX2 baseline with runtime AVX-512 acceleration). Register to see the full platform list and download links.</p>
+                <a href="./download.html" class="download-btn" style="display: inline-block; padding: 14px 32px; font-size: 1rem;">Register &amp; Download &rarr;</a>
+                <p style="margin-top: 12px; color: var(--text-muted); font-size: 0.9rem;">Free for research and academic use. A short form helps us understand our user community.</p>
+            </div>
+
+            <div class="code-example" style="margin-top: 48px;">
+                <div class="code-header">
+                    <span class="code-title">Compilation Example</span>
+                    <span class="code-lang">Shell</span>
+                </div>
+                <pre><code># Linux (x86_64 or arm64)
+# BLAS/LAPACK are embedded inside libstiles, so -lstiles is all you need.
+g++ -O3 -fopenmp myapp.cpp \
+  -I/path/to/stiles/include \
+  -L/path/to/stiles/lib -Wl,-rpath,/path/to/stiles/lib -lstiles -o myapp
+
+# macOS (Apple Silicon)
+# The dylib is self-contained; libomp provides the OpenMP runtime.
+clang++ -O3 -Xpreprocessor -fopenmp myapp.cpp \
+  -I/path/to/stiles/include \
+  -L/path/to/stiles/lib -Wl,-rpath,/path/to/stiles/lib -lstiles -lomp -o myapp
+
+# Windows (x86_64) — build in the MinGW-w64 UCRT64 shell (MSYS2 / Rtools44), not MSVC.
+# Note: header lives under tools\include, link uses the libstiles.dll.a import lib,
+# and there is no -rpath on Windows.
+g++ -O3 -fopenmp myapp.cpp \
+  -I/path/to/stiles/tools/include \
+  -L/path/to/stiles/lib -lstiles -o myapp.exe
+# The Windows DLL is NOT self-contained: keep libstiles.dll and its runtime DLLs
+# (libopenblas, libgfortran-5, libgomp-1, libgcc_s_seh-1, libstdc++-6,
+#  libwinpthread-1, libhwloc-15) on PATH or beside myapp.exe.</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- How to Cite Section -->
+    <section id="cite" style="background: var(--bg-secondary);">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge orange">Reference</div>
+                <h2 class="section-title">How to Cite</h2>
+                <p class="section-description">
+                    If you use sTiles in your research, please cite the appropriate paper(s) below.
+                </p>
+            </div>
+
+            <div class="publications-grid">
+                <div class="publication-card">
+                    <div class="publication-icon lime">&#x1F4D6;</div>
+                    <div class="publication-content">
+                        <h3>General Use of sTiles</h3>
+                        <div style="background: var(--bg-code); padding: 16px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">
+                            <pre style="color: #e0e0e0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; margin: 0; white-space: pre-wrap;">@inproceedings{fattah2025stiles,
+  title     = {{sTiles}: An Accelerated Computational
+               Framework for Sparse Factorizations
+               of Structured Matrices},
+  author    = {Fattah, Esmail Abdul and Ltaief, Hatem
+               and Rue, H{\aa}vard and Keyes, David},
+  booktitle = {ISC High Performance 2025 Research Paper
+               Proceedings (40th International Conference)},
+  pages     = {1--14},
+  year      = {2025},
+  organization = {Prometeus GmbH}
+}</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="publication-card">
+                    <div class="publication-icon teal">&#x1F4D6;</div>
+                    <div class="publication-content">
+                        <h3>Selected Inverse Functionality</h3>
+                        <div style="background: var(--bg-code); padding: 16px; border-radius: 8px; margin: 12px 0; overflow-x: auto;">
+                            <pre style="color: #e0e0e0; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; margin: 0; white-space: pre-wrap;">@article{fattah2025gpu,
+  title   = {{GPU}-Accelerated Parallel Selected
+             Inversion for Structured Matrices
+             Using {sTiles}},
+  author  = {Fattah, Esmail Abdul and Ltaief, Hatem
+             and Rue, H{\aa}vard and Keyes, David},
+  journal = {arXiv preprint arXiv:2504.19171},
+  year    = {2025}
+}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge" style="background: var(--lime); color: var(--black);">Connect</div>
+                <h2 class="section-title">Get In Touch</h2>
+            </div>
+
+            <!-- Author Card - Prominent -->
+            <div style="background: rgba(255,255,255,0.15); border-radius: 20px; padding: 40px; margin-bottom: 40px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);">
+                <div style="display: flex; align-items: center; gap: 32px; flex-wrap: wrap;">
+                    <div style="flex-shrink: 0;">
+                        <img src="images/E.jpg" alt="Esmail Abdul Fattah" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--lime); box-shadow: 0 8px 25px rgba(0,0,0,0.3);">
+                    </div>
+                    <div style="flex: 1; min-width: 250px;">
+                        <h3 style="font-size: 1.8rem; margin-bottom: 8px;">Esmail Abdul Fattah</h3>
+                        <p style="color: rgba(255,255,255,0.8); font-size: 1.1rem; margin-bottom: 16px;">Developer & Maintainer</p>
+                        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+                            <a href="mailto:esmail.abdulfattah@kaust.edu.sa" style="color: var(--lime); text-decoration: none; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 1.2rem;">&#x2709;</span> esmail.abdulfattah@kaust.edu.sa
+                            </a>
+                        </div>
+                        <p style="color: rgba(255,255,255,0.7); margin-top: 12px; font-size: 0.95rem;">
+                            King Abdullah University of Science and Technology (KAUST)<br>
+                            Thuwal, Saudi Arabia
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <h3>&#x2709; Email List</h3>
+                    <p>Join the sTiles mailing list to receive updates about releases, new features, and research developments.</p>
+                    <a href="mailto:esmail.abdulfattah@kaust.edu.sa?subject=sTiles Mailing List">Subscribe &rarr;</a>
+                </div>
+
+                <div class="contact-card">
+                    <h3>&#x1F4BB; Contribute</h3>
+                    <p>Interested in contributing to sTiles? We're looking for help with Python wrappers and additional language bindings.</p>
+                    <a href="mailto:esmail.abdulfattah@kaust.edu.sa?subject=sTiles Contribution">Get Involved &rarr;</a>
+                </div>
+
+                <div class="contact-card">
+                    <h3>&#x1F9EA; Test Matrices</h3>
+                    <p>Have matrices that perform poorly with current solvers? Share them with us to help improve sTiles robustness.</p>
+                    <a href="mailto:esmail.abdulfattah@kaust.edu.sa?subject=sTiles Test Matrices">Send Matrices &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Acknowledgments -->
+    <section id="acknowledgments" class="section" style="background: #f8f9fa;">
+        <div class="container">
+            <h2 class="section-title" style="color: #1a1a2e;">Acknowledgments</h2>
+            <p style="text-align: center; color: #444; max-width: 800px; margin: 0 auto 40px;">
+                sTiles builds upon excellent open-source libraries and research. We gratefully acknowledge the following projects and their contributors.
+            </p>
+
+            <div style="max-width: 900px; margin: 0 auto;">
+                <ul style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 24px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <strong style="color: #1a1a2e; font-size: 1.1rem;">SCOTCH</strong>:Graph partitioning and sparse matrix ordering library. Used for nested dissection ordering.<br>
+                        <a href="https://www.labri.fr/perso/pelegrin/scotch/" target="_blank" style="color: #0066cc;">labri.fr/perso/pelegrin/scotch</a><br>
+                        <span style="color: #666; font-size: 0.9rem;">Pellegrini, F. & Roman, J. (1996). "SCOTCH: A Software Package for Static Mapping by Dual Recursive Bipartitioning of Process and Architecture Graphs."</span>
+                    </li>
+                    <li style="margin-bottom: 24px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <strong style="color: #1a1a2e; font-size: 1.1rem;">SuiteSparse</strong>:Suite of sparse matrix algorithms including AMD, COLAMD, and CHOLMOD ordering methods.<br>
+                        <a href="https://people.engr.tamu.edu/davis/suitesparse.html" target="_blank" style="color: #0066cc;">people.engr.tamu.edu/davis/suitesparse.html</a><br>
+                        <span style="color: #666; font-size: 0.9rem;">Davis, T. A. (2006). "Direct Methods for Sparse Linear Systems." SIAM.</span>
+                    </li>
+                    <li style="margin-bottom: 24px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <strong style="color: #1a1a2e; font-size: 1.1rem;">METIS</strong>:Graph partitioning library for fill-reducing orderings and nested dissection.<br>
+                        <a href="https://github.com/KarypisLab/METIS" target="_blank" style="color: #0066cc;">github.com/KarypisLab/METIS</a><br>
+                        <span style="color: #666; font-size: 0.9rem;">Karypis, G. & Kumar, V. (1998). "A Fast and High Quality Multilevel Scheme for Partitioning Irregular Graphs." SIAM J. Sci. Comput.</span>
+                    </li>
+                    <li style="margin-bottom: 24px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <strong style="color: #1a1a2e; font-size: 1.1rem;">BLAS/LAPACK</strong>:Foundational linear algebra libraries for dense matrix operations within tiles.<br>
+                        <a href="https://www.netlib.org/lapack/" target="_blank" style="color: #0066cc;">netlib.org/lapack</a><br>
+                        <span style="color: #666; font-size: 0.9rem;">Anderson, E. et al. (1999). "LAPACK Users' Guide." SIAM.</span>
+                    </li>
+                    <li style="margin-bottom: 24px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <strong style="color: #1a1a2e; font-size: 1.1rem;">OpenMP</strong>:Shared-memory parallel programming API for multi-threaded execution.<br>
+                        <a href="https://www.openmp.org/" target="_blank" style="color: #0066cc;">openmp.org</a><br>
+                        <span style="color: #666; font-size: 0.9rem;">OpenMP Architecture Review Board. "OpenMP Application Programming Interface."</span>
+                    </li>
+                    <li style="margin-bottom: 24px; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <strong style="color: #1a1a2e; font-size: 1.1rem;">RCM Algorithm</strong>:Reverse Cuthill-McKee algorithm for bandwidth reduction in sparse matrices.<br>
+                        <span style="color: #666; font-size: 0.9rem;">Cuthill, E. & McKee, J. (1969). "Reducing the bandwidth of sparse symmetric matrices." ACM '69.</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img src="images/stiles.jpeg" alt="sTiles">
+                    <p>High-performance tile-based sparse solver framework developed at KAUST for scientific computing and statistical applications.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Documentation</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#examples">Examples</a></li>
+                        <li><a href="#api">API Reference</a></li>
+                        <li><a href="#installation">Installation</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Research</h4>
+                    <ul>
+                        <li><a href="#publications">Publications</a></li>
+                        <li><a href="#presentations">Presentations</a></li>
+                        <li><a href="#acknowledgments">Acknowledgments</a></li>
+                        <li><a href="https://arxiv.org/abs/2501.02483" target="_blank">ISC 2025 Paper</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Contact</h4>
+                    <ul>
+                        <li><a href="mailto:esmail.abdulfattah@kaust.edu.sa">Email</a></li>
+                        <li><a href="https://www.kaust.edu.sa" target="_blank">KAUST</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <a href="https://www.kaust.edu.sa" target="_blank">
+                    <img src="images/KAUST_Logo.svg.png" alt="KAUST" style="height: 40px; margin-bottom: 12px;">
+                </a>
+                <p>&copy; 2026 sTiles. Developed by <a href="mailto:esmail.abdulfattah@kaust.edu.sa">Esmail Abdul Fattah</a> at KAUST.</p>
+                <p>King Abdullah University of Science and Technology</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Toggle API function details
+        function toggleApi(header) {
+            const func = header.closest('.api-function');
+            const toggle = header.querySelector('.api-function-toggle');
+            func.classList.toggle('expanded');
+            toggle.textContent = func.classList.contains('expanded') ? '- collapse' : '+ expand';
+        }
+
+        function toggleConcept(header) {
+            const box = header.closest('.concept-box');
+            const toggle = header.querySelector('.concept-toggle');
+            box.classList.toggle('expanded');
+            toggle.textContent = box.classList.contains('expanded') ? '- collapse' : '+ expand';
+        }
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Nav shadow on scroll
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.style.boxShadow = '0 2px 20px rgba(0,0,0,0.1)';
+            } else {
+                nav.style.boxShadow = 'none';
+            }
+        });
+
+        // Example accordion toggle
+        function toggleExample(element) {
+            // Close other examples (optional - remove for multi-open)
+            document.querySelectorAll('.example-item').forEach(el => {
+                if (el !== element) el.classList.remove('open');
+            });
+            // Toggle clicked example
+            element.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

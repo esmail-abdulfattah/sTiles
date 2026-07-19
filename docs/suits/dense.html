@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dense Factorization | sTiles Test Suite</title>
+    <script>
+        if (sessionStorage.getItem('stiles_bench_auth') !== '1') {
+            window.location.replace('../benchmarks.html');
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --lime:#c5d86d; --lime-dark:#a8bd4d; --orange:#e08c5a; --orange-dark:#c97442;
+            --teal:#4a9a8f; --teal-light:#6bb3a8; --teal-dark:#3a7a71;
+            --black:#1a1a1a; --charcoal:#2d2d2d; --bg-primary:#fafafa; --bg-card:#ffffff;
+            --text-primary:#1a1a1a; --text-secondary:#555; --text-muted:#888;
+            --border:#e0e0e0; --border-light:#f0f0f0;
+            --gradient-hero:linear-gradient(180deg, var(--black) 0%, var(--charcoal) 100%);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg-primary);
+               color:var(--text-primary); line-height:1.7; font-size:16px; }
+        .container { max-width:1100px; margin:0 auto; padding:0 24px; }
+        nav { position:fixed; top:0; left:0; right:0; z-index:1000;
+              background:rgba(255,255,255,0.95); backdrop-filter:blur(12px);
+              border-bottom:1px solid var(--border); }
+        .nav-content { display:flex; align-items:center; justify-content:space-between;
+              padding:14px 24px; max-width:1100px; margin:0 auto; }
+        .nav-brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
+        .nav-brand img { height:30px; border-radius:4px; display:block; }
+        .nav-sub { font-size:0.85rem; color:var(--text-muted); }
+        .nav-links a { font-size:0.85rem; color:var(--teal); text-decoration:none;
+              font-weight:600; margin-left:18px; }
+        .hero { padding:104px 0 44px; background:var(--gradient-hero); color:#fff;
+              text-align:center; position:relative; overflow:hidden; }
+        .hero::after { content:''; position:absolute; bottom:0; left:0; right:0; height:60px;
+              background:linear-gradient(to bottom, transparent, var(--bg-primary)); }
+        .hero-content { position:relative; z-index:1; }
+        .hero h1 { font-size:2.2rem; font-weight:800; letter-spacing:-0.02em; }
+        .hero .sub { color:rgba(255,255,255,0.62); font-size:0.98rem; margin-top:10px;
+              max-width:640px; margin-left:auto; margin-right:auto; }
+        section { padding:36px 0 56px; }
+        .lbl { font-size:0.72rem; font-weight:700; text-transform:uppercase;
+              letter-spacing:0.07em; color:var(--text-muted); margin:34px 0 6px; }
+        .lbl:first-of-type { margin-top:0; }
+        .bench-table-wrap { border:1px solid var(--border); border-radius:12px; overflow-x:auto;
+              box-shadow:0 2px 10px rgba(0,0,0,0.04); }
+        .bench-table { width:100%; border-collapse:collapse; background:var(--bg-card); font-size:0.86rem; }
+        .bench-table thead th { background:var(--black); color:#fff; text-align:right;
+              padding:11px 18px; font-size:0.72rem; font-weight:600; text-transform:uppercase;
+              letter-spacing:0.04em; white-space:nowrap; }
+        .bench-table thead th:first-child { text-align:left; }
+        .bench-table td { padding:10px 18px; border-bottom:1px solid var(--border-light);
+              font-family:'JetBrains Mono',monospace; font-size:0.84rem; text-align:right;
+              white-space:nowrap; color:var(--text-secondary); }
+        .bench-table td.solver { font-family:'Inter',sans-serif; font-weight:600;
+              color:var(--text-primary); text-align:left; }
+        .bench-table tbody tr:nth-child(even) { background:#f8f9fa; }
+        .bench-table tbody tr:last-child td { border-bottom:none; }
+        .bench-table td.gmin { color:#46570a; font-weight:800; background:rgba(197,216,109,0.62); }
+        .bench-table td.rmin { color:var(--teal-dark); font-weight:700; background:rgba(74,154,143,0.16); }
+        .bench-table tr.home td.solver { border-left:3px solid var(--lime-dark); }
+        .bench-legend { display:flex; align-items:center; flex-wrap:wrap; font-size:0.78rem;
+              color:var(--text-muted); margin-top:12px; }
+        .bench-legend .sw { display:inline-block; width:15px; height:15px; border-radius:4px;
+              margin-left:18px; margin-right:6px; vertical-align:middle; border:1px solid var(--border); }
+        .bench-legend .sw:first-child { margin-left:0; }
+        .bench-legend .sw.rmin { background:rgba(74,154,143,0.32); }
+        .bench-legend .sw.gmin { background:rgba(197,216,109,0.72); }
+        .bench-table td.solver .tag { font-family:'Inter',sans-serif; font-size:0.58rem;
+              font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--lime-dark);
+              background:rgba(197,216,109,0.22); border:1px solid rgba(168,189,77,0.45);
+              padding:1px 6px; border-radius:100px; margin-left:7px; vertical-align:middle; }
+        .bench-note { font-size:0.82rem; color:var(--text-muted); margin:10px 0 0; line-height:1.6; }
+        .intro { color:var(--text-secondary); font-size:1rem; line-height:1.85; max-width:820px;
+              margin-bottom:30px; }
+        footer { background:var(--black); color:rgba(255,255,255,0.5); padding:28px 0;
+              text-align:center; font-size:0.85rem; margin-top:40px; }
+        footer strong { color:#fff; }
+    </style>
+</head>
+<body>
+<nav>
+    <div class="nav-content">
+        <a class="nav-brand" href="index.html">
+            <img src="imgs/stiles.jpeg" alt="sTiles"><span class="nav-sub">/ Dense factorization</span>
+        </a>
+        <div class="nav-links">
+            <a href="index.html">&larr; Catalog</a>
+            <a href="results.html">Solver benchmarks</a>
+            <a href="../index.html">Home</a>
+        </div>
+    </div>
+</nav>
+
+<div class="hero"><div class="container"><div class="hero-content">
+    <h1>Dense Factorization Benchmark</h1>
+    <div class="sub">sTiles as a dense Cholesky solver, compared with PLASMA and LAPACK
+    (and the sparse direct solvers) on dense symmetric positive definite matrices.</div>
+</div></div></div>
+
+<section><div class="container">
+    <p class="intro">
+        Beyond sparse problems, the sTiles tile engine is also a competitive <strong>dense</strong>
+        Cholesky solver. The matrices below are fully dense SPD systems of order n = 2,000, 5,000,
+        and 10,000. sTiles is compared against the reference dense libraries PLASMA and LAPACK,
+        and, for context, against the sparse direct solvers. The fastest result in each column is
+        highlighted.
+    </p>
+
+    <div class="lbl">Performance (GFLOP/s)</div><div class="bench-note" style="margin:0 0 12px;">Cholesky throughput; higher is better (fastest per size highlighted). sTiles is 1.98&times;, 1.65&times;, 1.44&times; faster than optimized PLASMA and 9.58&times;, 2.33&times;, 1.33&times; faster than LAPACK across n = 2,000 / 5,000 / 10,000.</div><div class="bench-table-wrap"><table class="bench-table"><thead><tr><th>Solver</th><th>n = 2,000</th><th>n = 5,000</th><th>n = 10,000</th></tr></thead><tbody><tr class="home"><td class="solver">sTiles <span class="tag">this work</span></td><td class="gmin">944</td><td class="gmin">1317</td><td class="gmin">1301</td></tr><tr><td class="solver">PLASMA (opt)</td><td>476</td><td>798</td><td>904</td></tr><tr><td class="solver">LAPACK</td><td>99</td><td>566</td><td>975</td></tr></tbody></table></div>
+    <div class="bench-note" style="margin:34px 0 0;">Full thread sweeps for the dense libraries (the reference sparse solvers were run at a single configuration; their best times are in the summary below).</div><div class="lbl">Factorization time (s) by thread count &middot; n = 2,000</div><div class="bench-table-wrap"><table class="bench-table"><thead><tr><th>Solver</th><th>1</th><th>2</th><th>4</th><th>8</th><th>16</th><th>32</th><th>40</th></tr></thead><tbody><tr class="home"><td class="solver">sTiles <span class="tag">this work</span></td><td>0.05814</td><td>0.031255</td><td>0.015743</td><td>0.007757</td><td>0.004693</td><td>0.003194</td><td class="gmin">0.002824</td></tr><tr><td class="solver">PLASMA (nb 80)</td><td>0.0595</td><td>0.0422</td><td>0.0238</td><td>0.0137</td><td>0.0083</td><td class="rmin">0.0069</td><td>0.0082</td></tr><tr><td class="solver">PLASMA (nb 120)</td><td>0.0569</td><td>0.0309</td><td>0.016</td><td>0.0115</td><td>0.0074</td><td class="rmin">0.0056</td><td>0.0119</td></tr><tr><td class="solver">LAPACK</td><td>0.475232</td><td>0.064998</td><td>0.038019</td><td>0.031351</td><td class="rmin">0.027048</td><td>0.039601</td><td>0.031574</td></tr></tbody></table></div><div class="lbl">Factorization time (s) by thread count &middot; n = 5,000</div><div class="bench-table-wrap"><table class="bench-table"><thead><tr><th>Solver</th><th>1</th><th>2</th><th>4</th><th>8</th><th>16</th><th>32</th><th>40</th></tr></thead><tbody><tr class="home"><td class="solver">sTiles <span class="tag">this work</span></td><td>0.964768</td><td>0.504407</td><td>0.253635</td><td>0.128859</td><td>0.062603</td><td>0.034867</td><td class="gmin">0.031635</td></tr><tr><td class="solver">PLASMA (nb 80)</td><td>1.0519</td><td>0.661</td><td>0.3503</td><td>0.1815</td><td class="rmin">0.11</td><td>0.147</td><td>0.1545</td></tr><tr><td class="solver">PLASMA (nb 120)</td><td>0.9727</td><td>0.5853</td><td>0.3023</td><td>0.1576</td><td>0.0786</td><td>0.0557</td><td class="rmin">0.0522</td></tr><tr><td class="solver">LAPACK</td><td>0.786266</td><td>0.395979</td><td>0.225585</td><td>0.146319</td><td>0.102334</td><td>0.082523</td><td class="rmin">0.073586</td></tr></tbody></table></div><div class="lbl">Factorization time (s) by thread count &middot; n = 10,000</div><div class="bench-table-wrap"><table class="bench-table"><thead><tr><th>Solver</th><th>1</th><th>2</th><th>4</th><th>8</th><th>16</th><th>32</th><th>40</th></tr></thead><tbody><tr class="home"><td class="solver">sTiles <span class="tag">this work</span></td><td>7.96849</td><td>4.2065</td><td>2.08641</td><td>n/a</td><td>7.27435</td><td>7.2846</td><td class="gmin">0.256141</td></tr><tr><td class="solver">PLASMA (nb 80)</td><td>8.181</td><td>5.893</td><td>2.8207</td><td>1.3672</td><td class="rmin">0.8868</td><td>1.4662</td><td>1.4155</td></tr><tr><td class="solver">PLASMA (nb 120)</td><td>7.529</td><td>4.2464</td><td>2.1945</td><td>1.1671</td><td>0.6533</td><td>0.3794</td><td class="rmin">0.3689</td></tr><tr><td class="solver">LAPACK</td><td>5.65003</td><td>2.76938</td><td>1.47113</td><td>0.907887</td><td>0.585684</td><td>0.389616</td><td class="rmin">0.34194</td></tr></tbody></table></div><div class="bench-legend"><span class="sw rmin"></span>fastest thread count for that solver<span class="sw gmin"></span>fastest overall</div>
+    <div class="lbl">Best factorization time, all solvers (s)</div><div class="bench-note" style="margin:0 0 12px;">Numerical Cholesky factorization, seconds (fastest per size highlighted). Dense solvers (sTiles, PLASMA, LAPACK) measured on node cn603-04; the sparse solvers on cn512-12.</div><div class="bench-table-wrap"><table class="bench-table"><thead><tr><th>Solver</th><th>n = 2,000</th><th>n = 5,000</th><th>n = 10,000</th></tr></thead><tbody><tr class="home"><td class="solver">sTiles <span class="tag">this work</span></td><td class="gmin">0.002824</td><td class="gmin">0.031635</td><td class="gmin">0.256141</td></tr><tr><td class="solver">PLASMA (nb 80)</td><td>0.0069</td><td>0.11</td><td>0.8868</td></tr><tr><td class="solver">PLASMA (nb 120)</td><td>0.0056</td><td>0.0522</td><td>0.3689</td></tr><tr><td class="solver">LAPACK</td><td>0.027048</td><td>0.073586</td><td>0.34194</td></tr><tr><td class="solver">PARDISO</td><td>0.00978</td><td>0.067309</td><td>0.602475</td></tr><tr><td class="solver">MUMPS</td><td>0.037198</td><td>0.343969</td><td>1.5774</td></tr><tr><td class="solver">CHOLMOD</td><td>0.030915</td><td>0.38072</td><td>2.08722</td></tr><tr><td class="solver">PaStiX</td><td>0.185625</td><td>1.39881</td><td>6.09987</td></tr><tr><td class="solver">symPACK</td><td>0.047036</td><td>0.631915</td><td>4.94403</td></tr></tbody></table></div>
+    <div class="lbl">Analysis (symbolic) time (s)</div><div class="bench-note" style="margin:0 0 12px;">Analysis / symbolic phase, seconds, all measured on node cn512-12. PLASMA and LAPACK have no separate analysis phase for dense matrices.</div><div class="bench-table-wrap"><table class="bench-table"><thead><tr><th>Solver</th><th>n = 2,000</th><th>n = 5,000</th><th>n = 10,000</th></tr></thead><tbody><tr class="home"><td class="solver">sTiles <span class="tag">this work</span></td><td>0.429</td><td>2.507</td><td>10.921</td></tr><tr><td class="solver">PARDISO</td><td>0.234</td><td>1.89</td><td>8.4</td></tr><tr><td class="solver">MUMPS</td><td class="gmin">0.032</td><td class="gmin">0.265</td><td class="gmin">1.206</td></tr><tr><td class="solver">CHOLMOD</td><td>0.088</td><td>0.996</td><td>5.389</td></tr><tr><td class="solver">PaStiX</td><td>0.405</td><td>3.234</td><td>13.708</td></tr><tr><td class="solver">symPACK</td><td>0.419</td><td>2.599</td><td>12.23</td></tr></tbody></table></div>
+</div></section>
+
+<footer><div class="container">
+    <p><strong>sTiles</strong> &middot; KAUST &middot; Test Suite &middot; &copy; 2026</p>
+</div></footer>
+</body>
+</html>
