@@ -1,0 +1,49 @@
+symbolic.csv  --  symbolic (analysis / preprocessing) time, per matrix, per solver
+================================================================================
+
+One row per matrix (89 SPD matrices). Times are the SYMBOLIC analysis only
+(ordering + symbolic factorization + schedule build for sTiles; the equivalent
+analyze phase for each competitor). They do NOT include the numerical
+factorization (see numeric.csv) or matrix loading. Intel node, 40 cores.
+
+Columns
+-------
+matrix    matrix name
+n         dimension
+nnz       nonzeros (upper triangle, as stored)
+source    matrix collection it comes from: INLA | SuiteSparse
+          (the router regime sparse/semisparse/dense is NOT here; it is a
+           separate per-matrix analysis, see Table 4 / tab:byclass in the paper)
+sTiles    sTiles analysis time (s)   -- all three parallel layers ON (the default:
+                                        STILES_SCOTCH_CTX / PARALLEL_EVAL / EVAL_INNER)
+PARDISO   PARDISO analyze time (s)   (phase 11: reordering + symbolic)
+MUMPS     MUMPS analyze time (s)     (JOB=1)
+CHOLMOD   CHOLMOD analyze time (s)   (cholmod_analyze)
+PaStiX    PaStiX analyze time (s)    (pastix_task_analyze)
+symPACK   symPACK analyze time (s)
+
+Convention
+----------
+Each value is the time at 40 threads (c40). The matrix load is timed
+separately and excluded for every solver, so the comparison is apples to
+apples. sTiles is the full init_group analysis with the parallel symbolic
+defaults on.
+
+Source
+------
+sTiles  <- symbolic sweep, parallel default, 40 cores (symbolic_interactive par_s)
+PARDISO <- pardiso/symbolic_pardiso.csv (column c40)
+MUMPS   <- symbolic_mumps.csv  (c40)
+CHOLMOD <- symbolic_cholmod.csv (c40)
+PaStiX  <- symbolic_pastix.csv  (c40)
+symPACK <- symbolic_sympack.csv (c40)
+
+Aggregate (sum over the 89 matrices, seconds)
+----------------------------------------------
+  sTiles 852.8 | PARDISO 216.1 | MUMPS 176.2 | CHOLMOD 179.6 | PaStiX 221.7 | symPACK 188.4
+
+Note: sTiles' analysis is the heaviest (it front-loads mode selection, the
+ordering comparison, and the static tile schedule), but it is amortized: it is
+computed once per sparsity pattern and reused across the thousands of
+factorizations an INLA fit issues. See Section 7.5 (Table 6) for the
+break-even analysis (a + n*c).

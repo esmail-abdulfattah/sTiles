@@ -7,11 +7,11 @@
 # ones land immediately.
 
 suppressWarnings(suppressMessages(
-  source("/home/abdulfe/Documents/pyinla/src/validate/rinla/R/stiles.utils.R")
+  source(Sys.getenv("STILES_UTILS_R", ""))   # external R helper; set STILES_UTILS_R
 ))
 
-MTX_ROOT <- "/home/abdulfe/rinladownload/mtx"
-OUT_DIR  <- "/home/abdulfe/Documents/sites/stiles/docs/suits/plots"
+MTX_ROOT <- Sys.getenv("STILES_MTX_DIR", "")  # raw .mtx corpus; set STILES_MTX_DIR
+OUT_DIR  <- "plots"   # relative: run this script from docs/suits
 dir.create(OUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 files <- list.files(MTX_ROOT, pattern = "\\.mtx$", recursive = TRUE,

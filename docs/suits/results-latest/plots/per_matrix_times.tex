@@ -1,0 +1,106 @@
+\begin{footnotesize}
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{rl cccccc}
+\caption{Best factorization time in seconds on the \textbf{Intel} node (minimum over the swept core counts) for every matrix and solver, sorted by sTiles time to match the numbering of Figure~\ref{fig:all-matrices}. The fastest solver on each matrix is in bold; \texttt{--} marks a matrix a solver does not factor.}\\
+\label{tab:per-matrix-times}\\
+\toprule
+\# & matrix & sTiles & PARDISO & MUMPS & CHOLMOD & PaStiX & symPACK \\
+\midrule
+\endfirsthead
+\multicolumn{8}{c}{\footnotesize\tablename~\thetable{} (continued)}\\
+\toprule
+\# & matrix & sTiles & PARDISO & MUMPS & CHOLMOD & PaStiX & symPACK \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+1 & \texttt{bcsstk10} & 0.0002 & \textbf{0.0002} & 0.0012 & 0.0007 & 0.0015 & 0.0043 \\
+2 & \texttt{1138\_bus} & 0.0004 & 0.0001 & 0.0008 & \textbf{0.0001} & 0.0005 & 0.020 \\
+3 & \texttt{inla\_graph\_sem\_n2000} & \textbf{0.0005} & 0.0015 & 0.0069 & 0.0015 & 0.0054 & 0.0095 \\
+4 & \texttt{bcsstk11} & 0.0008 & \textbf{0.0003} & 0.0020 & 0.0016 & 0.0025 & 0.0059 \\
+5 & \texttt{inla\_graph\_sem\_n5000} & \textbf{0.0008} & 0.0035 & 0.015 & 0.0041 & 0.015 & 0.020 \\
+6 & \texttt{bcsstk09} & 0.0009 & \textbf{0.0003} & 0.0019 & 0.0017 & 0.0012 & 0.0056 \\
+7 & \texttt{inla\_graph\_8rtKSK} & 0.0010 & 0.0011 & 0.0058 & \textbf{0.0009} & 0.078 & 3.00 \\
+8 & \texttt{gyro\_m} & 0.0013 & \textbf{0.0012} & 0.013 & 0.015 & 0.023 & 0.154 \\
+9 & \texttt{bcsstk08} & 0.0014 & \textbf{0.0004} & 0.0016 & 0.0020 & 0.0011 & 0.0076 \\
+10 & \texttt{bcsstk14} & 0.0014 & \textbf{0.0005} & 0.0034 & 0.0028 & 0.0038 & 0.0053 \\
+11 & \texttt{nasa2910} & 0.0014 & \textbf{0.0009} & 0.0054 & 0.0047 & 0.010 & 0.0076 \\
+12 & \texttt{nasa4704} & 0.0024 & \textbf{0.0012} & 0.0058 & 0.0069 & 0.0082 & 0.0097 \\
+13 & \texttt{inla\_graph\_sh7Pgi} & 0.0024 & \textbf{0.0020} & 0.0086 & 0.0038 & 0.0093 & 23.0 \\
+14 & \texttt{gyro\_k} & 0.0027 & \textbf{0.0022} & 0.025 & 0.031 & 0.057 & 0.014 \\
+15 & \texttt{inla\_graph\_pedigree} & \textbf{0.0029} & 0.0070 & 0.082 & 0.0056 & 0.041 & -- \\
+16 & \texttt{inla\_graph\_sem\_n20000} & \textbf{0.0031} & 0.013 & 0.054 & 0.021 & 0.063 & 0.080 \\
+17 & \texttt{bcsstk15} & 0.0032 & \textbf{0.0015} & 0.0096 & 0.010 & 0.0078 & 0.013 \\
+18 & \texttt{inla\_graph\_diff} & \textbf{0.0032} & 0.0051 & 0.018 & 0.048 & 0.029 & 0.034 \\
+19 & \texttt{bundle1} & 0.0033 & \textbf{0.0028} & 0.029 & 0.023 & 0.059 & 0.051 \\
+20 & \texttt{msc10848} & \textbf{0.0036} & 0.0039 & 0.022 & 0.033 & 0.071 & 0.017 \\
+21 & \texttt{bcsstk18} & 0.0036 & \textbf{0.0023} & 0.010 & 0.021 & 0.012 & 0.021 \\
+22 & \texttt{inla\_graph\_net814381} & \textbf{0.0038} & 0.0063 & 0.032 & 0.013 & 0.031 & 1.21 \\
+23 & \texttt{inla\_graph\_ayaLRw} & \textbf{0.0038} & 0.0059 & 0.027 & 0.014 & 0.029 & 0.228 \\
+24 & \texttt{bcsstk17} & 0.0039 & \textbf{0.0024} & 0.015 & 0.020 & 0.026 & 0.013 \\
+25 & \texttt{bcsstk13} & 0.0042 & \textbf{0.0015} & 0.0068 & 0.0049 & 0.0064 & 0.010 \\
+26 & \texttt{msc23052} & \textbf{0.0047} & 0.0050 & 0.032 & 0.051 & 0.072 & 0.021 \\
+27 & \texttt{bcsstk16} & 0.0048 & \textbf{0.0016} & 0.017 & 0.012 & 0.018 & 0.012 \\
+28 & \texttt{thermal1} & \textbf{0.0052} & 0.0068 & 0.036 & 0.111 & 0.043 & 0.021 \\
+29 & \texttt{thermomech\_TK} & 0.011 & \textbf{0.0092} & 0.056 & 0.140 & 0.060 & 0.021 \\
+30 & \texttt{thermomech\_TC} & 0.011 & \textbf{0.0093} & 0.060 & 0.141 & 0.061 & 0.021 \\
+31 & \texttt{nasasrb} & \textbf{0.012} & 0.014 & 0.061 & 0.172 & 0.163 & 0.037 \\
+32 & \texttt{oilpan} & 0.013 & \textbf{0.012} & 0.065 & 0.160 & 0.219 & 0.050 \\
+33 & \texttt{inla\_graph\_sem\_n100000} & \textbf{0.014} & 0.068 & 0.276 & 0.162 & 0.353 & 0.400 \\
+34 & \texttt{thermomech\_dM} & \textbf{0.015} & 0.017 & 0.090 & 0.287 & 0.125 & 0.029 \\
+35 & \texttt{inla\_graph\_lgm\_10010\_bw2} & 0.015 & \textbf{0.012} & 0.036 & 0.044 & 0.048 & 0.023 \\
+36 & \texttt{ct20stif} & \textbf{0.018} & 0.020 & 0.073 & 0.152 & 0.191 & 0.069 \\
+37 & \texttt{inla\_graph\_ferris} & 0.021 & \textbf{0.012} & 0.036 & 0.143 & 0.116 & 0.087 \\
+38 & \texttt{s3dkt3m2} & 0.021 & \textbf{0.021} & 0.104 & 0.231 & 0.248 & 0.103 \\
+39 & \texttt{s3dkq4m2} & 0.022 & \textbf{0.021} & 0.111 & 0.247 & 0.291 & 0.101 \\
+40 & \texttt{inla\_graph\_animal1} & \textbf{0.023} & 0.181 & 0.133 & 0.110 & 0.391 & 0.613 \\
+41 & \texttt{apache1} & 0.024 & \textbf{0.023} & 0.081 & 0.273 & 0.079 & 0.127 \\
+42 & \texttt{smt} & 0.027 & \textbf{0.021} & 0.092 & 0.140 & 0.253 & 0.095 \\
+43 & \texttt{G2\_circuit} & 0.029 & \textbf{0.019} & 0.066 & 0.276 & 0.080 & 0.098 \\
+44 & \texttt{inla\_graph\_bern\_spd} & \textbf{0.029} & 0.044 & 0.126 & 0.511 & 0.306 & 0.775 \\
+45 & \texttt{bmw7st\_1} & 0.035 & \textbf{0.034} & 0.126 & 0.394 & 0.460 & 0.175 \\
+46 & \texttt{inla\_graph\_83o4NNNo} & 0.037 & \textbf{0.0081} & 0.053 & 0.120 & 0.096 & 0.023 \\
+47 & \texttt{inla\_graph\_stcov} & \textbf{0.038} & 0.126 & 0.827 & 1.03 & 1.000 & 1.39 \\
+48 & \texttt{hood} & 0.046 & \textbf{0.030} & 0.168 & 0.490 & 0.682 & 0.099 \\
+49 & \texttt{inla\_graph\_spacetime} & \textbf{0.047} & 0.089 & 0.133 & 0.188 & 0.143 & 0.208 \\
+50 & \texttt{inla\_graph\_lidense} & \textbf{0.056} & 0.111 & 0.377 & 0.496 & 1.55 & 1.15 \\
+51 & \texttt{crankseg\_1} & 0.060 & \textbf{0.057} & 0.247 & 0.395 & 0.695 & 0.158 \\
+52 & \texttt{m\_t1} & 0.062 & \textbf{0.047} & 0.192 & 0.421 & 0.592 & 0.150 \\
+53 & \texttt{pwtk} & 0.065 & \textbf{0.055} & 0.260 & 0.672 & 0.673 & 0.139 \\
+54 & \texttt{thread} & 0.073 & \textbf{0.057} & 0.192 & 0.272 & 0.381 & 0.425 \\
+55 & \texttt{parabolic\_fem} & 0.075 & \textbf{0.058} & 0.209 & 0.908 & 0.392 & 0.107 \\
+56 & \texttt{bmw3\_2} & 0.083 & \textbf{0.074} & 0.232 & 0.685 & 0.732 & 0.320 \\
+57 & \texttt{tmt\_sym} & \textbf{0.087} & 0.089 & 0.254 & 1.20 & 0.453 & 0.176 \\
+58 & \texttt{ship\_001} & 0.088 & \textbf{0.022} & 0.110 & 0.183 & 0.275 & 0.071 \\
+59 & \texttt{boneS01} & 0.092 & \textbf{0.082} & 0.227 & 0.533 & 0.546 & 0.552 \\
+60 & \texttt{crankseg\_2} & 0.098 & \textbf{0.080} & 0.295 & 0.524 & 0.921 & 0.230 \\
+61 & \texttt{shipsec1} & 0.107 & \textbf{0.072} & 0.214 & 0.494 & 0.565 & 1.25 \\
+62 & \texttt{ecology2} & \textbf{0.107} & 0.128 & 0.326 & 1.53 & 0.485 & 0.359 \\
+63 & \texttt{shipsec8} & 0.114 & \textbf{0.078} & 0.202 & 0.437 & 0.496 & 0.551 \\
+64 & \texttt{nd3k} & 0.129 & \textbf{0.080} & 0.181 & 0.165 & 0.281 & 0.375 \\
+65 & \texttt{shipsec5} & 0.173 & \textbf{0.115} & 0.309 & 0.759 & 0.714 & 0.488 \\
+66 & \texttt{af\_shell3} & 0.181 & \textbf{0.147} & 0.432 & 1.37 & 1.19 & 0.409 \\
+67 & \texttt{ship\_003} & 0.193 & \textbf{0.147} & 0.366 & 0.663 & 0.616 & 0.809 \\
+68 & \texttt{consph} & 0.244 & \textbf{0.203} & 0.512 & 0.760 & 0.719 & 1.81 \\
+69 & \texttt{ldoor} & 0.245 & \textbf{0.202} & 0.729 & 2.43 & 3.08 & 1.09 \\
+70 & \texttt{af\_0\_k101} & 0.290 & \textbf{0.141} & 0.467 & 1.42 & 1.21 & 0.412 \\
+71 & \texttt{inla\_graph\_yU0G1u} & 0.295 & \textbf{0.286} & 0.712 & 1.55 & 311 & -- \\
+72 & \texttt{inline\_1} & \textbf{0.297} & 0.340 & 0.826 & 2.31 & 2.54 & 0.481 \\
+73 & \texttt{nd6k} & 0.312 & \textbf{0.301} & 0.475 & 0.486 & 0.679 & 2.86 \\
+74 & \texttt{inla\_graph\_net1628760} & 0.387 & \textbf{0.220} & 0.985 & 3.70 & 3.52 & 0.819 \\
+75 & \texttt{apache2} & 0.645 & \textbf{0.452} & 0.801 & 2.69 & 0.937 & 1.71 \\
+76 & \texttt{inla\_graph\_lgm\_48600\_bw2} & \textbf{0.723} & 9.43 & 4.34 & 2.36 & 8.10 & 9.45 \\
+77 & \texttt{boneS10} & 0.762 & \textbf{0.620} & 1.27 & 3.69 & 3.92 & 1.13 \\
+78 & \texttt{offshore} & 0.784 & \textbf{0.271} & 0.452 & 1.14 & 0.529 & 0.653 \\
+79 & \texttt{nd12k} & \textbf{0.891} & 1.47 & 1.25 & 1.48 & 1.83 & 9.27 \\
+80 & \texttt{inla\_graph\_lgm\_100200\_bw1} & \textbf{1.13} & 2.48 & 1.98 & 2.22 & 4.65 & 1.85 \\
+81 & \texttt{inla\_graph\_lgm\_50000\_bw15000} & \textbf{1.44} & 5.32 & 2.59 & 5.30 & 2.81 & 28.9 \\
+82 & \texttt{inla\_graph\_lgm\_100200\_bw2} & \textbf{2.38} & 7.63 & 4.58 & 3.54 & 6.73 & 8.34 \\
+83 & \texttt{bone010} & \textbf{6.44} & 7.88 & 7.03 & 11.8 & 9.56 & 21.8 \\
+84 & \texttt{audikw\_1} & \textbf{6.67} & 12.2 & 9.18 & 14.7 & 10.5 & 47.3 \\
+85 & \texttt{Fault\_639} & \textbf{7.88} & 17.1 & 10.1 & 12.4 & 10.9 & 110 \\
+86 & \texttt{inla\_graph\_lgm\_50400\_bw2} & 11.9 & 37.1 & 33.5 & \textbf{7.16} & 14.9 & 76.7 \\
+87 & \texttt{Emilia\_923} & \textbf{13.3} & 24.8 & 15.7 & 19.9 & 19.8 & 115 \\
+88 & \texttt{inla\_graph\_animal2} & \textbf{16.6} & 209 & 35.7 & 25.0 & 72.1 & 432 \\
+\end{longtable}
+\end{footnotesize}

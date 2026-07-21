@@ -13,7 +13,7 @@ highlighted, matching the paper's bold).
 import os, re, shutil
 
 SUITS   = os.path.dirname(os.path.abspath(__file__))
-RES_DIR = "/home/abdulfe/Documents/ideas/adv_sTiles/docs/paper/Semisparse___sTiles/results-latest"
+RES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results-latest")
 PLOTS   = os.path.join(RES_DIR, "plots")
 OUT_DIR = os.path.join(SUITS, "results")      # where figures are copied
 FIGS    = ["all_matrices_time", "speedup_dist", "scaling"]

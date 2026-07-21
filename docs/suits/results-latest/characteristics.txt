@@ -1,0 +1,29 @@
+characteristics.csv  --  matrix properties (the 89-matrix SPD test suite)
+================================================================================
+
+One row per matrix. Static structural properties of each matrix, independent
+of any solver.
+
+Columns
+-------
+matrix        matrix name
+class         collection it comes from: INLA | SuiteSparse
+              (this is the SOURCE, not the router regime sparse/semisparse/dense)
+n             dimension
+nnz           nonzeros of the FULL matrix (both triangles).
+              NOTE: this differs from numeric.csv / symbolic.csv, whose nnz is
+              the UPPER TRIANGLE as stored (about half of this value).
+nnz_per_row   average nonzeros per row = nnz / n (mean degree)
+density_pct   100 * nnz / n^2  (percent of the dense matrix that is nonzero)
+fill_ratio    nnz(L) / nnz(A): how much the Cholesky factor fills in relative
+              to the matrix (the symbolic fill; drives the mode the router picks)
+
+Counts
+------
+89 matrices total: 26 INLA, 63 SuiteSparse.
+
+Companion files
+---------------
+numeric.csv   numerical factorization time per solver (see numeric.txt)
+symbolic.csv  symbolic / analysis time per solver (see symbolic.txt)
+Join all three on the "matrix" column.

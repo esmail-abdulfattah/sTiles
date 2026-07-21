@@ -13,7 +13,9 @@ nnz from a "symmetric" MatrixMarket file is the stored lower triangle
 """
 import os, glob, re, sys
 
-MTX_ROOT = "/home/abdulfe/rinladownload/mtx"
+MTX_ROOT = os.environ.get("STILES_MTX_DIR", "")   # raw .mtx corpus (not vendored: too large
+                                                  # for the site repo). Only needed to rebuild
+                                                  # the catalog/patterns; set STILES_MTX_DIR.
 OUT      = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "catalog.js")
 GROUPS   = [f"group{i}" for i in range(1, 13)]
 

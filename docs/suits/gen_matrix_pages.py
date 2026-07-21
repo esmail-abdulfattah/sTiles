@@ -13,9 +13,9 @@ import os, re, glob
 
 SUITS    = os.path.dirname(os.path.abspath(__file__))
 CATALOG  = os.path.join(SUITS, "data", "catalog.js")
-MTX_ROOT = "/home/abdulfe/rinladownload/mtx"
+MTX_ROOT = os.environ.get("STILES_MTX_DIR", "")   # see gen_catalog.py; set STILES_MTX_DIR
 DL_BASE  = "https://esmail.r-inla-download.org/mtx"
-RES_DIR  = "/home/abdulfe/Documents/ideas/adv_sTiles/docs/paper/Semisparse___sTiles/results-latest"
+RES_DIR  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results-latest")
 
 # Solvers shown on each page; sTiles first (the home solver), then competitors.
 SOLVERS = ["sTiles", "PARDISO", "MUMPS", "CHOLMOD", "PaStiX", "symPACK"]

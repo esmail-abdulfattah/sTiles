@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering\small
+\caption{Threshold sensitivity. Each routing cutoff (Section~\ref{sec:selector}) is swept individually over the listed range with the others held at their default, and the routing is recomputed offline. The selector's aggregate factorization time over the $54$ matrices whose routing features were logged (including $7$ of the $9$ costliest matrices, those above $1$~s; the remaining matrices route to the supernodal default far from every gate and do not move) changes by at most the last column. The hand-set defaults sit on a wide plateau, not a tuned optimum.}
+\label{tab:sensitivity}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+cutoff & default & swept range & max time change \\
+\midrule
+dense gate $\rho \ge$ & $0.90$ & $[0.80,\,0.99]$ & $2.3\%$ \\
+fill gate $\phi \le$ & $2.0$ & $[1.0,\,4.0]$ & $0.5\%$ \\
+semi gate $\rho \ge$ & $0.15$ & $[0.05,\,0.50]$ & $0.2\%$ \\
+skew gate $\sigma \ge$ & $20$ & $[5,\,100]$ & $0.4\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}

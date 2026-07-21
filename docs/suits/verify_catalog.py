@@ -13,7 +13,7 @@ re-stream the GB files.
 """
 import os, re, glob, sys
 
-ROOT    = "/home/abdulfe/rinladownload/mtx"
+ROOT    = os.environ.get("STILES_MTX_DIR", "")    # see gen_catalog.py; set STILES_MTX_DIR
 SUITS   = os.path.dirname(os.path.abspath(__file__))
 CATALOG = os.path.join(SUITS, "data", "catalog.js")
 LOG     = os.path.join(SUITS, "plots_gen.log")

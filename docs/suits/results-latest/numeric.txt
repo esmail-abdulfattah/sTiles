@@ -1,0 +1,44 @@
+numeric.csv  --  numerical Cholesky factorization time, per matrix, per solver
+================================================================================
+
+One row per matrix (89 SPD matrices). Times are the NUMERICAL factorization
+(chol) only; they do NOT include symbolic analysis (see symbolic.csv) or
+matrix loading. All runs on the Intel node (2x Xeon Gold, 40 cores).
+
+Columns
+-------
+matrix    matrix name
+n         dimension
+nnz       nonzeros (upper triangle, as stored)
+source    matrix collection it comes from: INLA | SuiteSparse
+          (the router regime sparse/semisparse/dense is NOT here; it is a
+           separate per-matrix analysis, see Table 4 / tab:byclass in the paper)
+sTiles    sTiles factorization time (s)
+PARDISO   PARDISO factorization time (s)
+MUMPS     MUMPS factorization time (s)
+CHOLMOD   CHOLMOD factorization time (s)
+PaStiX    PaStiX factorization time (s)
+symPACK   symPACK factorization time (s)   (blank for the 2 matrices it cannot
+                                             factor: pedigree, yU0G1u)
+
+Convention
+----------
+Each value is the BEST (minimum) factorization time over thread counts
+{1,2,4,8,16,32,40} -- i.e. each solver at its fastest core count for that
+matrix. This is the convention used by Table 4 (tab:byclass) and the overview
+figure in the paper.
+
+Source
+------
+Per-solver per-core factorization sweeps:
+  sTiles  <- stiles_auto.csv   (column "best")
+  PARDISO <- pardiso/pardiso.csv
+  MUMPS   <- mumps.csv
+  CHOLMOD <- cholmod.csv
+  PaStiX  <- pastix.csv
+  symPACK <- sympack.csv
+
+Aggregate (sum over the 89 matrices, seconds)
+----------------------------------------------
+  sTiles 76.1 | PARDISO 339.6 | MUMPS 141.1 | CHOLMOD 143.8 | PaStiX 507.3 | symPACK 912.7
+(symPACK total is over the 87 matrices it factors.)

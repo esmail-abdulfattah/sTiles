@@ -1,0 +1,4 @@
+matrix,stiles_analyze_cn603,stiles_cn512,pardiso_cn512,mumps_cn512,cholmod_cn512,pastix_cn512,sympack_cn512
+dense_2000,0.494,0.429,0.234,0.032,0.088,0.405,0.419
+dense_5000,2.444,2.507,1.890,0.265,0.996,3.234,2.599
+dense_10000,10.125,10.921,8.400,1.206,5.389,13.708,12.230

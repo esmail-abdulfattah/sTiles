@@ -7,7 +7,7 @@ matrices. Reads the dense_* CSVs from results-latest. Re-run to refresh.
 import os, csv
 
 SUITS = os.path.dirname(os.path.abspath(__file__))
-RES   = "/home/abdulfe/Documents/ideas/adv_sTiles/docs/paper/Semisparse___sTiles/results-latest"
+RES   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results-latest")
 OUT   = os.path.join(SUITS, "dense.html")
 
 SIZES = ["dense_2000", "dense_5000", "dense_10000"]

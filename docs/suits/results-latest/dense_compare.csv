@@ -1,0 +1,5 @@
+matrix,n,flops_Gflop,stiles_s,plasma_s,lapack_s,stiles_Gflops,plasma_Gflops,lapack_Gflops,st_vs_plasma,st_vs_lapack
+# PLASMA = nb80 (matched to sТiles' tile size); same-tile-size algorithm comparison
+dense_2000,2000,2.67,0.002824,0.006900,0.027048,944,386,99,2.44,9.58
+dense_5000,5000,41.67,0.031635,0.110000,0.073586,1317,379,566,3.48,2.33
+dense_10000,10000,333.33,0.256141,0.886800,0.341940,1301,376,975,3.46,1.33
