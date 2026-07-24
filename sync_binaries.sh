@@ -20,7 +20,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bin_dir="$here/binaries"
-py_libs="$here/python/pysTiles/_libs"
+py_libs="$here/python/sTiles/_libs"
 r_libs="$here/R/sTiles/inst/libs"
 
 all=0
@@ -33,6 +33,7 @@ map() {
         libstiles-linux-arm64)        echo "linux-arm64 libstiles.so" ;;
         libstiles-macos-apple-arm64)  echo "macos-arm64 libstiles.dylib" ;;
         libstiles-macos-intel-x86_64) echo "macos-x86_64 libstiles.dylib" ;;
+        libstiles-windows-x86_64)     echo "windows-x86_64 libstiles.dll" ;;
         *) echo "" ;;
     esac
 }
