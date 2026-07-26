@@ -12,7 +12,7 @@ Description: Thin R interface to the prebuilt libstiles shared library for
     runtime against libstiles, which is located via the STILES_LIB /
     STILES_LIB_DIR environment variables, a bundled copy under inst/libs, or a
     development checkout.
-License: file LICENSE
+License: Proprietary
 Imports: methods, Matrix
 NeedsCompilation: yes
 SystemRequirements: libstiles shared object (libstiles.so / libstiles.dylib)
