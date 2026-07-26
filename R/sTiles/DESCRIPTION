@@ -13,6 +13,7 @@ Description: Thin R interface to the prebuilt libstiles shared library for
     STILES_LIB_DIR environment variables, a bundled copy under inst/libs, or a
     development checkout.
 License: Proprietary
+URL: https://esmail-abdulfattah.github.io/sTiles/
 Imports: methods, Matrix
 NeedsCompilation: yes
 SystemRequirements: libstiles shared object (libstiles.so / libstiles.dylib)

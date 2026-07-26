@@ -9,7 +9,9 @@
 
 # Markdown docs are kept internal; the site (docs/) is the documentation.
 # (.gitkeep files are preserved below so binary-drop dirs still exist.)
+# README.md is the exception: it is the repo landing page and points at the site.
 *.md
+!/README.md
 !**/.gitkeep
 
 # Python build / cache
