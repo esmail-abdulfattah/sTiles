@@ -367,11 +367,12 @@
 
                     <h2>Pre-built binaries</h2>
                     <p class="lead" id="release-line" style="font-size:0.92rem;color:var(--text-secondary);margin-bottom:8px;">
-                        Latest release <strong>v2026.7.28</strong> &middot; <code>libstiles</code> 3.0.0 (built 2026-07-24)
+                        Latest release <strong>v2026.7.28</strong> &middot; <code>libstiles</code> 3.0.0 (built 2026-07-28)
                     </p>
                     <p class="lead">Pick the build that matches your platform. Each archive contains
                         <code>libstiles</code>, the C header, and a pkg-config file. The macOS Intel
-                        build also bundles its runtime libraries.</p>
+                        and Windows builds also bundle their runtime libraries, so no toolchain or
+                        BLAS install is needed.</p>
 
                     <table class="dl-table">
                         <thead>
@@ -409,11 +410,17 @@
     const REPO = 'https://github.com/esmail-abdulfattah/sTiles';
     const REL = REPO + '/releases/latest/download';
     const DOWNLOADS = [
-        { platform: 'Linux x86_64', cls: 'linux', desc: 'Intel or AMD 64-bit, the choice for most PCs and servers',     url: REL + '/libstiles-linux-x86_64.zip' },
-        { platform: 'Linux ARM64',  cls: 'linux', desc: 'ARM 64-bit only (AWS Graviton, Ampere, Raspberry Pi 64-bit)',        url: REL + '/libstiles-linux-arm64.zip' },
-        { platform: 'macOS ARM64',  cls: 'mac',   desc: 'Apple Silicon (M1-M4)',                                        url: REL + '/libstiles-macos-apple-arm64.zip' },
-        { platform: 'macOS Intel',  cls: 'mac',   desc: 'Intel Macs (x86_64, pre-2021 models)',                         url: REL + '/libstiles-macos-intel-x86_64.zip' },
-        { platform: 'Windows x64',  cls: 'win',   desc: 'Windows 10/11 on Intel or AMD 64-bit',                               url: REL + '/libstiles-windows-x86_64.zip' }
+        { platform: 'Linux x86_64', cls: 'linux', desc: 'Intel or AMD 64-bit &middot; glibc 2.27+ (any distro since ~2018)',   url: REL + '/libstiles-linux-x86_64.zip' },
+        { platform: 'Linux ARM64',  cls: 'linux', desc: 'ARM 64-bit (Graviton, Ampere, Raspberry Pi 64-bit) &middot; glibc 2.27+', url: REL + '/libstiles-linux-arm64.zip' },
+        { platform: 'macOS ARM64',  cls: 'mac',   desc: 'Apple Silicon (M1-M4) &middot; macOS 11 (Big Sur) or newer',       url: REL + '/libstiles-macos-apple-arm64.zip' },
+        // macOS 15 floor is NOT a choice — it is the oldest OS GitHub's only
+        // remaining Intel runner can target, and the bundled Homebrew dylibs
+        // (libgfortran, libquadmath) are stamped 15.0 regardless of our own
+        // deployment target. Stating it matters: the old text said "pre-2021
+        // models", which is exactly the hardware LEAST likely to run macOS 15,
+        // so users were being pointed at a dylib their machine cannot load.
+        { platform: 'macOS Intel',  cls: 'mac',   desc: 'Intel Macs (x86_64) &middot; <strong>requires macOS 15 (Sequoia)</strong>', url: REL + '/libstiles-macos-intel-x86_64.zip' },
+        { platform: 'Windows x64',  cls: 'win',   desc: 'Windows 10/11 on Intel or AMD 64-bit &middot; runtime DLLs included', url: REL + '/libstiles-windows-x86_64.zip' }
     ];
 
     /* ============================================================
