@@ -25,7 +25,7 @@ pip install sTiles
 ```
 
 ```r
-remotes::install_github("esmail-abdulfattah/sTiles", subdir = "R/sTiles")
+install.packages("sTiles", repos = c("https://esmail-abdulfattah.r-universe.dev", "https://cloud.r-project.org"))
 ```
 
 ## Contact
