@@ -90,7 +90,12 @@
         message(sprintf("sTiles: fetching libstiles for %s from %s", ci, url))
         utils::download.file(url, tmp, mode = "wb", quiet = TRUE)
         entries <- utils::unzip(tmp, list = TRUE)$Name
-        want <- entries[basename(entries) == fname]   # the lib itself, flat
+        # Everything shipped under lib/: the library itself, plus, on
+        # platforms that aren't fully self-contained (macOS Intel, Windows),
+        # the sibling runtime .dylib/.so/.dll it loads via a loader-relative
+        # path. Extracting only the exact library filename left those
+        # siblings behind and broke the load on non-self-contained builds.
+        want <- entries[startsWith(entries, "lib/") & !endsWith(entries, "/")]
         utils::unzip(tmp, files = want, exdir = dest, junkpaths = TRUE)
         unlink(tmp)
         TRUE
@@ -173,7 +178,8 @@
     if (!is.null(.sTiles$dll)) return(invisible())
     libpath <- .sTiles_find_lib(.sTiles$libname, .sTiles$pkgname)
     # Preload libstiles with GLOBAL symbol visibility (local = FALSE) so the
-    # glue's undefined sTiles_* symbols resolve against it.
+    # glue's undefined sTiles_* symbols resolve against it. (Windows has no
+    # such mechanism; see the GetProcAddress bind step below instead.)
     dyn.load(libpath, local = FALSE, now = TRUE)
     .sTiles$libpath <- libpath
 
@@ -181,6 +187,15 @@
                           .Platform$r_arch,
                           paste0(.sTiles$pkgname, .Platform$dynlib.ext))
     .sTiles$dll <- dyn.load(gluepath)
+
+    # Windows PE/DLL linking can't leave the glue's sTiles_* symbols undefined
+    # at link time the way an ELF .so (Linux) or a -undefined dynamic_lookup
+    # .dylib (macOS) can, so the glue resolves them itself via
+    # LoadLibrary/GetProcAddress once it knows the real libstiles.dll path.
+    if (.Platform$OS.type == "windows")
+        .Call(getNativeSymbolInfo("sTiles_win_bind_R", PACKAGE = .sTiles$dll)$address,
+              libpath)
+
     invisible()
 }
 

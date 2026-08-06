@@ -203,14 +203,18 @@ def _download_from_release() -> Path | None:
         try:
             with zipfile.ZipFile(tmp_zip) as zf:
                 for member in zf.namelist():
+                    # Everything shipped under lib/: the library itself,
+                    # plus, on platforms that aren't fully self-contained
+                    # (macOS Intel, Windows), the sibling runtime
+                    # .dylib/.so/.dll it loads via a loader-relative path.
+                    # Extracting only the exact library filename left those
+                    # siblings behind and broke the load on non-self-contained
+                    # builds.
+                    if not member.startswith("lib/") or member.endswith("/"):
+                        continue
                     bn = os.path.basename(member)
-                    # The library, plus (Windows) the sibling runtime DLLs.
-                    want = bn == fname or (
-                        sys.platform.startswith("win") and bn.lower().endswith(".dll")
-                    )
-                    if want:
-                        with zf.open(member) as src, open(dest / bn, "wb") as out:
-                            shutil.copyfileobj(src, out)
+                    with zf.open(member) as src, open(dest / bn, "wb") as out:
+                        shutil.copyfileobj(src, out)
         finally:
             os.unlink(tmp_zip)
     except Exception as exc:  # noqa: BLE001 - any failure -> fall through to error

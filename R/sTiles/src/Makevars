@@ -6,7 +6,17 @@
 #
 # On macOS the linker rejects undefined symbols by default, so allow dynamic
 # lookup there; on Linux undefined symbols in a shared object are fine.
+#
+# Windows PE/DLL linking allows neither, there is no process-wide symbol
+# search at load time, so the glue can't be built with sTiles_* left
+# undefined at all. There it resolves them itself at runtime via
+# LoadLibrary/GetProcAddress instead (see the _WIN32 block in
+# sTiles_glue.c), which needs kernel32.
 
 ifeq ($(shell uname -s),Darwin)
 PKG_LIBS += -undefined dynamic_lookup
+endif
+
+ifeq ($(OS),Windows_NT)
+PKG_LIBS += -lkernel32
 endif

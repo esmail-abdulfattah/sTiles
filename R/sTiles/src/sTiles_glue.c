@@ -20,7 +20,154 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include "stiles.h"      /* vendored copy of tools/include/stiles.h */
+
+#ifdef _WIN32
+/*
+ * Windows has no equivalent of the RTLD_GLOBAL trick .sTiles_ensure_loaded()
+ * uses on Linux/macOS (preload libstiles with global symbol visibility, then
+ * load this glue with its sTiles_* symbols left undefined for the dynamic
+ * linker to fill in). PE/DLL linking resolves imports against one specific,
+ * named DLL at load time, there is no process-wide symbol search, so a DLL
+ * cannot be built at all with unresolved externs the way an ELF .so or (with
+ * -undefined dynamic_lookup) a Mach-O .dylib can.
+ *
+ * So on Windows every sTiles_* symbol used below is called through a function
+ * pointer instead, resolved via LoadLibrary/GetProcAddress from R once the
+ * real libstiles.dll path is known (see sTiles_win_bind_R, called from
+ * .sTiles_ensure_loaded() in sTiles.R). The #define block below redirects
+ * every ordinary call site in this file to the resolved pointer, so nothing
+ * past this point needs to change.
+ */
+typedef int         (*fn_sTiles_assign_graph_one_call_t)(int, int, void**, int, int, int*, int*);
+typedef int         (*fn_sTiles_assign_values_t)(int, int, void**, double*);
+typedef int         (*fn_sTiles_bind_t)(int, int, void**);
+typedef int         (*fn_sTiles_chol_t)(int, int, void**);
+typedef int         (*fn_sTiles_create_t)(void**, int, const int*, const int*, const int*, const bool*);
+typedef void        (*fn_sTiles_expert_user_t)(void);
+typedef void        (*fn_sTiles_freeGroup_t)(int);
+typedef double      (*fn_sTiles_get_chol_elm_t)(int, int, int, int, void**);
+typedef double      (*fn_sTiles_get_chol_timing_t)(int, int, void**);
+typedef double      (*fn_sTiles_get_logdet_t)(int, int, void**);
+typedef int         (*fn_sTiles_get_logical_element_perm_t)(int, int, void**, int*);
+typedef long long   (*fn_sTiles_get_nnz_factor_t)(int, int, void**);
+typedef double      (*fn_sTiles_get_selinv_elm_t)(int, int, int, int, void**);
+typedef double*     (*fn_sTiles_get_selinv_row_t)(int, int, int, int*, int, void**);
+typedef double      (*fn_sTiles_get_selinv_timing_t)(int, int, void**);
+typedef const char* (*fn_sTiles_get_version_t)(void);
+typedef int         (*fn_sTiles_init_group_t)(int, void**);
+typedef int         (*fn_sTiles_selinv_t)(int, int, void**);
+typedef void        (*fn_sTiles_set_log_level_t)(int);
+typedef void        (*fn_sTiles_set_tile_size_t)(int);
+typedef void        (*fn_sTiles_set_tile_type_mode_t)(int);
+typedef int         (*fn_sTiles_solve_L_t)(int, int, void**, double*, int);
+typedef int         (*fn_sTiles_solve_LLT_t)(int, int, void**, double*, int);
+typedef int         (*fn_sTiles_solve_LT_t)(int, int, void**, double*, int);
+typedef int         (*fn_sTiles_unbind_t)(int, int, void**);
+
+static fn_sTiles_assign_graph_one_call_t     p_sTiles_assign_graph_one_call;
+static fn_sTiles_assign_values_t             p_sTiles_assign_values;
+static fn_sTiles_bind_t                      p_sTiles_bind;
+static fn_sTiles_chol_t                      p_sTiles_chol;
+static fn_sTiles_create_t                    p_sTiles_create;
+static fn_sTiles_expert_user_t               p_sTiles_expert_user;
+static fn_sTiles_freeGroup_t                 p_sTiles_freeGroup;
+static fn_sTiles_get_chol_elm_t              p_sTiles_get_chol_elm;
+static fn_sTiles_get_chol_timing_t           p_sTiles_get_chol_timing;
+static fn_sTiles_get_logdet_t                p_sTiles_get_logdet;
+static fn_sTiles_get_logical_element_perm_t  p_sTiles_get_logical_element_perm;
+static fn_sTiles_get_nnz_factor_t            p_sTiles_get_nnz_factor;
+static fn_sTiles_get_selinv_elm_t            p_sTiles_get_selinv_elm;
+static fn_sTiles_get_selinv_row_t            p_sTiles_get_selinv_row;
+static fn_sTiles_get_selinv_timing_t         p_sTiles_get_selinv_timing;
+static fn_sTiles_get_version_t               p_sTiles_get_version;
+static fn_sTiles_init_group_t                p_sTiles_init_group;
+static fn_sTiles_selinv_t                    p_sTiles_selinv;
+static fn_sTiles_set_log_level_t             p_sTiles_set_log_level;
+static fn_sTiles_set_tile_size_t             p_sTiles_set_tile_size;
+static fn_sTiles_set_tile_type_mode_t        p_sTiles_set_tile_type_mode;
+static fn_sTiles_solve_L_t                   p_sTiles_solve_L;
+static fn_sTiles_solve_LLT_t                 p_sTiles_solve_LLT;
+static fn_sTiles_solve_LT_t                  p_sTiles_solve_LT;
+static fn_sTiles_unbind_t                    p_sTiles_unbind;
+
+#define sTiles_assign_graph_one_call     p_sTiles_assign_graph_one_call
+#define sTiles_assign_values             p_sTiles_assign_values
+#define sTiles_bind                      p_sTiles_bind
+#define sTiles_chol                      p_sTiles_chol
+#define sTiles_create                    p_sTiles_create
+#define sTiles_expert_user               p_sTiles_expert_user
+#define sTiles_freeGroup                 p_sTiles_freeGroup
+#define sTiles_get_chol_elm              p_sTiles_get_chol_elm
+#define sTiles_get_chol_timing           p_sTiles_get_chol_timing
+#define sTiles_get_logdet                p_sTiles_get_logdet
+#define sTiles_get_logical_element_perm  p_sTiles_get_logical_element_perm
+#define sTiles_get_nnz_factor            p_sTiles_get_nnz_factor
+#define sTiles_get_selinv_elm            p_sTiles_get_selinv_elm
+#define sTiles_get_selinv_row            p_sTiles_get_selinv_row
+#define sTiles_get_selinv_timing         p_sTiles_get_selinv_timing
+#define sTiles_get_version               p_sTiles_get_version
+#define sTiles_init_group                p_sTiles_init_group
+#define sTiles_selinv                    p_sTiles_selinv
+#define sTiles_set_log_level             p_sTiles_set_log_level
+#define sTiles_set_tile_size             p_sTiles_set_tile_size
+#define sTiles_set_tile_type_mode        p_sTiles_set_tile_type_mode
+#define sTiles_solve_L                   p_sTiles_solve_L
+#define sTiles_solve_LLT                 p_sTiles_solve_LLT
+#define sTiles_solve_LT                  p_sTiles_solve_LT
+#define sTiles_unbind                    p_sTiles_unbind
+
+#define STILES_BIND(name) \
+    do { \
+        p_##name = (fn_##name##_t) GetProcAddress(h, #name); \
+        if (!p_##name) \
+            Rf_error("sTiles: could not resolve symbol '%s' in %s", #name, path); \
+    } while (0)
+
+/* Called once from R (.sTiles_ensure_loaded) with the resolved libstiles.dll
+ * path, before any other sTiles_* call. Not idempotence-guarded here; R side
+ * only calls it once per session (guarded by .sTiles$dll being NULL). */
+SEXP sTiles_win_bind_R(SEXP path_) {
+    const char* path = CHAR(STRING_ELT(path_, 0));
+    HMODULE h = LoadLibraryA(path);
+    if (!h) Rf_error("sTiles: LoadLibrary failed for '%s' (error %lu)",
+                      path, (unsigned long) GetLastError());
+
+    STILES_BIND(sTiles_assign_graph_one_call);
+    STILES_BIND(sTiles_assign_values);
+    STILES_BIND(sTiles_bind);
+    STILES_BIND(sTiles_chol);
+    STILES_BIND(sTiles_create);
+    STILES_BIND(sTiles_expert_user);
+    STILES_BIND(sTiles_freeGroup);
+    STILES_BIND(sTiles_get_chol_elm);
+    STILES_BIND(sTiles_get_chol_timing);
+    STILES_BIND(sTiles_get_logdet);
+    STILES_BIND(sTiles_get_logical_element_perm);
+    STILES_BIND(sTiles_get_nnz_factor);
+    STILES_BIND(sTiles_get_selinv_elm);
+    STILES_BIND(sTiles_get_selinv_row);
+    STILES_BIND(sTiles_get_selinv_timing);
+    STILES_BIND(sTiles_get_version);
+    STILES_BIND(sTiles_init_group);
+    STILES_BIND(sTiles_selinv);
+    STILES_BIND(sTiles_set_log_level);
+    STILES_BIND(sTiles_set_tile_size);
+    STILES_BIND(sTiles_set_tile_type_mode);
+    STILES_BIND(sTiles_solve_L);
+    STILES_BIND(sTiles_solve_LLT);
+    STILES_BIND(sTiles_solve_LT);
+    STILES_BIND(sTiles_unbind);
+
+    return R_NilValue;
+}
+#undef STILES_BIND
+#endif /* _WIN32 */
 
 typedef struct {
     void*     handle;
@@ -319,6 +466,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"sTiles_perm_R",          (DL_FUNC) &sTiles_perm_R,            1},
     {"sTiles_free_R",          (DL_FUNC) &sTiles_free_R,            1},
     {"sTiles_version_R",       (DL_FUNC) &sTiles_version_R,         0},
+#ifdef _WIN32
+    {"sTiles_win_bind_R",      (DL_FUNC) &sTiles_win_bind_R,        1},
+#endif
     {NULL, NULL, 0}
 };
 
