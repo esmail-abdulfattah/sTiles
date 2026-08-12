@@ -1622,20 +1622,28 @@ sTiles_close(s)</code></pre>
             <div class="lang-panel" id="lang-cpp">
                 <div class="code-example">
                     <div class="code-header"><span class="code-title">Install (link the library)</span><span class="code-lang">shell</span></div>
-                    <pre><code># Linux  (libstiles.so)
+                    <pre><code># Easiest: let pkg-config supply the paths (the .pc is relocatable,
+# so it resolves against wherever you unpacked the archive).
+export PKG_CONFIG_PATH=/path/to/stiles/lib/pkgconfig
+g++ -O3 -fopenmp app.cpp $(pkg-config --cflags --libs stiles) -o app
+
+# Linux  (libstiles.so)
 g++ -O3 -fopenmp app.cpp \
   -I/path/to/stiles/include \
   -L/path/to/stiles/lib -Wl,-rpath,/path/to/stiles/lib -lstiles -o app
 
-# macOS, Apple Silicon  (libstiles.dylib, libomp via Homebrew)
+# macOS, Apple Silicon  (libstiles.dylib -- self-contained;
+# -lomp here is for YOUR app's own OpenMP, not for sTiles)
 clang++ -O3 -Xpreprocessor -fopenmp app.cpp \
   -I/path/to/stiles/include \
   -L/path/to/stiles/lib -Wl,-rpath,/path/to/stiles/lib -lstiles -lomp -o app
 
-# Windows, MinGW-w64 UCRT64  (libstiles.dll, header under tools\include)
+# Windows, MinGW-w64 UCRT64  (libstiles.dll)
 g++ -O3 -fopenmp app.cpp \
-  -I/path/to/stiles/tools/include \
-  -L/path/to/stiles/lib -lstiles -o app.exe</code></pre>
+  -I/path/to/stiles/include \
+  -L/path/to/stiles/lib -lstiles -o app.exe
+# then run app.exe with the archive's lib\ on PATH -- the .dll ships
+# beside its runtime dependencies (OpenBLAS, gfortran, gomp, ...).</code></pre>
                 </div>
                 <div class="code-example">
                     <div class="code-header"><span class="code-title">example.cpp</span><span class="code-lang">C++</span></div>
@@ -2259,14 +2267,14 @@ clang++ -O3 -Xpreprocessor -fopenmp myapp.cpp \
   -L/path/to/stiles/lib -Wl,-rpath,/path/to/stiles/lib -lstiles -lomp -o myapp
 
 # Windows (x86_64): build in the MinGW-w64 UCRT64 shell (MSYS2 / Rtools44), not MSVC.
-# Note: header lives under tools\include, link uses the libstiles.dll.a import lib,
-# and there is no -rpath on Windows.
+# Note: link uses the libstiles.dll.a import lib, and there is no -rpath on Windows.
 g++ -O3 -fopenmp myapp.cpp \
-  -I/path/to/stiles/tools/include \
+  -I/path/to/stiles/include \
   -L/path/to/stiles/lib -lstiles -o myapp.exe
-# The Windows DLL is NOT self-contained: keep libstiles.dll and its runtime DLLs
-# (libopenblas, libgfortran-5, libgomp-1, libgcc_s_seh-1, libstdc++-6,
-#  libwinpthread-1, libhwloc-15) on PATH or beside myapp.exe.</code></pre>
+# libstiles.dll links its BLAS and runtime dynamically, but the archive now
+# SHIPS them beside it (libopenblas, libgfortran-5, libquadmath-0, libgomp-1,
+# libgcc_s_seh-1, libstdc++-6, libwinpthread-1, libhwloc-15, libltdl-7).
+# Keep that lib\ directory on PATH, or copy its contents beside myapp.exe.</code></pre>
             </div>
         </div>
     </section>
