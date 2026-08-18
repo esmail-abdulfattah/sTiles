@@ -367,12 +367,18 @@
 
                     <h2>Pre-built binaries</h2>
                     <p class="lead" id="release-line" style="font-size:0.92rem;color:var(--text-secondary);margin-bottom:8px;">
-                        Latest release <strong>v2026.8.18</strong> &middot; <code>libstiles</code> 3.0.0 (built 2026-07-28)
+                        Latest release <strong id="rel-ver">v2026.8.18</strong> &middot; built <span id="rel-date">2026-08-18</span> &middot;
+                        every archive carries a <code>BUILDINFO</code> with the exact compiler, flags and library versions
                     </p>
                     <p class="lead">Pick the build that matches your platform. Each archive contains
-                        <code>libstiles</code>, the C header, and a pkg-config file. The macOS Intel
-                        and Windows builds also bundle their runtime libraries, so no toolchain or
-                        BLAS install is needed.</p>
+                        <code>libstiles</code>, the C header, a pkg-config file and a
+                        <code>BUILDINFO</code> record. Nothing else needs installing: the Linux
+                        builds embed their BLAS (MKL or OpenBLAS), and the macOS Intel and Windows
+                        builds ship their runtime libraries alongside.</p>
+                    <p class="lead" style="font-size:0.92rem;color:var(--text-secondary);">
+                        The x86_64 builds need a CPU with AVX2 (Intel Haswell 2013+ / AMD
+                        Excavator+); the library reports this clearly rather than crashing if your
+                        machine is older.</p>
 
                     <table class="dl-table">
                         <thead>
@@ -380,6 +386,18 @@
                         </thead>
                         <tbody id="dl-rows"></tbody>
                     </table>
+
+                    <p class="lead" style="font-size:0.92rem;color:var(--text-secondary);margin-top:18px;">
+                        <strong>Other builds.</strong> Each
+                        <a href="https://github.com/esmail-abdulfattah/sTiles/releases/latest">GitHub Release</a>
+                        also carries variants for specific hardware and toolchains &mdash; newest
+                        GCC with <code>x86-64-v3</code> code, ARM Performance Libraries for
+                        armv8.2 servers (Graviton2+, Ampere, Grace), and GCC-built macOS
+                        libraries for linking into GCC programs. The Python and R packages use
+                        the five above by default; set
+                        <code>STILES_VARIANT=v3-mkl</code> (or <code>armv82-armpl</code>) to
+                        select one of the others.
+                    </p>
 
                     <p class="reset-link">Not you, or need to register a different person?
                         <a id="reset-btn">Fill the form again</a>.</p>

@@ -27,7 +27,14 @@ EOF
 
 echo "==> syncing the download page's release line"
 if [ -f "$here/docs/download.html" ]; then
+    # Version AND build date, both by id, so neither can drift: the old script
+    # rewrote the number only and the hand-written "(built ...)" beside it went
+    # three weeks stale without anyone noticing.
+    sed -i -E "s#(<strong id=\"rel-ver\">v)[0-9][0-9.]*(</strong>)#\1$VER\2#" "$here/docs/download.html"
+    sed -i -E "s#(<span id=\"rel-date\">)[0-9-]*(</span>)#\1$(date -u +%Y-%m-%d)\2#" "$here/docs/download.html"
+    # Legacy form, in case the ids are ever removed again.
     sed -i -E "s#(Latest release <strong>v)[0-9][0-9.]*(</strong>)#\1$VER\2#" "$here/docs/download.html"
+    echo "==> download page: $(grep -oE 'rel-ver\">v[0-9.]+' "$here/docs/download.html" | head -1), built $(date -u +%Y-%m-%d)"
 fi
 
 echo "==> building the Python distribution"
