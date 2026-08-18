@@ -94,13 +94,51 @@ def _ci_folder() -> str:
     arch = {"x86_64": "x86_64", "amd64": "x86_64",
             "arm64": "arm64", "aarch64": "arm64"}.get(machine, machine)
     if sys.platform == "darwin":
-        return "libstiles-macos-apple-arm64" if arch == "arm64" \
+        base = "libstiles-macos-apple-arm64" if arch == "arm64" \
             else "libstiles-macos-intel-x86_64"
-    if sys.platform.startswith("linux"):
-        return f"libstiles-linux-{arch}"
-    if sys.platform.startswith("win"):
-        return f"libstiles-windows-{arch}"
-    return f"libstiles-{sys.platform}-{arch}"
+    elif sys.platform.startswith("linux"):
+        base = f"libstiles-linux-{arch}"
+    elif sys.platform.startswith("win"):
+        base = f"libstiles-windows-{arch}"
+    else:
+        base = f"libstiles-{sys.platform}-{arch}"
+    # Opt-in build variants (see BUILDS.md in the source repository), e.g.
+    #   STILES_VARIANT=v3-mkl        (Linux x86_64: newest GCC, needs glibc 2.38+)
+    #   STILES_VARIANT=armv82-armpl  (Linux arm64: newest GCC + ARMPL)
+    # The default remains the most compatible build for the platform.
+    variant = os.environ.get("STILES_VARIANT", "").strip()
+    return f"{base}-{variant}" if variant else base
+
+
+def _check_cpu_supported() -> None:
+    """Fail with a clear message on CPUs the prebuilt library cannot run on.
+
+    The x86_64 builds are compiled for AVX2 (Intel Haswell 2013+ / AMD
+    Excavator+). Without this check an unsupported machine downloads the
+    library fine and then dies with an uninformative ``Illegal instruction``
+    at the first factorization.
+    """
+    machine = platform.machine().lower()
+    if machine not in ("x86_64", "amd64"):
+        return
+    have_avx2 = True
+    try:
+        if sys.platform.startswith("linux"):
+            with open("/proc/cpuinfo") as fh:
+                have_avx2 = " avx2" in fh.read()
+        elif sys.platform.startswith("win"):
+            import ctypes
+            # PF_AVX2_INSTRUCTIONS_AVAILABLE = 40
+            have_avx2 = bool(ctypes.windll.kernel32.IsProcessorFeaturePresent(40))
+        # macOS Intel: every machine Apple still supports has AVX2.
+    except Exception:
+        return  # never block loading on a failed detection
+    if not have_avx2:
+        raise RuntimeError(
+            "the prebuilt sTiles library requires a CPU with AVX2 "
+            "(Intel Haswell 2013+ or AMD Excavator+); this machine does not "
+            "report it. Build sTiles from source for this CPU instead."
+        )
 
 
 def _lib_filename() -> str:
@@ -224,6 +262,7 @@ def _download_from_release() -> Path | None:
 
 
 def _load() -> tuple[ctypes.CDLL, str]:
+    _check_cpu_supported()
     tried: list[str] = []
     for path in _candidate_paths():
         tried.append(str(path))

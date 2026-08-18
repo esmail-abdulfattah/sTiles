@@ -34,10 +34,19 @@
     arch <- switch(machine,
                    "x86_64" = "x86_64", "amd64" = "x86_64",
                    "arm64" = "arm64", "aarch64" = "arm64", machine)
-    if (sysname == "Darwin")
-        return(if (arch == "arm64") "libstiles-macos-apple-arm64"
-               else "libstiles-macos-intel-x86_64")
-    paste0("libstiles-linux-", arch)
+    base <- if (sysname == "Darwin") {
+        if (arch == "arm64") "libstiles-macos-apple-arm64"
+        else "libstiles-macos-intel-x86_64"
+    } else if (sysname == "Windows") {
+        paste0("libstiles-windows-", arch)
+    } else {
+        paste0("libstiles-linux-", arch)
+    }
+    ## Opt-in build variants (see BUILDS.md in the source repository), e.g.
+    ##   STILES_VARIANT=v3-mkl        (Linux x86_64: newest GCC, glibc 2.38+)
+    ##   STILES_VARIANT=armv82-armpl  (Linux arm64: newest GCC + ARMPL)
+    variant <- trimws(Sys.getenv("STILES_VARIANT", ""))
+    if (nzchar(variant)) paste0(base, "-", variant) else base
 }
 
 # Walk up from `start`, collecting CI-artifact candidates
@@ -60,6 +69,26 @@
 # Fetch the matching prebuilt libstiles from the GitHub Release.
 #
 # When the package is install_github()'d there is no binary in the tree, so on
+## The prebuilt x86_64 libraries are compiled for AVX2 (Intel Haswell
+## 2013+ / AMD Excavator+). Refuse loading with a clear message instead of
+## letting an old CPU die on "illegal instruction" mid-factorization.
+.sTiles_check_cpu <- function() {
+    machine <- tolower(Sys.info()[["machine"]])
+    if (!machine %in% c("x86_64", "amd64", "x86-64")) return(invisible(TRUE))
+    ok <- TRUE
+    if (Sys.info()[["sysname"]] == "Linux" && file.exists("/proc/cpuinfo")) {
+        ok <- tryCatch(
+            any(grepl("\\bavx2\\b", readLines("/proc/cpuinfo", warn = FALSE))),
+            error = function(e) TRUE)   # never block on a failed detection
+    }
+    if (!ok)
+        stop("the prebuilt sTiles library requires a CPU with AVX2 ",
+             "(Intel Haswell 2013+ or AMD Excavator+); this machine does not ",
+             "report it. Build sTiles from source for this CPU instead.",
+             call. = FALSE)
+    invisible(TRUE)
+}
+
 # first use we download the platform library from the project's Release assets
 # and cache it. The Linux/macOS builds are self-contained (BLAS embedded).
 # Overrides: STILES_NO_DOWNLOAD, STILES_RELEASE_REPO, STILES_RELEASE_BASE_URL,
@@ -176,6 +205,7 @@
 # every native entry point via .sc().
 .sTiles_ensure_loaded <- function() {
     if (!is.null(.sTiles$dll)) return(invisible())
+    .sTiles_check_cpu()
     libpath <- .sTiles_find_lib(.sTiles$libname, .sTiles$pkgname)
     # Preload libstiles with GLOBAL symbol visibility (local = FALSE) so the
     # glue's undefined sTiles_* symbols resolve against it. (Windows has no
