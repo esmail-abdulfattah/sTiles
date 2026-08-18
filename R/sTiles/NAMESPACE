@@ -10,6 +10,7 @@
 export(sTiles)              # one-shot: analyze + factorize
 export(sTiles_analyze)      # preprocessing (symbolic) only
 export(sTiles_factorize)    # numeric Cholesky; reuse preprocessing
+export(sTiles_update)       # new values, same pattern; reuse preprocessing
 export(sTiles_selinv)       # selected inverse; reuse factorization
 export(sTiles_close)
 

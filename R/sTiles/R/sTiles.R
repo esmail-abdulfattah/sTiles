@@ -331,6 +331,24 @@ sTiles_factorize <- function(x, Q = NULL) {
     invisible(x)
 }
 
+#' New values, same sparsity pattern: re-factorize without re-analyzing.
+#'
+#' The ordering and tile layout depend only on WHERE the non-zeros are, so an
+#' object built by sTiles_analyze() can absorb any number of value updates and
+#' pay only the numeric cost each time. This is the loop an iterative method
+#' wants.
+#'
+#' @param x  An "sTiles" object from sTiles_analyze().
+#' @param Q  A matrix with the SAME sparsity pattern, whose values to factor.
+#' @return The (invisibly returned) "sTiles" object, factorized with the new
+#'   values.
+#' @export
+sTiles_update <- function(x, Q) {
+    if (missing(Q) || is.null(Q))
+        stop("sTiles_update(): supply the matrix whose values to use", call. = FALSE)
+    sTiles_factorize(x, Q)
+}
+
 #' Factorize a symmetric positive-definite matrix with sTiles.
 #'
 #' One-shot: runs preprocessing (sTiles_analyze) then the numeric factorization

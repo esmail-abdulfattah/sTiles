@@ -213,6 +213,24 @@ class sTiles:
         if factorize:
             self.factorize()
 
+    @classmethod
+    def analyze(cls, Q, **kwargs):
+        """
+        Phase 1 only: ordering and tile layout for this sparsity pattern.
+
+        The result is a live handle with no numbers in it yet -- call
+        :meth:`factorize` for the Cholesky, then :meth:`update` for every
+        further set of values that shares the pattern. This is the phase
+        worth reusing: it depends on WHERE the non-zeros are, not on their
+        values, and it usually dominates the cost.
+
+            s = sTiles.analyze(Q, cores=4, inverse=True)
+            s.factorize()          # numbers enter here
+            s.update(Q2)           # new values, same pattern, no re-analysis
+        """
+        kwargs["factorize"] = False
+        return cls(Q, **kwargs)
+
     # -- internals ----------------------------------------------------------
     def _check(self, rc, what):
         if rc is not None and rc != 0:
@@ -436,14 +454,21 @@ class sTiles:
         return self.solve(b, "Lt")
 
     # -- value reuse (same pattern, new values) ----------------------------
-    def update_values(self, Q):
+    def update(self, Q):
         """
-        Re-factor a matrix that shares this object's sparsity pattern, reusing
-        the symbolic analysis (ordering + layout).  Much cheaper than building
-        a fresh :class:`sTiles`.  Alias for ``factorize(Q)``; raises if the
-        pattern differs.
+        New values, same sparsity pattern: re-run the numeric factorization
+        while reusing the analysis from :meth:`analyze`.
+
+        This is the loop an iterative method wants -- the ordering and tile
+        layout are computed once and every subsequent factorization pays only
+        the numeric cost. Raises if ``Q``'s pattern differs; build a new
+        object in that case.
         """
         return self.factorize(Q)
+
+    def update_values(self, Q):
+        """Deprecated spelling of :meth:`update`."""
+        return self.update(Q)
 
     # -- lifecycle ----------------------------------------------------------
     def close(self):
