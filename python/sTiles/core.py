@@ -34,6 +34,7 @@ Notes
 from __future__ import annotations
 
 import ctypes
+import time as _time
 from ctypes import byref, c_bool, c_int, c_void_p
 
 import numpy as np
@@ -194,7 +195,11 @@ class sTiles:
         self._check(rc, "sTiles_create")
 
         # --- PHASE 1: preprocessing (graph + ordering + tile layout) -------
-        # Symbolic only -- no numeric values, no Cholesky.
+        # Symbolic only -- no numeric values, no Cholesky. Timed here because
+        # libstiles reports chol/selinv time but nothing for this phase, and
+        # it is usually the expensive one: it runs once per sparsity pattern
+        # while factorize() runs once per set of values.
+        _t0 = _time.perf_counter()
         rc = lib.sTiles_assign_graph_one_call(
             self.group, 0, byref(self._handle), self.n, self.nnz,
             row.ctypes.data_as(_ffi.c_int_p), col.ctypes.data_as(_ffi.c_int_p))
@@ -202,6 +207,7 @@ class sTiles:
 
         rc = lib.sTiles_init_group(self.group, byref(self._handle))
         self._check(rc, "sTiles_init_group")
+        self.analyze_time = _time.perf_counter() - _t0
 
         # --- PHASE 2: numeric factorization (optional) ---------------------
         if factorize:
@@ -313,6 +319,7 @@ class sTiles:
             "cores": self.cores,
             "inverse": self.want_inverse,
             "factored": self._factored,
+            "analyze_time": self.analyze_time,
             "chol_time": self.chol_time if self._factored else None,
             "selinv_time": self.selinv_time if self._selinv_done else None,
             "version": version(),

@@ -294,11 +294,16 @@ sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
     } else as.integer(mode)
 
     coo <- .sTiles_lower_coo(Q)
+    ## Timed here: libstiles reports chol/selinv time but nothing for the
+    ## preprocessing, which is usually the expensive phase -- it runs once per
+    ## sparsity pattern, while sTiles_factorize() runs once per set of values.
+    t0 <- proc.time()[["elapsed"]]
     ptr <- .Call(.sc("sTiles_analyze_R"), coo$i, coo$j, coo$n,
                  as.integer(cores), as.integer(m), as.integer(tile_size),
                  as.logical(inverse), as.integer(group), as.integer(log_level))
+    analyze_time <- proc.time()[["elapsed"]] - t0
 
-    obj <- list(ptr = ptr, n = coo$n, nnz = length(coo$i),
+    obj <- list(ptr = ptr, n = coo$n, nnz = length(coo$i), analyze_time = analyze_time,
                 mode = as.integer(m), cores = as.integer(cores),
                 inverse = isTRUE(inverse), factored = FALSE,
                 values = coo$x, pattern = list(i = coo$i, j = coo$j))
@@ -418,6 +423,7 @@ sTiles_summary <- function(x) {
         cores       = x$cores,
         inverse     = x$inverse,
         factored    = fac,
+        analyze_time = if (!is.null(x$analyze_time)) x$analyze_time else NA_real_,
         chol_time   = if (fac) .Call(.sc("sTiles_chol_time_R"), x$ptr) else NA_real_,
         selinv_time = tryCatch(.Call(.sc("sTiles_selinv_time_R"), x$ptr),
                                error = function(e) NA_real_),
@@ -450,10 +456,11 @@ print.sTiles_summary <- function(x, ...) {
         "  input nnz  : %d      factor nnz(L) : %d\n",
         "  tile mode  : %s   cores : %d   inverse : %s\n",
         "  state      : %s\n",
+        "  analyze    : %s   (once per sparsity pattern)\n",
         "  chol time  : %s      selinv time : %s\n",
         "  library    : %s\n"),
         x$n, x$n, x$nnz, x$nnz_factor, x$mode, x$cores, x$inverse,
         if (x$factored) "factorized" else "analyzed (not factorized)",
-        fmt_t(x$chol_time), fmt_t(x$selinv_time), x$library))
+        fmt_t(x$analyze_time), fmt_t(x$chol_time), fmt_t(x$selinv_time), x$library))
     invisible(x)
 }

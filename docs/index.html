@@ -1582,13 +1582,25 @@ from sTiles import sTiles
 # Q: a symmetric positive-definite sparse matrix
 Q = sp.diags([[-1.]*5, [4.]*6, [-1.]*5], [-1, 0, 1], format="csc")
 
-s = sTiles(Q, cores=4, inverse=True)   # analyze + Cholesky factorize
+# Two phases. Preprocessing (ordering + tile layout) depends only on WHERE the
+# non-zeros are, so it runs once; the numeric factorization runs per value set.
+s = sTiles(Q, cores=4, inverse=True, factorize=False)   # once per pattern
+s.factorize()                                           # numeric Cholesky
 
 s.logdet             # log|Q|
 s.solve(np.ones(6))  # solve Q x = b
 s.selinv_diag()      # diag(Q^-1), the marginal variances
 s.selinv_elm(0, 0)   # any inverse element within the factor pattern
-s.close()</code></pre>
+
+# New values, same pattern: reuse the preprocessing (this is the usual loop)
+s.factorize(Q * 1.1)
+s.logdet
+
+s.summary()          # dimensions, fill, and the two phase timings
+s.close()
+
+# Leaving out factorize=False runs both phases in one call, for when you only
+# need a single factorization.</code></pre>
                 </div>
                 <p class="lang-note">Pure Python (ctypes), no compiler. The native <code>libstiles</code> downloads automatically on first import.</p>
             </div>
@@ -1607,13 +1619,26 @@ s.close()</code></pre>
 Q &lt;- as(bandSparse(6, k = c(0, 1),
         diagonals = list(rep(4, 6), rep(-1, 5)), symmetric = TRUE), "CsparseMatrix")
 
-s &lt;- sTiles(Q, cores = 4, inverse = TRUE)   # analyze + Cholesky factorize
+# Two phases. Preprocessing (ordering + tile layout) depends only on WHERE the
+# non-zeros are, so it runs once; the numeric factorization runs per value set.
+s &lt;- sTiles_analyze(Q, cores = 4, inverse = TRUE)   # once per sparsity pattern
+sTiles_factorize(s)                                # numeric Cholesky
 
 sTiles_logdet(s)            # log|Q|
 sTiles_solve(s, rep(1, 6))  # solve Q x = b
 sTiles_selinv_diag(s)       # diag(Q^-1), the marginal variances
 sTiles_selinv_elm(s, 1, 1)  # any inverse element within the factor pattern
-sTiles_close(s)</code></pre>
+
+# New values, same pattern: reuse the preprocessing (this is the usual loop)
+Q2 &lt;- Q; Q2@x &lt;- Q2@x * 1.1
+sTiles_factorize(s, Q2)
+sTiles_logdet(s)
+
+sTiles_summary(s)           # dimensions, fill, and the two phase timings
+sTiles_close(s)
+
+# sTiles(Q, ...) does analyze + factorize in one call when you only need one
+# factorization.</code></pre>
                 </div>
                 <p class="lang-note">No compiler. The native <code>libstiles</code> downloads automatically on first use.</p>
             </div>
