@@ -27,8 +27,10 @@ Notes
   read; the upper triangle (if present) is ignored.
 * All indices exposed by this API are 0-based in the *original* ordering of the
   input matrix -- sTiles undoes its internal fill-reducing permutation for you.
-* State inside libstiles is keyed by an integer ``group`` index.  Distinct live
-  :class:`sTiles` objects must use distinct ``group`` values (default 0).
+* One matrix at a time per process.  libstiles keeps its teams and worker
+  threads in process-global state, so a second live handle is refused with a
+  clear error; close the first one (``close()`` or a ``with`` block) and the
+  next :class:`sTiles` object starts cleanly.
 """
 
 from __future__ import annotations
@@ -113,6 +115,31 @@ def _lower_coo(Q):
     return int(n), row[order].copy(), col[order].copy(), val[order].copy()
 
 
+# Live-object count for the process-wide teardown below. sTiles keeps its
+# worker threads (and, on Linux, its claim on a slice of the machine's cores)
+# until sTiles_quit() -- freeing a group releases memory but not the teams.
+# A long-lived host such as a notebook would therefore hold cores it no longer
+# uses. Quit is process-wide, so it may only run when the LAST object closes;
+# creating a new object afterwards re-initializes cleanly.
+_live_objects = 0
+
+
+def _register_live():
+    global _live_objects
+    _live_objects += 1
+
+
+def _unregister_live():
+    global _live_objects
+    _live_objects -= 1
+    if _live_objects <= 0:
+        _live_objects = 0
+        try:
+            lib.sTiles_quit()
+        except Exception:
+            pass
+
+
 class sTilesError(RuntimeError):
     pass
 
@@ -135,8 +162,6 @@ class sTiles:
         Reserve storage for the selected inverse.  Must be True to call
         :meth:`selinv_diag`, :meth:`selinv_elm`, or :meth:`selinv_row`
         (default False).
-    group : int
-        libstiles group index; use distinct values for concurrent instances.
     log_level : int
         Verbosity of libstiles' own logging (default -1 = silent).  Errors are
         always shown.  Use 0 for [TIME] markers, 1 = info, 2 = debug, 3 = trace.
@@ -157,10 +182,16 @@ class sTiles:
     """
 
     def __init__(self, Q, cores=1, mode="auto", tile_size=40, inverse=False,
-                 group=0, log_level=-1, factorize=True):
+                 log_level=-1, factorize=True):
+        if _live_objects > 0:
+            raise sTilesError(
+                "sTiles handles one matrix at a time: another sTiles object is "
+                "still open in this process. Close it first (close() or a "
+                "'with' block), then build the next one.")
         self._closed = False
+        self._counted = False
         self._handle = c_void_p(None)
-        self.group = int(group)
+        self.group = 0
         self.want_inverse = bool(inverse)
         self._factored = False
         self._selinv_done = False
@@ -182,10 +213,10 @@ class sTiles:
         lib.sTiles_set_tile_type_mode(self.mode)
 
         # --- create handle -------------------------------------------------
-        # State inside libstiles is indexed by group; a handle must be created
-        # with at least (group+1) groups for `group` to be a valid slot.  Only
-        # our group gets a graph; the rest stay empty.
-        ng = self.group + 1
+        # One group, and it gets the graph. Creating extra groups and leaving
+        # them without a graph makes Setup_all_teams fail on the empty one --
+        # which is why a `group` argument was never usable.
+        ng = 1
         calls = (c_int * ng)(*([1] * ng))
         cores_arr = (c_int * ng)(*([self.cores] * ng))
         chol_type = (c_int * ng)(*([0] * ng))   # 0 = sparse factorization variant
@@ -193,6 +224,8 @@ class sTiles:
         rc = lib.sTiles_create(byref(self._handle), ng, calls, cores_arr,
                                chol_type, get_inv)
         self._check(rc, "sTiles_create")
+        _register_live()
+        self._counted = True
 
         # --- PHASE 1: preprocessing (graph + ordering + tile layout) -------
         # Symbolic only -- no numeric values, no Cholesky. Timed here because
@@ -478,6 +511,11 @@ class sTiles:
             finally:
                 self._closed = True
                 self._handle = c_void_p(None)
+                # Last object gone -> full teardown: joins the worker threads
+                # and releases this process's core reservation.
+                if getattr(self, "_counted", False):
+                    self._counted = False
+                    _unregister_live()
 
     def __enter__(self):
         return self

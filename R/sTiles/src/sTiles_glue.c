@@ -195,6 +195,14 @@ static void require_factored(sTiles_ctx* c) {
                  "(preprocessing is done, the numeric Cholesky is not)");
 }
 
+/* Live handles in this R session. sTiles keeps its worker threads (and, on
+ * Linux, its claim on a slice of the machine's cores) until sTiles_quit();
+ * freeing a group releases memory but not the teams, so a session would hold
+ * cores long after the last handle died. Quit is process-wide, hence the
+ * count: it may only run when the LAST handle is finalized. Creating a new
+ * handle afterwards re-initializes cleanly. */
+static int g_live_handles = 0;
+
 static void sTiles_finalize(SEXP ext) {
     sTiles_ctx* c = (sTiles_ctx*) R_ExternalPtrAddr(ext);
     if (!c) return;
@@ -203,6 +211,10 @@ static void sTiles_finalize(SEXP ext) {
     free(c->col);
     free(c);
     R_ClearExternalPtr(ext);
+    if (--g_live_handles <= 0) {
+        g_live_handles = 0;
+        sTiles_quit();      /* join worker threads, release the core claim */
+    }
 }
 
 static void ensure_selinv(sTiles_ctx* c) {
@@ -238,6 +250,17 @@ SEXP sTiles_analyze_R(SEXP i_, SEXP j_, SEXP n_, SEXP cores_,
     if (LENGTH(j_) != nnz)
         Rf_error("i and j must have equal length");
 
+    /* One matrix at a time: libstiles keeps its teams in process-global state,
+     * so a second live handle would tear down the first one's teams. Refuse it
+     * with a clear message instead of crashing later. */
+    if (g_live_handles > 0)
+        Rf_error("sTiles handles one matrix at a time: another handle is still "
+                 "open in this session. Free it first (sTiles_close(x), or drop "
+                 "it and gc()), then analyze the next matrix.");
+    if (group != 0)
+        Rf_error("group must be 0: libstiles groups are not usable as separate "
+                 "handles");
+
     sTiles_set_log_level(loglvl);
     sTiles_expert_user();
     sTiles_set_tile_size(ts);
@@ -255,8 +278,9 @@ SEXP sTiles_analyze_R(SEXP i_, SEXP j_, SEXP n_, SEXP cores_,
     memcpy(c->row, INTEGER(i_), (size_t) nnz * sizeof(int));
     memcpy(c->col, INTEGER(j_), (size_t) nnz * sizeof(int));
 
-    /* A handle must span at least (group+1) groups for `group` to be valid. */
-    const int ng = group + 1;
+    /* One group, and it gets the graph below. Creating extra groups and leaving
+     * them empty makes Setup_all_teams fail on the empty one. */
+    const int ng = 1;
     int* calls  = (int*) R_alloc(ng, sizeof(int));
     int* coresv = (int*) R_alloc(ng, sizeof(int));
     int* ctype  = (int*) R_alloc(ng, sizeof(int));
@@ -279,6 +303,7 @@ SEXP sTiles_analyze_R(SEXP i_, SEXP j_, SEXP n_, SEXP cores_,
 
     SEXP ext = PROTECT(R_MakeExternalPtr(c, R_NilValue, R_NilValue));
     R_RegisterCFinalizerEx(ext, sTiles_finalize, TRUE);
+    g_live_handles++;
     Rf_setAttrib(ext, R_ClassSymbol, Rf_mkString("sTiles_ptr"));
     UNPROTECT(1);
     return ext;

@@ -286,7 +286,7 @@ sTiles_version <- function() .Call(.sc("sTiles_version_R"))
 #' @return An object of class "sTiles" that is analyzed but not yet factorized.
 #' @export
 sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
-                           inverse = FALSE, group = 0L, log_level = -1L) {
+                           inverse = FALSE, log_level = -1L) {
     m <- if (is.character(mode)) {
         code <- .sTiles_modes[tolower(mode)]
         if (is.na(code)) stop("unknown mode '", mode, "'")
@@ -300,7 +300,7 @@ sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
     t0 <- proc.time()[["elapsed"]]
     ptr <- .Call(.sc("sTiles_analyze_R"), coo$i, coo$j, coo$n,
                  as.integer(cores), as.integer(m), as.integer(tile_size),
-                 as.logical(inverse), as.integer(group), as.integer(log_level))
+                 as.logical(inverse), 0L, as.integer(log_level))
     analyze_time <- proc.time()[["elapsed"]] - t0
 
     obj <- list(ptr = ptr, n = coo$n, nnz = length(coo$i), analyze_time = analyze_time,
@@ -362,16 +362,14 @@ sTiles_update <- function(x, Q) {
 #' @param tile_size  Tile size, or -1 for auto (default 40).
 #' @param inverse  Reserve selected-inverse storage; required for
 #'   sTiles_selinv()/_diag()/_elm()/_row() (default FALSE).
-#' @param group  libstiles group slot; use distinct values for concurrent
-#'   handles (default 0).
 #' @param log_level  libstiles verbosity: -1 silent (default), 0 timing,
 #'   1 info, 2 debug, 3 trace.
 #' @return An object of class "sTiles" wrapping a live factorization.
 #' @export
 sTiles <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
-                   inverse = FALSE, group = 0L, log_level = -1L) {
+                   inverse = FALSE, log_level = -1L) {
     s <- sTiles_analyze(Q, cores = cores, mode = mode, tile_size = tile_size,
-                        inverse = inverse, group = group, log_level = log_level)
+                        inverse = inverse, log_level = log_level)
     sTiles_factorize(s)
     s
 }
