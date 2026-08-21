@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 # release.sh -- date-based (CalVer) release helper for the sTiles Python package.
 #
-# Stamps today's date as the version (YYYY.M.D), builds the wheel + sdist, and
-# prints the publish steps. The GitHub Release tag matches the version (v<date>).
+# Stamps today's date as the version, builds the wheel + sdist, and prints the
+# publish steps. TWO spellings of the same date, on purpose:
+#   package version  YYYY.M.D   (pip orders numerically; switching format would
+#                                make every new release sort BELOW the old ones
+#                                and pip would never upgrade anyone again)
+#   GitHub tag       vYY.MM.DD  (zero padded, the same way INLA writes its
+#                                releases, so the two projects' pages read
+#                                consistently side by side)
+# Nothing parses the tag: every loader resolves releases/latest by asset name.
 #
 #   ./release.sh          -> version 2026.7.19
 #   ./release.sh 1        -> version 2026.7.19.1   (a second release the same day)
@@ -16,7 +23,8 @@ bins="${STILES_BINARIES:-$here/../../ideas/adv_sTiles/bindings/binaries}"
 
 sfx="${1:-}"
 VER="$(python3 -c "import datetime as d; t=d.date.today(); print(f'{t.year}.{t.month}.{t.day}')")"
-[ -n "$sfx" ] && VER="$VER.$sfx"
+TAG="v$(python3 -c "import datetime as d; t=d.date.today(); print(f'{t.year%100:02d}.{t.month:02d}.{t.day:02d}')")"
+[ -n "$sfx" ] && VER="$VER.$sfx" && TAG="$TAG.$sfx"
 
 echo "==> stamping version $VER"
 cat > "$py/sTiles/_version.py" <<EOF
@@ -49,12 +57,12 @@ Version $VER built. Next (you run these):
   1. Commit + tag:
        cd "$here"
        git add -A && git commit -m "Release $VER"
-       git tag v$VER
+       git tag $TAG
        git push && git push --tags
 
-  2. GitHub Release v$VER with the four platform binaries
+  2. GitHub Release $TAG with the four platform binaries
      (from \$STILES_BINARIES = $bins):
-       gh release create v$VER \\
+       gh release create $TAG \\
          "$bins"/libstiles-linux-x86_64.zip \\
          "$bins"/libstiles-linux-arm64.zip \\
          "$bins"/libstiles-macos-apple-arm64.zip \\
