@@ -159,8 +159,22 @@
         # path. Extracting only the exact library filename left those
         # siblings behind and broke the load on non-self-contained builds.
         want <- entries[startsWith(entries, "lib/") & !endsWith(entries, "/")]
-        utils::unzip(tmp, files = want, exdir = dest, junkpaths = TRUE)
+        # Stage, then move into place. Unzipping straight into `dest` rewrites
+        # the .so where it already sits, and when that same file is mapped into
+        # this process (force = TRUE over a loaded solver) the mapping turns to
+        # garbage underneath it and R dies with an irrecoverable exception.
+        # unlink + rename swaps the directory ENTRY instead: the running
+        # process keeps the old inode, intact, until it unloads it.
+        stage <- file.path(dest, ".stage")
+        unlink(stage, recursive = TRUE)
+        utils::unzip(tmp, files = want, exdir = stage, junkpaths = TRUE)
         unlink(tmp)
+        for (f in list.files(stage, full.names = TRUE)) {
+            target <- file.path(dest, basename(f))
+            unlink(target)                  # drops the NAME; a mapped inode lives on
+            if (!file.rename(f, target)) file.copy(f, target, overwrite = TRUE)
+        }
+        unlink(stage, recursive = TRUE)
         TRUE
     }, error = function(e) {
         message(sprintf("sTiles: release download failed (%s)", conditionMessage(e)))
@@ -178,21 +192,85 @@
     if (length(have)) sort(have, decreasing = TRUE)[1] else NA_character_
 }
 
+# Drop the loaded solver so a freshly downloaded one can replace it without
+# restarting R. Safe ONLY when this session never built a handle: an "sTiles"
+# object carries a C finalizer that lives inside the glue DLL, so unloading
+# while one is still reachable would send the next garbage collection into
+# code that is no longer mapped. Returns TRUE when nothing is loaded any more.
+.sTiles_unload <- function() {
+    if (is.null(.sTiles$dll)) return(TRUE)             # never loaded: nothing to do
+    if (isTRUE(.sTiles$created > 0L)) return(FALSE)    # finalizers outstanding
+    # The DLL table is keyed by the exact string passed to dyn.load, so take
+    # the path back from R rather than rebuilding it and missing by a slash.
+    dlls <- getLoadedDLLs()
+    gluepath <- if (!is.null(dlls[[.sTiles$pkgname]])) dlls[[.sTiles$pkgname]][["path"]]
+                else file.path(.sTiles$libname, .sTiles$pkgname, "libs",
+                               .Platform$r_arch,
+                               paste0(.sTiles$pkgname, .Platform$dynlib.ext))
+    ok <- tryCatch({
+        dyn.unload(gluepath)          # glue first: its symbols bind into libstiles
+        dyn.unload(.sTiles$libpath)
+        TRUE
+    }, error = function(e) FALSE)
+    if (ok) {
+        .sTiles$dll <- NULL
+        .sTiles$libpath <- NULL
+        .sTiles$sym <- new.env(parent = emptyenv())    # cached symbol addresses are stale
+    }
+    ok
+}
+
 #' Fetch the current released solver, replacing any cached copy.
 #'
 #' The compiled solver is downloaded separately from this R package and cached,
 #' so reinstalling the package does NOT update it. Call this after a new sTiles
-#' release, or if you suspect the cached solver is old. Restart R afterwards:
-#' the library is loaded once per session.
+#' release, or if you suspect the cached solver is old.
+#'
+#' Takes effect immediately unless this session has already built a matrix with
+#' the old solver, in which case the swap waits for a restart (a loaded solver
+#' with live handles cannot be replaced underneath them).
 #'
 #' @return Path of the solver now cached, invisibly.
+#' @seealso sTiles_clean_cache
 #' @export
-sTiles_update <- function() {
+sTiles_update_solver <- function() {
+    # Windows locks a loaded DLL: it can be neither replaced nor unloaded, and
+    # trying leaves the cache half written. Refuse before downloading.
+    if (.Platform$OS.type == "windows" && !is.null(.sTiles$dll))
+        stop("restart R first, then call sTiles_update_solver(): Windows cannot ",
+             "replace a solver that is already loaded", call. = FALSE)
     lib <- .sTiles_download_from_release(force = TRUE)
     if (is.na(lib)) stop("could not download a solver; check the network or STILES_LIB")
     message("sTiles: cached ", lib)
-    message("sTiles: restart R for it to take effect (the solver loads once per session).")
+    if (.sTiles_unload())
+        message("sTiles: in effect now, no restart needed.")
+    else
+        message("sTiles: restart R for it to take effect (this session is already ",
+                "using the old solver).")
     invisible(lib)
+}
+
+#' Delete every cached solver, so the next call downloads a fresh one.
+#'
+#' The blunt instrument for a cache believed to be broken or stale.
+#'
+#' @return Number of cached solvers removed, invisibly.
+#' @seealso sTiles_update_solver
+#' @export
+sTiles_clean_cache <- function() {
+    if (.Platform$OS.type == "windows" && !is.null(.sTiles$dll))
+        stop("restart R first, then call sTiles_clean_cache(): Windows cannot ",
+             "delete a solver that is already loaded", call. = FALSE)
+    hits <- .sTiles_cached_libs(.sTiles_ci_folder(), .sTiles_lib_filename())
+    for (h in hits) {
+        unlink(dirname(h), recursive = TRUE)
+        parent <- dirname(dirname(h))           # the per-release directory
+        if (!length(list.files(parent, all.files = TRUE, no.. = TRUE)))
+            unlink(parent, recursive = TRUE)
+    }
+    .sTiles_unload()
+    message(sprintf("sTiles: removed %d cached solver(s)", length(hits)))
+    invisible(length(hits))
 }
 
 .sTiles_find_lib <- function(libname, pkgname) {
@@ -259,6 +337,7 @@ sTiles_update <- function() {
     .sTiles$libname <- libname
     .sTiles$pkgname <- pkgname
     .sTiles$sym <- new.env(parent = emptyenv())
+    .sTiles$created <- 0L   # handles built here; gates .sTiles_unload()
 }
 
 # Locate/download libstiles and load it + the glue DLL. Idempotent; called from
@@ -362,6 +441,8 @@ sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
                  as.integer(cores), as.integer(m), as.integer(tile_size),
                  as.logical(inverse), 0L, as.integer(log_level))
     analyze_time <- proc.time()[["elapsed"]] - t0
+
+    .sTiles$created <- .sTiles$created + 1L   # a C finalizer now exists; see .sTiles_unload
 
     obj <- list(ptr = ptr, n = coo$n, nnz = length(coo$i), analyze_time = analyze_time,
                 mode = as.integer(m), cores = as.integer(cores),

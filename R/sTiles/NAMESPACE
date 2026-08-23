@@ -25,6 +25,8 @@ export(sTiles_solve)        # system = "A" (Qx=b) | "L" | "Lt"
 export(sTiles_summary)      # dims, fill, mode, state, measured timings, library
 export(sTiles_version)
 export(sTiles_library_path) # absolute path of the loaded libstiles shared object
+export(sTiles_update_solver) # re-download the compiled solver
+export(sTiles_clean_cache)  # delete every cached solver
 
 S3method(print, sTiles)
 S3method(print, sTiles_summary)

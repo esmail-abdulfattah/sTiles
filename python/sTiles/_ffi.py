@@ -219,12 +219,24 @@ def _cache_dir() -> Path:
     return Path(base) / "sTiles"
 
 
+def _refuse_if_windows_locked(what: str) -> None:
+    """Windows cannot replace or delete a DLL that is loaded, and importing
+    this package loads one. Say so plainly instead of failing downstream."""
+    if os.name == "nt":
+        raise RuntimeError(
+            f"{what} cannot run while the solver is loaded; on Windows, run "
+            "'python -m sTiles " + ("clean" if "delete" in what else "update") +
+            "' in a fresh interpreter that has not imported sTiles"
+        )
+
+
 def clear_cache() -> int:
     """Delete every cached solver. Returns how many were removed.
 
     The compiled solver is downloaded separately from this package and cached,
     so reinstalling the package does NOT replace it. Use this to start fresh.
     """
+    _refuse_if_windows_locked("deleting the cache")
     root = _cache_dir()
     n = 0
     if root.is_dir():
@@ -239,6 +251,7 @@ def update() -> Path:
 
     Restart Python afterwards: the solver is loaded once per process.
     """
+    _refuse_if_windows_locked("updating the solver")
     clear_cache()
     lib = _download_from_release(force=True)
     if lib is None:
@@ -317,8 +330,17 @@ def _download_from_release(force: bool = False) -> Path | None:
                     if not member.startswith("lib/") or member.endswith("/"):
                         continue
                     bn = os.path.basename(member)
-                    with zf.open(member) as src, open(dest / bn, "wb") as out:
+                    # Write beside the target, then rename over it. Opening
+                    # the destination "wb" truncates and rewrites the file
+                    # where it sits, and if that file is already mapped into
+                    # this process the mapping turns to garbage underneath it.
+                    # os.replace swaps the directory ENTRY: the running
+                    # process keeps its old inode, intact, until it exits.
+                    staged = dest / (bn + ".new")
+                    with zf.open(member) as src, open(staged, "wb") as out:
                         shutil.copyfileobj(src, out)
+                    shutil.copymode(staged, staged)
+                    os.replace(staged, dest / bn)
         finally:
             os.unlink(tmp_zip)
         # Superseded solvers are ~20 MB each and serve nobody once a newer one
