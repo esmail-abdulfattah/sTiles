@@ -219,6 +219,36 @@ def _cache_dir() -> Path:
     return Path(base) / "sTiles"
 
 
+def clear_cache() -> int:
+    """Delete every cached solver. Returns how many were removed.
+
+    The compiled solver is downloaded separately from this package and cached,
+    so reinstalling the package does NOT replace it. Use this to start fresh.
+    """
+    root = _cache_dir()
+    n = 0
+    if root.is_dir():
+        for entry in root.iterdir():
+            shutil.rmtree(entry, ignore_errors=True) if entry.is_dir() else entry.unlink(missing_ok=True)
+            n += 1
+    return n
+
+
+def update() -> Path:
+    """Download the current released solver, replacing any cached copy.
+
+    Restart Python afterwards: the solver is loaded once per process.
+    """
+    clear_cache()
+    lib = _download_from_release(force=True)
+    if lib is None:
+        raise RuntimeError(
+            "could not download a solver; check the network, or set STILES_LIB "
+            "to a local libstiles"
+        )
+    return lib
+
+
 def _latest_tag() -> str | None:
     """Current release tag, so the cache can be keyed by it. None when offline."""
     if os.environ.get("STILES_RELEASE_TAG"):

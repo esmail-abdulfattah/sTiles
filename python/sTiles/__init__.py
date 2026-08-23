@@ -17,6 +17,7 @@ Quick start
 """
 
 from .core import sTiles, factorize, version, library_path
+from ._ffi import update, clear_cache   # refresh the downloaded solver
 from .core import (
     MODE_AUTO,
     MODE_DENSE,
@@ -26,6 +27,8 @@ from .core import (
 )
 
 __all__ = [
+    "update",
+    "clear_cache",
     "sTiles",
     "factorize",
     "version",
