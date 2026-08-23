@@ -100,23 +100,57 @@
     tools::R_user_dir("sTiles", which = "cache")
 }
 
-.sTiles_download_from_release <- function() {
-    if (nzchar(Sys.getenv("STILES_NO_DOWNLOAD", ""))) return(NA_character_)
-    ci <- .sTiles_ci_folder()
-    fname <- .sTiles_lib_filename()
-    dest <- file.path(.sTiles_cache_dir(), ci)
-    lib <- file.path(dest, fname)
-    if (file.exists(lib)) return(lib)   # already downloaded on a previous run
+# Which release is current? One request to the releases API, so the cache can
+# be keyed by TAG. Returns NA offline, and every caller must cope with that.
+.sTiles_latest_tag <- function(repo) {
+    tryCatch({
+        js <- paste(readLines(sprintf("https://api.github.com/repos/%s/releases/latest", repo),
+                              warn = FALSE), collapse = "")
+        m <- regmatches(js, regexpr('"tag_name"[^"]*"[^"]+"', js))
+        if (length(m) == 1L) sub('.*"tag_name"[^"]*"([^"]+)".*', "\\1", m) else NA_character_
+    }, error = function(e) NA_character_, warning = function(w) NA_character_)
+}
 
-    repo <- Sys.getenv("STILES_RELEASE_REPO", "esmail-abdulfattah/sTiles")
-    base <- Sys.getenv(
-        "STILES_RELEASE_BASE_URL",
-        sprintf("https://github.com/%s/releases/latest/download", repo))
+# Any solver already cached, newest release first. The offline fallback, and
+# what makes a failed API call harmless rather than fatal.
+.sTiles_cached_libs <- function(ci, fname) {
+    root <- .sTiles_cache_dir()
+    hits <- Sys.glob(file.path(root, "*", ci, fname))
+    hits <- c(hits, file.path(root, ci, fname))   # pre-versioning layout
+    hits[file.exists(hits)]
+}
+
+.sTiles_download_from_release <- function(force = FALSE) {
+    if (nzchar(Sys.getenv("STILES_NO_DOWNLOAD", ""))) return(NA_character_)
+    ci    <- .sTiles_ci_folder()
+    fname <- .sTiles_lib_filename()
+    repo  <- Sys.getenv("STILES_RELEASE_REPO", "esmail-abdulfattah/sTiles")
+    tag   <- Sys.getenv("STILES_RELEASE_TAG", "")
+    if (!nzchar(tag)) tag <- .sTiles_latest_tag(repo)
+
+    # The cache is keyed by RELEASE, not just platform. Keyed by platform
+    # alone (the original layout), the first download became permanent: every
+    # later release was ignored, reinstalling the package changed nothing, and
+    # users silently kept a solver months old -- including one that predated a
+    # fix for the bug they were hitting.
+    if (!is.na(tag)) {
+        dest <- file.path(.sTiles_cache_dir(), tag, ci)
+        lib  <- file.path(dest, fname)
+        if (file.exists(lib) && !force) return(lib)
+    } else {
+        # Offline: use whatever is already cached rather than failing.
+        have <- .sTiles_cached_libs(ci, fname)
+        if (length(have)) return(sort(have, decreasing = TRUE)[1])
+        return(NA_character_)
+    }
+
+    base <- Sys.getenv("STILES_RELEASE_BASE_URL",
+                       sprintf("https://github.com/%s/releases/download/%s", repo, tag))
     url <- sprintf("%s/%s.zip", base, ci)
     ok <- tryCatch({
         dir.create(dest, recursive = TRUE, showWarnings = FALSE)
         tmp <- tempfile(fileext = ".zip")
-        message(sprintf("sTiles: fetching libstiles for %s from %s", ci, url))
+        message(sprintf("sTiles: fetching libstiles %s for %s", tag, ci))
         utils::download.file(url, tmp, mode = "wb", quiet = TRUE)
         entries <- utils::unzip(tmp, list = TRUE)$Name
         # Everything shipped under lib/: the library itself, plus, on
@@ -132,7 +166,33 @@
         message(sprintf("sTiles: release download failed (%s)", conditionMessage(e)))
         FALSE
     })
-    if (ok && file.exists(lib)) lib else NA_character_
+    if (ok && file.exists(lib)) {
+        # Superseded solvers are ~20 MB each and serve nobody once a newer one
+        # loads; drop them, including any pre-versioning copy.
+        old <- setdiff(Sys.glob(file.path(.sTiles_cache_dir(), "*")),
+                       file.path(.sTiles_cache_dir(), tag))
+        unlink(old[basename(old) == ci | grepl("^v?[0-9]", basename(old))], recursive = TRUE)
+        return(lib)
+    }
+    have <- .sTiles_cached_libs(ci, fname)          # download failed: fall back
+    if (length(have)) sort(have, decreasing = TRUE)[1] else NA_character_
+}
+
+#' Fetch the current released solver, replacing any cached copy.
+#'
+#' The compiled solver is downloaded separately from this R package and cached,
+#' so reinstalling the package does NOT update it. Call this after a new sTiles
+#' release, or if you suspect the cached solver is old. Restart R afterwards:
+#' the library is loaded once per session.
+#'
+#' @return Path of the solver now cached, invisibly.
+#' @export
+sTiles_update <- function() {
+    lib <- .sTiles_download_from_release(force = TRUE)
+    if (is.na(lib)) stop("could not download a solver; check the network or STILES_LIB")
+    message("sTiles: cached ", lib)
+    message("sTiles: restart R for it to take effect (the solver loads once per session).")
+    invisible(lib)
 }
 
 .sTiles_find_lib <- function(libname, pkgname) {

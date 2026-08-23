@@ -37,6 +37,7 @@ LAPACK, so those must be discoverable at load time on a Mac.
 from __future__ import annotations
 
 import ctypes
+import json
 import os
 import platform
 import shutil
@@ -177,8 +178,11 @@ def _candidate_paths() -> list[Path]:
     cands.append(here / "_libs" / _platform_tag() / fname)
     cands.append(here / "_libs" / fname)
 
-    # Cache dir from a previous release download (see _download_from_release).
-    cands.append(_cache_dir() / ci / fname)
+    # Cache from a previous release download, NEWEST release first. The flat
+    # (pre-versioning) path is deliberately NOT offered here: it is the layout
+    # that pinned users to whichever solver they first downloaded, so it is
+    # only ever used as an offline fallback inside _download_from_release().
+    cands.extend(sorted(_cache_dir().glob(f"*/{ci}/{fname}"), reverse=True))
 
     # Repo dev fallback: search ancestors for lib/libstiles.{so,dylib}.
     for parent in [here, *here.parents]:
@@ -215,20 +219,52 @@ def _cache_dir() -> Path:
     return Path(base) / "sTiles"
 
 
-def _download_from_release() -> Path | None:
+def _latest_tag() -> str | None:
+    """Current release tag, so the cache can be keyed by it. None when offline."""
+    if os.environ.get("STILES_RELEASE_TAG"):
+        return os.environ["STILES_RELEASE_TAG"]
+    try:
+        url = f"https://api.github.com/repos/{_RELEASE_REPO}/releases/latest"
+        with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310
+            return json.load(resp).get("tag_name") or None
+    except Exception:  # noqa: BLE001 - offline is normal, not an error
+        return None
+
+
+def _cached_libs(ci: str, fname: str) -> list[Path]:
+    """Every solver already cached, newest release first (the offline path)."""
+    root = _cache_dir()
+    hits = sorted(root.glob(f"*/{ci}/{fname}"), reverse=True)
+    flat = root / ci / fname          # pre-versioning layout
+    if flat.is_file():
+        hits.append(flat)
+    return [p for p in hits if p.is_file()]
+
+
+def _download_from_release(force: bool = False) -> Path | None:
     """Download the matching libstiles into the cache; return its path or None."""
     if os.environ.get("STILES_NO_DOWNLOAD"):
         return None
     ci = _ci_folder()
     fname = _lib_filename()
-    dest = _cache_dir() / ci
+
+    # Cache keyed by RELEASE, not just platform. Keyed by platform alone (the
+    # original layout) the first download became permanent: later releases were
+    # never fetched, reinstalling the package changed nothing, and users kept a
+    # solver months old -- including one predating the fix for a bug they were
+    # hitting. Same defect, same fix, as the R package.
+    tag = _latest_tag()
+    if tag is None:                                  # offline: use what we have
+        have = _cached_libs(ci, fname)
+        return have[0] if have else None
+    dest = _cache_dir() / tag / ci
     lib_path = dest / fname
-    if lib_path.is_file():
-        return lib_path  # already downloaded on a previous run
+    if lib_path.is_file() and not force:
+        return lib_path
 
     base = os.environ.get(
         "STILES_RELEASE_BASE_URL",
-        f"https://github.com/{_RELEASE_REPO}/releases/latest/download",
+        f"https://github.com/{_RELEASE_REPO}/releases/download/{tag}",
     )
     url = f"{base}/{ci}.zip"
     try:
@@ -255,6 +291,12 @@ def _download_from_release() -> Path | None:
                         shutil.copyfileobj(src, out)
         finally:
             os.unlink(tmp_zip)
+        # Superseded solvers are ~20 MB each and serve nobody once a newer one
+        # loads; drop them, including any pre-versioning copy.
+        for old_dir in _cache_dir().iterdir():
+            if old_dir.is_dir() and old_dir.name not in (tag,):
+                if old_dir.name == ci or old_dir.name[:1].isdigit() or old_dir.name.startswith("v"):
+                    shutil.rmtree(old_dir, ignore_errors=True)
     except Exception as exc:  # noqa: BLE001 - any failure -> fall through to error
         sys.stderr.write(f"sTiles: release download failed ({exc})\n")
         return None
