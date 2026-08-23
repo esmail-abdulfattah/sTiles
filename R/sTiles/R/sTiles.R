@@ -220,42 +220,16 @@
     ok
 }
 
-#' Fetch the current released solver, replacing any cached copy.
-#'
-#' The compiled solver is downloaded separately from this R package and cached,
-#' so reinstalling the package does NOT update it. Call this after a new sTiles
-#' release, or if you suspect the cached solver is old.
-#'
-#' Takes effect immediately unless this session has already built a matrix with
-#' the old solver, in which case the swap waits for a restart (a loaded solver
-#' with live handles cannot be replaced underneath them).
-#'
-#' @return Path of the solver now cached, invisibly.
-#' @seealso sTiles_clean_cache
-#' @export
-sTiles_update_solver <- function() {
-    # Windows locks a loaded DLL: it can be neither replaced nor unloaded, and
-    # trying leaves the cache half written. Refuse before downloading.
-    if (.Platform$OS.type == "windows" && !is.null(.sTiles$dll))
-        stop("restart R first, then call sTiles_update_solver(): Windows cannot ",
-             "replace a solver that is already loaded", call. = FALSE)
-    lib <- .sTiles_download_from_release(force = TRUE)
-    if (is.na(lib)) stop("could not download a solver; check the network or STILES_LIB")
-    message("sTiles: cached ", lib)
-    if (.sTiles_unload())
-        message("sTiles: in effect now, no restart needed.")
-    else
-        message("sTiles: restart R for it to take effect (this session is already ",
-                "using the old solver).")
-    invisible(lib)
-}
-
 #' Delete every cached solver, so the next call downloads a fresh one.
 #'
-#' The blunt instrument for a cache believed to be broken or stale.
+#' The blunt instrument for a cache believed to be broken or stale, or the way
+#' to pick up a new release without waiting for a version bump: the next
+#' sTiles call re-downloads the solver from scratch. Takes effect immediately
+#' unless this session has already built a matrix with the old solver, in
+#' which case the fetch happens but loading it waits for a restart (a loaded
+#' solver with live handles cannot be replaced underneath them).
 #'
 #' @return Number of cached solvers removed, invisibly.
-#' @seealso sTiles_update_solver
 #' @export
 sTiles_clean_cache <- function() {
     if (.Platform$OS.type == "windows" && !is.null(.sTiles$dll))
@@ -268,8 +242,11 @@ sTiles_clean_cache <- function() {
         if (!length(list.files(parent, all.files = TRUE, no.. = TRUE)))
             unlink(parent, recursive = TRUE)
     }
-    .sTiles_unload()
+    unloaded <- .sTiles_unload()
     message(sprintf("sTiles: removed %d cached solver(s)", length(hits)))
+    if (length(hits) && !unloaded)
+        message("sTiles: restart R for a fresh download (this session is still ",
+                "using the solver just removed).")
     invisible(length(hits))
 }
 
