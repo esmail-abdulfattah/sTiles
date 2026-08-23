@@ -1584,7 +1584,7 @@ Q = sp.diags([[-1.]*5, [4.]*6, [-1.]*5], [-1, 0, 1], format="csc")
 
 # Two phases. Preprocessing (ordering + tile layout) depends only on WHERE the
 # non-zeros are, so it runs once; the numeric factorization runs per value set.
-s = sTiles.analyze(Q, cores=4, inverse=True)   # 1. symbolic: ordering + layout
+s = sTiles.analyze(Q, cores=4, inverse=True)   # 1. symbolic: ordering + layout (cores=1 by default)
 s.factorize()                                  # 2. numeric Cholesky
 
 s.logdet             # log|Q|
@@ -1602,7 +1602,8 @@ s.close()
 # sTiles(Q, ...) runs analyze + factorize in one call, for a single
 # factorization where the split does not matter.</code></pre>
                 </div>
-                <p class="lang-note">Pure Python (ctypes), no compiler. The native <code>libstiles</code> downloads automatically on first import.</p>
+                <p class="lang-note">Pure Python (ctypes), no compiler. The native <code>libstiles</code> downloads automatically on first import.
+                <br><code>cores</code> defaults to 1 and is never auto-detected: pass <code>cores=os.cpu_count()</code> to use every core, or any number up to it, to actually get parallel speed.</p>
             </div>
 
             <!-- R -->
@@ -1621,7 +1622,7 @@ Q &lt;- as(bandSparse(6, k = c(0, 1),
 
 # Two phases. Preprocessing (ordering + tile layout) depends only on WHERE the
 # non-zeros are, so it runs once; the numeric factorization runs per value set.
-s &lt;- sTiles_analyze(Q, cores = 4, inverse = TRUE)  # 1. symbolic: ordering + layout
+s &lt;- sTiles_analyze(Q, cores = 4, inverse = TRUE)  # 1. symbolic: ordering + layout (cores=1 by default)
 sTiles_factorize(s)                               # 2. numeric Cholesky
 
 sTiles_logdet(s)            # log|Q|
@@ -1640,7 +1641,8 @@ sTiles_close(s)
 # sTiles(Q, ...) does analyze + factorize in one call when you only need one
 # factorization.</code></pre>
                 </div>
-                <p class="lang-note">No compiler. The native <code>libstiles</code> downloads automatically on first use.</p>
+                <p class="lang-note">No compiler. The native <code>libstiles</code> downloads automatically on first use.
+                <br><code>cores</code> defaults to 1 and is never auto-detected: pass <code>cores = parallel::detectCores()</code> to use every core, or any number up to it, to actually get parallel speed.</p>
             </div>
 
             <!-- C / C++ -->
