@@ -166,8 +166,8 @@ void sTiles_set_control_param(int index, int value);
  *        0 = adaptive (default); digits 1..8 = exact candidate set
  *        (1=RCM 2=METIS 3=SCOTCH 4=ASCOTCH 5=FSCOTCH 6=AMD 7=CAMD 8=COLAMD)
  *   - 3: Tile type mode (set via sTiles_set_tile_type_mode):
- *        0=dense, 1=semisparse, 2=non-uniform, 3=auto
- *        Default: 1 (semisparse) on all platforms
+ *        0=dense, 1=semisparse, 2=non-uniform, 3=auto, 4=multifrontal
+ *        Default: 3 (auto) on all platforms; 4 is never auto-selected
  *   - 4: Tile ordering mode (set via sTiles_set_tile_ordering_mode)
  *   - 5: Tile ordering size (set via sTiles_set_tile_ordering_size;
  *        -1 = auto: tile_size/2, the default)
@@ -250,7 +250,10 @@ void sTiles_set_tree_path_force(int on);
 int  sTiles_get_tree_path_force(void);
 void sTiles_set_params(const int* params, int n);
 void sTiles_get_all_params(int* params, int* size);
-void sTiles_print_params(void);
+/** Print every named control-parameter slot and its current value. `prefix`
+ *  is written at the start of every line (indentation, a caller tag, etc);
+ *  NULL is treated the same as "". */
+void sTiles_print_params(const char* prefix);
 /** Print every STILES_* environment variable the library reads (current
  *  value, default, one-line description). Env vars are runtime overrides and
  *  debug hooks; prefer the sTiles_set_* API for stable configuration. */
