@@ -23,7 +23,13 @@ bins="${STILES_BINARIES:-$here/../../ideas/adv_sTiles/bindings/binaries}"
 
 sfx="${1:-}"
 VER="$(python3 -c "import datetime as d; t=d.date.today(); print(f'{t.year}.{t.month}.{t.day}')")"
-TAG="v$(python3 -c "import datetime as d; t=d.date.today(); print(f'{t.year%100:02d}.{t.month:02d}.{t.day:02d}')")"
+## Tag = Version_<the package version>. Two things here:
+##   - the prefix is Version_, not v (v* tags stay published and keep working)
+##   - the tag tracks VER exactly. It used to compute its own zero-padded
+##     two-digit-year form (v26.08.27) which no release ever used: every
+##     published tag is the four-digit VER form (v2026.8.27), so the script
+##     printed instructions that did not match the tags being cut.
+TAG="Version_$VER"
 [ -n "$sfx" ] && VER="$VER.$sfx" && TAG="$TAG.$sfx"
 
 echo "==> stamping version $VER"
