@@ -29,7 +29,12 @@ VER="$(python3 -c "import datetime as d; t=d.date.today(); print(f'{t.year}.{t.m
 ##     two-digit-year form (v26.08.27) which no release ever used: every
 ##     published tag is the four-digit VER form (v2026.8.27), so the script
 ##     printed instructions that did not match the tags being cut.
-TAG="Version_$VER"
+## TAG is the ZERO-PADDED date (Version_2026.09.03), matching how INLA writes
+## its releases so the two projects' pages line up. VER is NOT padded and must
+## not be: PEP 440 strips leading zeros, so "2026.09.03" normalizes to
+## "2026.9.3" on PyPI. Padding the package version would therefore change
+## nothing except to collide with an already published release.
+TAG="Version_$(python3 -c "import datetime as d; t=d.date.today(); print(f'{t.year}.{t.month:02d}.{t.day:02d}')")"
 [ -n "$sfx" ] && VER="$VER.$sfx" && TAG="$TAG.$sfx"
 
 echo "==> stamping version $VER"
