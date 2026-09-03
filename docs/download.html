@@ -394,9 +394,10 @@
                         GCC with <code>x86-64-v3</code> code, ARM Performance Libraries for
                         armv8.2 servers (Graviton2+, Ampere, Grace), and GCC-built macOS
                         libraries for linking into GCC programs. The Python and R packages use
-                        the five above by default; set
-                        <code>STILES_VARIANT=v3-mkl</code> (or <code>armv82-armpl</code>) to
-                        select one of the others.
+                        the five above by default; on Linux arm64 they pick the best one for your CPU
+                        automatically (SVE2 or armv8.2 where present); set
+                        <code>STILES_VARIANT=none</code> to force the portable build,
+                        or name any asset suffix to pin one.
                     </p>
 
                     <p class="reset-link">Not you, or need to register a different person?

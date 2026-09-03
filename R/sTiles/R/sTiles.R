@@ -26,6 +26,40 @@
     paste0(os, "-", arch)
 }
 
+# CPU feature list from the kernel, empty when it cannot be read.
+.sTiles_arm_cpu_flags <- function() {
+    if (Sys.info()[["sysname"]] != "Linux" || !file.exists("/proc/cpuinfo")) return(character(0))
+    ln <- tryCatch(readLines("/proc/cpuinfo", warn = FALSE), error = function(e) character(0))
+    f  <- grep("^Features", ln, value = TRUE)
+    if (!length(f)) return(character(0))
+    strsplit(trimws(sub("^Features\\s*:", "", f[1])), "\\s+")[[1]]
+}
+
+# Best-fitting build variant for this CPU, or "" for the portable default.
+# Only Linux arm64 is auto-selected, and only where the gain is a real ISA
+# difference the default build cannot use:
+#   sve2                -> armv9-sve2-armpl  (Grace, Graviton4, N2, Cortex-X925)
+#   LSE atomics + RDMA  -> armv82-armpl      (Graviton2+, Ampere Altra)
+#   otherwise           -> the baseline armv8 asset
+# NOT auto-selected: x86_64 (the v3 asset is -march=x86-64-v3, no faster than
+# the default haswell build, and it raises the glibc floor to 2.38) and macOS
+# (the default arm64 build is already -mcpu=apple-m1; the -gcc-armpl mirrors
+# exist for linking into GCC programs, not for speed).
+# The selected variants embed ARM Performance Libraries: ~45 MB against ~5 MB
+# for the baseline. Set STILES_VARIANT=none to decline it.
+.sTiles_auto_variant <- function() {
+    if (Sys.info()[["sysname"]] != "Linux") return("")
+    machine <- Sys.info()[["machine"]]
+    if (!machine %in% c("aarch64", "arm64")) return("")
+    flags <- .sTiles_arm_cpu_flags()
+    if ("sve2" %in% flags) return("armv9-sve2-armpl")
+    ## -march=armv8.2-a lets the compiler emit LSE atomics (v8.1) and SQRDMLAH
+    ## (RDMA, v8.1). Require both rather than trusting a marketing name: a core
+    ## without them SIGILLs on the first tiled update.
+    if (all(c("atomics", "asimdrdm") %in% flags)) return("armv82-armpl")
+    ""
+}
+
 # Name of the CI build-artifact directory for this platform, e.g.
 # "libstiles-linux-x86_64" or "libstiles-macos-apple-arm64".
 .sTiles_ci_folder <- function() {
@@ -42,11 +76,24 @@
     } else {
         paste0("libstiles-linux-", arch)
     }
-    ## Opt-in build variants (see BUILDS.md in the source repository), e.g.
-    ##   STILES_VARIANT=v3-mkl        (Linux x86_64: newest GCC, glibc 2.38+)
-    ##   STILES_VARIANT=armv82-armpl  (Linux arm64: newest GCC + ARMPL)
+    ## Build variant. An explicit STILES_VARIANT always wins, so any published
+    ## asset can be pinned (v3-mkl, armv82-armpl, armv9-sve2-armpl, ...);
+    ## STILES_VARIANT=none forces the portable default. With nothing set the
+    ## CPU picks (.sTiles_auto_variant), and .sTiles_ci_candidates falls back
+    ## to the default asset when the chosen one is not in the release.
     variant <- trimws(Sys.getenv("STILES_VARIANT", ""))
+    if (tolower(variant) %in% c("none", "default", "base")) return(base)
+    if (!nzchar(variant)) variant <- .sTiles_auto_variant()
     if (nzchar(variant)) paste0(base, "-", variant) else base
+}
+
+# Asset names to try, best first, always ending at the portable default.
+.sTiles_ci_candidates <- function() {
+    sel <- .sTiles_ci_folder()
+    old <- Sys.getenv("STILES_VARIANT", NA_character_)
+    Sys.setenv(STILES_VARIANT = "none")
+    on.exit(if (is.na(old)) Sys.unsetenv("STILES_VARIANT") else Sys.setenv(STILES_VARIANT = old))
+    unique(c(sel, .sTiles_ci_folder()))
 }
 
 # Walk up from `start`, collecting CI-artifact candidates
@@ -120,9 +167,20 @@
     hits[file.exists(hits)]
 }
 
+# Fetch the best asset for this CPU, falling back to the portable default.
+# .sTiles_ci_candidates() is best-first and always ends at the default build,
+# so a release that does not carry the CPU-specific asset (an older tag, or a
+# lane that failed to publish) still installs instead of erroring.
 .sTiles_download_from_release <- function(force = FALSE) {
     if (nzchar(Sys.getenv("STILES_NO_DOWNLOAD", ""))) return(NA_character_)
-    ci    <- .sTiles_ci_folder()
+    for (cand in .sTiles_ci_candidates()) {
+        got <- .sTiles_download_one(cand, force)
+        if (!is.na(got)) return(got)
+    }
+    NA_character_
+}
+
+.sTiles_download_one <- function(ci, force = FALSE) {
     fname <- .sTiles_lib_filename()
     repo  <- Sys.getenv("STILES_RELEASE_REPO", "esmail-abdulfattah/sTiles")
     tag   <- Sys.getenv("STILES_RELEASE_TAG", "")

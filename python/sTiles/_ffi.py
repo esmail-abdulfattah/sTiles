@@ -103,12 +103,86 @@ def _ci_folder() -> str:
         base = f"libstiles-windows-{arch}"
     else:
         base = f"libstiles-{sys.platform}-{arch}"
-    # Opt-in build variants (see BUILDS.md in the source repository), e.g.
-    #   STILES_VARIANT=v3-mkl        (Linux x86_64: newest GCC, needs glibc 2.38+)
-    #   STILES_VARIANT=armv82-armpl  (Linux arm64: newest GCC + ARMPL)
-    # The default remains the most compatible build for the platform.
+    # Build variant. An explicit STILES_VARIANT always wins, so a user can
+    # pin any published asset (v3-mkl, armv82-armpl, armv9-sve2-armpl, ...);
+    # STILES_VARIANT=none forces the portable default. With nothing set, the
+    # CPU picks (see _auto_variant), and _ci_candidates falls back to the
+    # default asset if the chosen one is not in the release.
     variant = os.environ.get("STILES_VARIANT", "").strip()
+    if variant.lower() in ("none", "default", "base"):
+        return base
+    if not variant:
+        variant = _auto_variant()
     return f"{base}-{variant}" if variant else base
+
+
+def _ci_base_folder() -> str:
+    """The portable default asset name, with no variant suffix."""
+    saved = os.environ.get("STILES_VARIANT")
+    os.environ["STILES_VARIANT"] = "none"
+    try:
+        return _ci_folder()
+    finally:
+        if saved is None:
+            os.environ.pop("STILES_VARIANT", None)
+        else:
+            os.environ["STILES_VARIANT"] = saved
+
+
+def _ci_candidates() -> list[str]:
+    """Asset names to try, best first, always ending at the portable default."""
+    out = [_ci_folder()]
+    base = _ci_base_folder()
+    if base not in out:
+        out.append(base)
+    return out
+
+
+def _arm_cpu_flags() -> set[str]:
+    """The kernel's feature list for this CPU, empty when it cannot be read."""
+    try:
+        with open("/proc/cpuinfo") as fh:
+            for line in fh:
+                if line.startswith("Features"):
+                    return set(line.split(":", 1)[1].split())
+    except OSError:
+        pass
+    return set()
+
+
+def _auto_variant() -> str:
+    """Best-fitting build variant for this CPU, or "" for the portable default.
+
+    Only Linux arm64 is auto-selected, and only where the gain is a real ISA
+    difference the default build cannot use:
+
+      sve2                  -> armv9-sve2-armpl   (Grace, Graviton4, N2, X925)
+      LSE atomics + RDMA    -> armv82-armpl       (Graviton2+, Ampere Altra)
+      otherwise             -> the baseline armv8 asset
+
+    Deliberately NOT auto-selected:
+      * x86_64. The v3 asset is -march=x86-64-v3, which is haswell minus five
+        features nothing here uses, so it is not faster; it only raises the
+        glibc floor to 2.38. Nothing to win, a portability floor to lose.
+      * macOS. The default arm64 build is already -mcpu=apple-m1, and the
+        -gcc-armpl mirrors exist for linking into GCC programs, not for speed.
+
+    The selected variants embed ARM Performance Libraries, so they are ~45 MB
+    against ~5 MB for the baseline. That is the cost of the choice; set
+    STILES_VARIANT=none to decline it.
+    """
+    machine = platform.machine().lower()
+    if not sys.platform.startswith("linux") or machine not in ("aarch64", "arm64"):
+        return ""
+    flags = _arm_cpu_flags()
+    if "sve2" in flags:
+        return "armv9-sve2-armpl"
+    # -march=armv8.2-a lets the compiler emit LSE atomics (v8.1) and SQRDMLAH
+    # (RDMA, v8.1). Require both rather than trusting a marketing name: a core
+    # without them SIGILLs on the first tiled update.
+    if {"atomics", "asimdrdm"} <= flags:
+        return "armv82-armpl"
+    return ""
 
 
 def _check_cpu_supported() -> None:
@@ -284,11 +358,8 @@ def _cached_libs(ci: str, fname: str) -> list[Path]:
     return [p for p in hits if p.is_file()]
 
 
-def _download_from_release(force: bool = False) -> Path | None:
-    """Download the matching libstiles into the cache; return its path or None."""
-    if os.environ.get("STILES_NO_DOWNLOAD"):
-        return None
-    ci = _ci_folder()
+def _download_one(ci: str, force: bool = False) -> Path | None:
+    """Download asset ``ci`` into the cache; return its path, or None on failure."""
     fname = _lib_filename()
 
     # Cache keyed by RELEASE, not just platform. Keyed by platform alone (the
@@ -350,9 +421,25 @@ def _download_from_release(force: bool = False) -> Path | None:
                 if old_dir.name == ci or old_dir.name[:1].isdigit() or old_dir.name.startswith("v"):
                     shutil.rmtree(old_dir, ignore_errors=True)
     except Exception as exc:  # noqa: BLE001 - any failure -> fall through to error
-        sys.stderr.write(f"sTiles: release download failed ({exc})\n")
+        sys.stderr.write(f"sTiles: {ci} not available ({exc})\n")
         return None
     return lib_path if lib_path.is_file() else None
+
+
+def _download_from_release(force: bool = False) -> Path | None:
+    """Fetch the best asset for this CPU, falling back to the portable default.
+
+    _ci_candidates() is best-first and always ends at the default build, so a
+    release that does not carry the CPU-specific asset (an older tag, or a lane
+    that failed to publish) still installs instead of erroring.
+    """
+    if os.environ.get("STILES_NO_DOWNLOAD"):
+        return None
+    for ci in _ci_candidates():
+        got = _download_one(ci, force)
+        if got is not None:
+            return got
+    return None
 
 
 def _load() -> tuple[ctypes.CDLL, str]:
