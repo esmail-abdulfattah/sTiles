@@ -8,6 +8,7 @@ inst/solver/
   linux-x86_64/libstiles.so
   macos-x86_64/libstiles.dylib      # Intel Macs
   macos-arm64/libstiles.dylib       # Apple Silicon
+  windows-x86_64/libstiles.dll
 ```
 
 At install these become `<pkg>/solver/<os>-<arch>/...`, and the package prefers

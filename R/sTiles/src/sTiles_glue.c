@@ -61,6 +61,7 @@ typedef double*     (*fn_sTiles_get_selinv_row_t)(int, int, int, int*, int, void
 typedef double      (*fn_sTiles_get_selinv_timing_t)(int, int, void**);
 typedef const char* (*fn_sTiles_get_version_t)(void);
 typedef int         (*fn_sTiles_init_group_t)(int, void**);
+typedef void        (*fn_sTiles_quit_t)(void);
 typedef int         (*fn_sTiles_selinv_t)(int, int, void**);
 typedef void        (*fn_sTiles_set_log_level_t)(int);
 typedef void        (*fn_sTiles_set_tile_size_t)(int);
@@ -87,6 +88,7 @@ static fn_sTiles_get_selinv_row_t            p_sTiles_get_selinv_row;
 static fn_sTiles_get_selinv_timing_t         p_sTiles_get_selinv_timing;
 static fn_sTiles_get_version_t               p_sTiles_get_version;
 static fn_sTiles_init_group_t                p_sTiles_init_group;
+static fn_sTiles_quit_t                      p_sTiles_quit;
 static fn_sTiles_selinv_t                    p_sTiles_selinv;
 static fn_sTiles_set_log_level_t             p_sTiles_set_log_level;
 static fn_sTiles_set_tile_size_t             p_sTiles_set_tile_size;
@@ -113,6 +115,7 @@ static fn_sTiles_unbind_t                    p_sTiles_unbind;
 #define sTiles_get_selinv_timing         p_sTiles_get_selinv_timing
 #define sTiles_get_version               p_sTiles_get_version
 #define sTiles_init_group                p_sTiles_init_group
+#define sTiles_quit                      p_sTiles_quit
 #define sTiles_selinv                    p_sTiles_selinv
 #define sTiles_set_log_level             p_sTiles_set_log_level
 #define sTiles_set_tile_size             p_sTiles_set_tile_size
@@ -155,6 +158,7 @@ SEXP sTiles_win_bind_R(SEXP path_) {
     STILES_BIND(sTiles_get_selinv_timing);
     STILES_BIND(sTiles_get_version);
     STILES_BIND(sTiles_init_group);
+    STILES_BIND(sTiles_quit);
     STILES_BIND(sTiles_selinv);
     STILES_BIND(sTiles_set_log_level);
     STILES_BIND(sTiles_set_tile_size);

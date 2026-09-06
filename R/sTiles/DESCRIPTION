@@ -1,7 +1,7 @@
 Package: sTiles
 Type: Package
 Title: Tile-Based Sparse Cholesky Factorization and Selected Inverse
-Version: 0.2.0
+Version: 2026.9.4
 Authors@R: person("Esmail", "Abdul Fattah", role = c("aut", "cre", "cph"),
     email = "esmail.abdulfattah@kaust.edu.sa")
 Description: Interface to the 'sTiles' framework for tile-based sparse Cholesky

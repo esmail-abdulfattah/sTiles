@@ -34,7 +34,10 @@ NULL
 # Library resolution -- mirrors the Python binding's search order.
 # ---------------------------------------------------------------------------
 .sTiles_lib_filename <- function() {
-    if (Sys.info()[["sysname"]] == "Darwin") "libstiles.dylib" else "libstiles.so"
+    switch(Sys.info()[["sysname"]],
+           Darwin  = "libstiles.dylib",
+           Windows = "libstiles.dll",
+           "libstiles.so")
 }
 
 .sTiles_platform_tag <- function() {
@@ -43,7 +46,7 @@ NULL
     arch <- switch(machine,
                    "x86_64" = "x86_64", "amd64" = "x86_64",
                    "arm64" = "arm64", "aarch64" = "arm64", machine)
-    os <- if (sysname == "Darwin") "macos" else "linux"
+    os <- switch(sysname, Darwin = "macos", Windows = "windows", "linux")
     paste0(os, "-", arch)
 }
 
