@@ -6,9 +6,9 @@ Authors@R: person("Esmail", "Abdul Fattah", role = c("aut", "cre", "cph"),
     email = "esmail.abdulfattah@gmail.com")
 Description: Interface to the 'sTiles' framework for tile-based sparse Cholesky
     factorization: log-determinants, selected inverse (marginal variances) and
-    triangular solves, with symbolic reuse so that repeated factorizations
-    sharing one sparsity pattern pay the ordering cost only once, as in a
-    hyperparameter sweep. The compiled glue in this package resolves its
+    triangular solves, with symbolic reuse so that repeated factorization of
+    matrices sharing one sparsity pattern pays the ordering cost only once, as
+    in a hyperparameter sweep. The compiled glue in this package resolves its
     symbols at run time against the 'sTiles' solver library ('libstiles'),
     which is a separate component distributed under its own terms and is not
     part of this package. Install it once with 'sTiles_install_library()', or

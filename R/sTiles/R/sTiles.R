@@ -556,21 +556,31 @@ sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
     invisible()
 }
 
-# Address of the Windows bind routine. A function rather than an inline
-# getNativeSymbolInfo(...)$address because R CMD check tries to evaluate a
-# symbol argument written that way, and reports the failure as a registration
-# problem; a call it cannot evaluate is left alone, which is also how every
-# other native entry point here is reached (see .sc).
-.sTiles_win_bind_sym <- function()
+# Address of the Windows bind routine, or its NAME before anything is loaded.
+# See .sc for why the name, and not an error, is the right answer there.
+.sTiles_win_bind_sym <- function() {
+    if (is.null(.sTiles$dll)) return("sTiles_win_bind_R")
     getNativeSymbolInfo("sTiles_win_bind_R", PACKAGE = .sTiles$dll)$address
+}
 
 .onUnload <- function(libpath) {
     if (!is.null(.sTiles$dll)) try(dyn.unload(.sTiles$dll[["path"]]), silent = TRUE)
 }
 
-# Resolve (and cache) a registered native routine from the glue DLL.
+# Resolve (and cache) a registered native routine from the glue DLL, or return
+# the routine's NAME when nothing is loaded yet.
+#
+# Loading is NOT done here: every entry point calls .sTiles_ensure_loaded()
+# before it reaches a .Call, so a real call always has the address by now, and
+# a missing solver is reported there with a message saying what to install.
+# The name matters for R CMD check, which evaluates this expression on its own,
+# on a machine that has no solver: an error raised here is reported as a
+# registration problem, which is what CRAN's incoming check rejects. A
+# character is a legal first argument to .Call and the routines are registered
+# (R_registerRoutines in sTiles_glue.c), so the fallback still resolves rather
+# than merely quietening a check.
 .sc <- function(name) {
-    .sTiles_ensure_loaded()
+    if (is.null(.sTiles$dll)) return(name)
     s <- .sTiles$sym[[name]]
     if (is.null(s)) {
         s <- getNativeSymbolInfo(name, PACKAGE = .sTiles$dll)$address
@@ -603,7 +613,10 @@ sTiles_library_path <- function() { .sTiles_ensure_loaded(); .sTiles$libpath }
 #'   sTiles_version()
 #' }
 #' @export
-sTiles_version <- function() .Call(.sc("sTiles_version_R"))
+sTiles_version <- function() {
+    .sTiles_ensure_loaded()
+    .Call(.sc("sTiles_version_R"))
+}
 
 # ---------------------------------------------------------------------------
 # Matrix -> lower-triangle COO (0-based, canonical (row, col) order).
@@ -658,6 +671,7 @@ sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
         code
     } else as.integer(mode)
 
+    .sTiles_ensure_loaded()
     coo <- .sTiles_lower_coo(Q)
     ## Timed here: libstiles reports chol/selinv time but nothing for the
     ## preprocessing, which is usually the expensive phase -- it runs once per
@@ -700,6 +714,7 @@ sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
 #' }
 #' @export
 sTiles_factorize <- function(x, Q = NULL) {
+    .sTiles_ensure_loaded()
     vals <- if (is.null(Q)) x$values else {
         coo <- .sTiles_lower_coo(Q)
         if (length(coo$i) != x$nnz ||
@@ -799,7 +814,10 @@ sTiles <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
 #'   sTiles_close(s)
 #' }
 #' @export
-sTiles_logdet <- function(x) .Call(.sc("sTiles_logdet_R"), x$ptr)
+sTiles_logdet <- function(x) {
+    .sTiles_ensure_loaded()
+    .Call(.sc("sTiles_logdet_R"), x$ptr)
+}
 
 #' Compute the selected inverse, reusing the current factorization
 #'
@@ -826,6 +844,7 @@ sTiles_logdet <- function(x) .Call(.sc("sTiles_logdet_R"), x$ptr)
 #' }
 #' @export
 sTiles_selinv <- function(x) {
+    .sTiles_ensure_loaded()
     .Call(.sc("sTiles_selinv_R"), x$ptr)
     invisible(x)
 }
@@ -848,7 +867,10 @@ sTiles_selinv <- function(x) {
 #'   sTiles_close(s)
 #' }
 #' @export
-sTiles_selinv_diag <- function(x) .Call(.sc("sTiles_selinv_diag_R"), x$ptr)
+sTiles_selinv_diag <- function(x) {
+    .sTiles_ensure_loaded()
+    .Call(.sc("sTiles_selinv_diag_R"), x$ptr)
+}
 
 #' One entry of the selected inverse
 #'
@@ -871,8 +893,10 @@ sTiles_selinv_diag <- function(x) .Call(.sc("sTiles_selinv_diag_R"), x$ptr)
 #'   sTiles_close(s)
 #' }
 #' @export
-sTiles_selinv_elm <- function(x, i, j)
+sTiles_selinv_elm <- function(x, i, j) {
+    .sTiles_ensure_loaded()
     .Call(.sc("sTiles_selinv_elm_R"), x$ptr, as.integer(i), as.integer(j))
+}
 
 #' Several entries from one row of the selected inverse
 #'
@@ -895,9 +919,11 @@ sTiles_selinv_elm <- function(x, i, j)
 #'   sTiles_close(s)
 #' }
 #' @export
-sTiles_selinv_row <- function(x, node, neighbors)
+sTiles_selinv_row <- function(x, node, neighbors) {
+    .sTiles_ensure_loaded()
     .Call(.sc("sTiles_selinv_row_R"), x$ptr, as.integer(node),
           as.integer(neighbors))
+}
 
 #' Solve a linear system with the factorization
 #'
@@ -919,6 +945,7 @@ sTiles_selinv_row <- function(x, node, neighbors)
 #' }
 #' @export
 sTiles_solve <- function(x, b, system = c("A", "L", "Lt")) {
+    .sTiles_ensure_loaded()
     which <- switch(match.arg(system), A = 0L, L = 1L, Lt = 2L)
     .Call(.sc("sTiles_solve_R"), x$ptr, as.double(b), which)
 }
@@ -946,6 +973,7 @@ sTiles_solve <- function(x, b, system = c("A", "L", "Lt")) {
 #' }
 #' @export
 sTiles_summary <- function(x) {
+    .sTiles_ensure_loaded()
     modes <- c("dense", "semisparse", "sparse", "auto")
     fac <- as.logical(.Call(.sc("sTiles_is_factored_R"), x$ptr))
     out <- list(
@@ -985,7 +1013,10 @@ sTiles_summary <- function(x) {
 #'   sTiles_close(s)
 #' }
 #' @export
-sTiles_close <- function(x) invisible(.Call(.sc("sTiles_free_R"), x$ptr))
+sTiles_close <- function(x) {
+    .sTiles_ensure_loaded()
+    invisible(.Call(.sc("sTiles_free_R"), x$ptr))
+}
 
 #' Print a sTiles factorization object
 #'
@@ -1001,6 +1032,7 @@ sTiles_close <- function(x) invisible(.Call(.sc("sTiles_free_R"), x$ptr))
 #' }
 #' @export
 print.sTiles <- function(x, ...) {
+    .sTiles_ensure_loaded()
     modes <- c("dense", "semisparse", "sparse", "auto")
     fac <- as.logical(.Call(.sc("sTiles_is_factored_R"), x$ptr))
     cat(sprintf("<sTiles: %d x %d, nnz=%d, mode=%s, cores=%d, inverse=%s, %s>\n",
