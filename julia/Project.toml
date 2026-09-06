@@ -1,0 +1,21 @@
+name = "sTiles"
+uuid = "21d9f770-0d51-43c8-be75-c9a27496c115"
+authors = ["Esmail Abdul Fattah <esmail.abdulfattah@kaust.edu.sa>"]
+version = "2026.9.6"
+
+[deps]
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+p7zip_jll = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+
+[compat]
+julia = "1.10"
+
+[extras]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Random"]

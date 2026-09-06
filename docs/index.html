@@ -1545,8 +1545,8 @@
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon teal"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/></svg></div>
-                    <h3>Python, R &amp; C/C++</h3>
-                    <p>Use sTiles from Python (<code>pip install sTiles</code>), R, or C/C++. Pre-built for Linux, macOS, and Windows. The native library downloads automatically, no compiler needed.</p>
+                    <h3>Python, R, Julia &amp; C/C++</h3>
+                    <p>Use sTiles from Python (<code>pip install sTiles</code>), R, Julia, or C/C++. Pre-built for Linux, macOS, and Windows. The native library downloads automatically, no compiler needed.</p>
                 </div>
             </div>
         </div>
@@ -1565,6 +1565,7 @@
                 <button class="lang-tab" data-lang="cpp" onclick="showLang('cpp')">C / C++</button>
                 <button class="lang-tab active" data-lang="python" onclick="showLang('python')">Python</button>
                 <button class="lang-tab" data-lang="r" onclick="showLang('r')">R</button>
+                <button class="lang-tab" data-lang="julia" onclick="showLang('julia')">Julia</button>
             </div>
 
             <!-- Python -->
@@ -1642,6 +1643,43 @@ sTiles_close(s)
                 </div>
                 <p class="lang-note">No compiler. Run <code>sTiles_install_library()</code> once to fetch the native <code>libstiles</code>; an interactive session offers to do it the first time you need it.
                 <br><code>cores</code> defaults to 1 and is never auto-detected: pass <code>cores = parallel::detectCores()</code> to use every core, or any number up to it, to actually get parallel speed.</p>
+            </div>
+
+            <!-- Julia -->
+            <div class="lang-panel" id="lang-julia">
+                <div class="code-example">
+                    <div class="code-header"><span class="code-title">Install from GitHub</span><span class="code-lang" style="background:#9558b2;color:#fff;">Julia</span></div>
+                    <pre><code>pkg&gt; add https://github.com/esmail-abdulfattah/sTiles:julia</code></pre>
+                </div>
+                <div class="code-example">
+                    <div class="code-header"><span class="code-title">quickstart.jl</span><span class="code-lang" style="background:#9558b2;color:#fff;">Julia</span></div>
+                    <pre><code>using sTiles, LinearAlgebra, SparseArrays
+
+# Q: a symmetric positive-definite sparse matrix
+Q = spdiagm(-1 =&gt; fill(-1.0, 5), 0 =&gt; fill(4.0, 6), 1 =&gt; fill(-1.0, 5))
+
+# Two phases. Preprocessing (ordering + tile layout) depends only on WHERE the
+# non-zeros are, so it runs once; the numeric factorization runs per value set.
+F = sTiles.analyze(Q; cores = 4, inverse = true)  # 1. symbolic: ordering + layout (cores=1 by default)
+sTiles.factorize!(F)                              # 2. numeric Cholesky
+
+logdet(F)             # log|Q|
+F \ ones(6)           # solve Q x = b
+selinv_diag(F)        # diag(Q^-1), the marginal variances
+selinv_elm(F, 1, 1)   # any inverse element within the factor pattern
+
+# 3. new values, same pattern: reuses the analysis, pays only numeric cost
+sTiles.update!(F, 1.1 * Q)
+logdet(F)
+
+sTiles.summary(F)     # dimensions, fill, and the two phase timings
+close(F)
+
+# sTiles.cholesky(Q; ...) does analyze + factorize in one call when you only
+# need one factorization.</code></pre>
+                </div>
+                <p class="lang-note">No compiler. The native <code>libstiles</code> for your platform is fetched from the GitHub Release the first time you run <code>using sTiles</code> and cached; set <code>STILES_LIB</code> to use a copy of your own. One factor is live at a time, so <code>close(F)</code> before building the next.
+                <br><code>cores</code> defaults to 1 and is never auto-detected: pass <code>cores = Sys.CPU_THREADS</code> to use every core, or any number up to it, to actually get parallel speed.</p>
             </div>
 
             <!-- C / C++ -->

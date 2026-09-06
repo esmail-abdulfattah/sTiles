@@ -21,6 +21,10 @@ python/build/
 python/dist/
 python/*.egg-info/
 
+# Julia: resolved environment is machine-specific; vendored solvers live in deps/
+julia/Manifest.toml
+julia/deps/**
+
 # R build / personal history
 **/.Rhistory
 R/**/*.o
