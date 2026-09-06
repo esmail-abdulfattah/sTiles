@@ -17,8 +17,9 @@ This repository holds the language bindings and the project website. The
 `libstiles` engine itself is distributed as prebuilt binaries for Linux
 (x86_64, arm64), macOS (Apple Silicon, Intel), and Windows (x86_64), published
 as [release assets](https://github.com/esmail-abdulfattah/sTiles/releases/latest).
-Both packages below fetch the binary for your platform automatically on first
-use, so no compiler or build step is required.
+Neither package needs a compiler or a build step. The Python package fetches
+the binary for your platform on first use; the R package asks first, and
+installs it on request with `sTiles::sTiles_install_library()`.
 
 ```bash
 pip install sTiles

@@ -26,6 +26,8 @@ python/*.egg-info/
 R/**/*.o
 R/**/*.so
 R/**/*.Rcheck/
+R/sTiles/src/Makevars
+R/sTiles/sTiles_*.tar.gz
 
 # Compiled objects / archives / logs
 *.o
@@ -44,8 +46,8 @@ ctest/run_mtx
 *.dll.a
 _libs/**
 !_libs/**/.gitkeep
-inst/libs/**
-!inst/libs/**/.gitkeep
+R/sTiles/inst/solver/**
+!R/sTiles/inst/solver/README.md
 
 # CI artifact zips + their extracted trees (fetched, never committed)
 binaries/*.zip

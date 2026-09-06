@@ -1,6 +1,27 @@
 ## sTiles -- R interface to the sTiles sparse Cholesky / selected-inverse
 ## framework.  See ?sTiles for the entry point.
 
+#' @name sTiles-package
+#' @title Tile-Based Sparse Cholesky Factorization and Selected Inverse
+#' @description
+#' An interface to the sTiles framework: sparse Cholesky factorization,
+#' log-determinants, selected inverse (marginal variances) and triangular
+#' solves, organised so that the symbolic work is paid once per sparsity
+#' pattern and reused across every set of values sharing it.
+#'
+#' Start at [sTiles()] for a one-shot factorization, or at [sTiles_analyze()]
+#' plus [sTiles_factorize()] when many matrices share one pattern.
+#'
+#' @section The solver library:
+#' The numerical work happens in libstiles, a separate component under its own
+#' license terms that this package loads at run time (see the NOTICE file).
+#' [sTiles_available()] reports whether a copy is present,
+#' [sTiles_install_library()] fetches one, and `STILES_LIB` points the package
+#' at a copy you already have.
+#'
+#' @keywords internal
+NULL
+
 # Package-private state: the located libstiles path, the glue DLLInfo, and a
 # cache of resolved native symbols.
 .sTiles <- new.env(parent = emptyenv())
@@ -112,10 +133,6 @@
     out
 }
 
-# ---------------------------------------------------------------------------
-# Fetch the matching prebuilt libstiles from the GitHub Release.
-#
-# When the package is install_github()'d there is no binary in the tree, so on
 ## The prebuilt x86_64 libraries are compiled for AVX2 (Intel Haswell
 ## 2013+ / AMD Excavator+). Refuse loading with a clear message instead of
 ## letting an old CPU die on "illegal instruction" mid-factorization.
@@ -136,10 +153,13 @@
     invisible(TRUE)
 }
 
-# first use we download the platform library from the project's Release assets
-# and cache it. The Linux/macOS builds are self-contained (BLAS embedded).
+# ---------------------------------------------------------------------------
+# The solver library is a separate component and is never fetched behind the
+# user's back: sTiles_install_library() puts a copy in the cache below, and
+# that call is the only path in this package that reaches the network. The
+# Linux/macOS builds are self-contained (BLAS embedded).
 # Overrides: STILES_NO_DOWNLOAD, STILES_RELEASE_REPO, STILES_RELEASE_BASE_URL,
-# STILES_CACHE_DIR.
+# STILES_CACHE_DIR, STILES_RELEASE_TAG, STILES_VARIANT.
 # ---------------------------------------------------------------------------
 .sTiles_cache_dir <- function() {
     env <- Sys.getenv("STILES_CACHE_DIR", "")
@@ -278,16 +298,23 @@
     ok
 }
 
-#' Delete every cached solver, so the next call downloads a fresh one.
+#' Delete every cached sTiles solver library
 #'
-#' The blunt instrument for a cache believed to be broken or stale, or the way
-#' to pick up a new release without waiting for a version bump: the next
-#' sTiles call re-downloads the solver from scratch. Takes effect immediately
-#' unless this session has already built a matrix with the old solver, in
-#' which case the fetch happens but loading it waits for a restart (a loaded
-#' solver with live handles cannot be replaced underneath them).
+#' Removes the solver copies that [sTiles_install_library()] placed in the
+#' package cache. The blunt instrument for a cache believed to be broken or
+#' stale, and the way to make room before installing a different release: call
+#' [sTiles_install_library()] afterwards to fetch a fresh one. Takes effect
+#' immediately unless this session has already built a matrix with the old
+#' solver, in which case the files go but a replacement can only load after
+#' restarting R (a loaded solver with live handles cannot be swapped
+#' underneath them).
 #'
-#' @return Number of cached solvers removed, invisibly.
+#' @return The number of cached solvers removed, invisibly.
+#' @seealso [sTiles_install_library()], [sTiles_available()]
+#' @examples
+#' \dontrun{
+#' sTiles_clean_cache()
+#' }
 #' @export
 sTiles_clean_cache <- function() {
     if (.Platform$OS.type == "windows" && !is.null(.sTiles$dll))
@@ -303,12 +330,14 @@ sTiles_clean_cache <- function() {
     unloaded <- .sTiles_unload()
     message(sprintf("sTiles: removed %d cached solver(s)", length(hits)))
     if (length(hits) && !unloaded)
-        message("sTiles: restart R for a fresh download (this session is still ",
+        message("sTiles: restart R before reinstalling (this session is still ",
                 "using the solver just removed).")
     invisible(length(hits))
 }
 
-.sTiles_find_lib <- function(libname, pkgname) {
+# Every local place a solver could be, best first. Pure path arithmetic plus
+# file.exists(): no network, no loading, no side effects.
+.sTiles_lib_candidates <- function(libname = NULL, pkgname = NULL) {
     fname <- .sTiles_lib_filename()
     ci <- .sTiles_ci_folder()
     cands <- character(0)
@@ -323,7 +352,7 @@ sTiles_clean_cache <- function() {
     env_bin <- Sys.getenv("STILES_BINARIES_DIR", "")
     if (nzchar(env_bin)) cands <- c(cands, file.path(env_bin, ci, "lib", fname))
 
-    pkgdir <- if (!missing(libname) && !missing(pkgname))
+    pkgdir <- if (!is.null(libname) && !is.null(pkgname))
         file.path(libname, pkgname) else system.file(package = "sTiles")
 
     # Search a `binaries/` tree above the package AND above the working dir
@@ -332,8 +361,14 @@ sTiles_clean_cache <- function() {
                .sTiles_binaries_candidates(pkgdir, ci, fname),
                .sTiles_binaries_candidates(getwd(), ci, fname))
 
-    # Bundled inside the installed package: inst/libs/<plat>/ -> libs/<plat>/.
+    # Bundled inside the installed package: inst/solver/<plat>/ becomes
+    # <pkg>/solver/<plat>/. NOT inst/libs: R reserves <pkg>/libs for the
+    # package's own compiled code, and a non-empty inst/libs is a check
+    # warning. The libs/ paths stay in the list for installs made before the
+    # rename, which cost nothing to try.
     cands <- c(cands,
+               file.path(pkgdir, "solver", .sTiles_platform_tag(), fname),
+               file.path(pkgdir, "solver", fname),
                file.path(pkgdir, "libs", .sTiles_platform_tag(), fname),
                file.path(pkgdir, "libs", fname))
 
@@ -346,18 +381,134 @@ sTiles_clean_cache <- function() {
         here <- parent
     }
 
+    # Last: the cache sTiles_install_library() fills, newest release first.
+    # Reached by path alone, so an installed solver is found offline and
+    # without asking the releases API which tag is current.
+    for (cand in .sTiles_ci_candidates())
+        cands <- c(cands, sort(.sTiles_cached_libs(cand, fname), decreasing = TRUE))
+
+    cands
+}
+
+#' Is the sTiles solver library available?
+#'
+#' Reports whether a solver library can be found on this machine, checking the
+#' `STILES_LIB`, `STILES_LIB_DIR` and `STILES_BINARIES_DIR` environment
+#' variables, a copy bundled in the installed package, a development checkout,
+#' and the cache filled by [sTiles_install_library()]. It looks at the file
+#' system only: it never contacts the network and never loads anything, which
+#' makes it the right guard for examples and tests that have to be skipped
+#' where no solver is installed.
+#'
+#' @return `TRUE` when a solver library was found, `FALSE` otherwise.
+#' @seealso [sTiles_install_library()]
+#' @examples
+#' sTiles_available()
+#' @export
+sTiles_available <- function()
+    any(file.exists(.sTiles_lib_candidates(.sTiles$libname, .sTiles$pkgname)))
+
+#' Install the sTiles solver library
+#'
+#' Downloads the prebuilt solver library that matches this platform from the
+#' sTiles project's releases and stores it in the package cache, under
+#' `tools::R_user_dir("sTiles", "cache")`. Run it once: every later session
+#' finds the cached copy without touching the network.
+#'
+#' The solver is a separate component under its own license terms (see the
+#' NOTICE file in this package) and is deliberately not bundled. Nothing is
+#' downloaded unless you call this function or accept the prompt an interactive
+#' session shows the first time a solver is needed. To skip the download
+#' altogether, point `STILES_LIB` at a shared object you already have, or
+#' `STILES_LIB_DIR` at the directory holding it. Setting `STILES_NO_DOWNLOAD`
+#' disables the download path entirely.
+#'
+#' @section Search order:
+#' Before anything is downloaded, and on every later call, the package takes
+#' the first solver it finds among:
+#' \enumerate{
+#'   \item `STILES_LIB`, a shared object named outright;
+#'   \item `STILES_LIB_DIR`, a directory holding one;
+#'   \item `STILES_BINARIES_DIR`, a CI-artifact tree;
+#'   \item a `binaries/` tree above the installed package or the working
+#'     directory;
+#'   \item a copy bundled in the installed package, under `solver/`;
+#'   \item `lib/` in a development checkout above the package;
+#'   \item the download cache, newest release first.
+#' }
+#'
+#' @param tag Release tag to install, for example "v2026.8.27". Defaults to the
+#'   latest release.
+#' @param variant Build variant to prefer, for example "armv82-armpl" or
+#'   "v3-mkl", or "none" for the portable default. Defaults to the best fit for
+#'   this CPU, falling back to the portable build when the release does not
+#'   carry the preferred one.
+#' @param force Re-download even when a matching solver is already cached.
+#' @return The path of the installed shared library, invisibly.
+#' @seealso [sTiles_available()], [sTiles_clean_cache()]
+#' @examples
+#' \dontrun{
+#' sTiles_install_library()
+#' sTiles_install_library(tag = "v2026.8.27", variant = "none")
+#' }
+#' @export
+sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
+    if (nzchar(Sys.getenv("STILES_NO_DOWNLOAD", "")))
+        stop("STILES_NO_DOWNLOAD is set, so the solver download is disabled. ",
+             "Unset it, or point STILES_LIB at a copy you already have.",
+             call. = FALSE)
+
+    keys <- c("STILES_RELEASE_TAG", "STILES_VARIANT")
+    old <- Sys.getenv(keys, names = TRUE, unset = NA)
+    on.exit({
+        for (k in keys)
+            if (is.na(old[[k]])) Sys.unsetenv(k)
+            else do.call(Sys.setenv, structure(list(old[[k]]), names = k))
+    }, add = TRUE)
+    if (!is.null(tag)) Sys.setenv(STILES_RELEASE_TAG = tag)
+    if (!is.null(variant)) Sys.setenv(STILES_VARIANT = variant)
+
+    got <- .sTiles_download_from_release(force = isTRUE(force))
+    if (is.na(got) || !file.exists(got))
+        stop("could not install the sTiles solver library. Check the network ",
+             "connection, or download the shared library for this platform ",
+             "from ", .sTiles_release_page(), " by hand and point STILES_LIB ",
+             "at it.", call. = FALSE)
+    got <- normalizePath(got)
+    message("sTiles: solver installed at ", got)
+    invisible(got)
+}
+
+# Where a user goes to fetch the library by hand.
+.sTiles_release_page <- function()
+    sprintf("https://github.com/%s/releases",
+            Sys.getenv("STILES_RELEASE_REPO", "esmail-abdulfattah/sTiles"))
+
+.sTiles_find_lib <- function(libname, pkgname) {
+    fname <- .sTiles_lib_filename()
+    ci <- .sTiles_ci_folder()
+    cands <- .sTiles_lib_candidates(libname, pkgname)
+
     hit <- cands[file.exists(cands)]
     if (length(hit) > 0) return(normalizePath(hit[1]))
 
-    # Nothing local: fetch the prebuilt library from the GitHub Release.
-    dl <- .sTiles_download_from_release()
-    if (!is.na(dl) && file.exists(dl)) return(normalizePath(dl))
+    # Nothing local. Ask when there is somebody to ask; never download on our
+    # own initiative, and in a script say plainly what to run instead.
+    if (interactive() && !nzchar(Sys.getenv("STILES_NO_DOWNLOAD", ""))) {
+        ans <- tryCatch(utils::askYesNo(
+            sprintf(paste0("sTiles: the solver library (%s) is not installed.\n",
+                           "Download it now from the sTiles releases?"), fname),
+            default = FALSE), error = function(e) FALSE)
+        if (isTRUE(ans)) {
+            dl <- .sTiles_download_from_release()
+            if (!is.na(dl) && file.exists(dl)) return(normalizePath(dl))
+        }
+    }
 
-    stop("Could not locate ", fname, ".\nThe automatic download from the GitHub ",
-         "Release failed or was disabled. Set STILES_LIB to the shared object, ",
-         "STILES_LIB_DIR to its directory, or STILES_BINARIES_DIR to a CI-artifact ",
-         "tree (", ci, "/lib/", fname, ").\nSearched:\n  ",
-         paste(cands, collapse = "\n  "), call. = FALSE)
+    stop("the sTiles solver library (", fname, ") is not installed. Run ",
+         "sTiles_install_library() once to download it, or set STILES_LIB to ",
+         "a copy you already have. Searched ", length(cands), " locations; ",
+         "see ?sTiles_install_library for the search order.", call. = FALSE)
 }
 
 .onLoad <- function(libname, pkgname) {
@@ -397,11 +548,18 @@ sTiles_clean_cache <- function() {
     # .dylib (macOS) can, so the glue resolves them itself via
     # LoadLibrary/GetProcAddress once it knows the real libstiles.dll path.
     if (.Platform$OS.type == "windows")
-        .Call(getNativeSymbolInfo("sTiles_win_bind_R", PACKAGE = .sTiles$dll)$address,
-              libpath)
+        .Call(.sTiles_win_bind_sym(), libpath)
 
     invisible()
 }
+
+# Address of the Windows bind routine. A function rather than an inline
+# getNativeSymbolInfo(...)$address because R CMD check tries to evaluate a
+# symbol argument written that way, and reports the failure as a registration
+# problem; a call it cannot evaluate is left alone, which is also how every
+# other native entry point here is reached (see .sc).
+.sTiles_win_bind_sym <- function()
+    getNativeSymbolInfo("sTiles_win_bind_R", PACKAGE = .sTiles$dll)$address
 
 .onUnload <- function(libpath) {
     if (!is.null(.sTiles$dll)) try(dyn.unload(.sTiles$dll[["path"]]), silent = TRUE)
@@ -418,11 +576,29 @@ sTiles_clean_cache <- function() {
     s
 }
 
-#' Absolute path of the loaded libstiles shared object.
+#' Path of the loaded sTiles solver library
+#'
+#' Loads the solver if this session has not loaded it yet, then reports which
+#' file answered. Useful when several builds are installed and you need to know
+#' which one is in use.
+#'
+#' @return The absolute path of the loaded shared library, as a string.
+#' @seealso [sTiles_available()], [sTiles_install_library()]
+#' @examples
+#' if (sTiles_available()) {
+#'   sTiles_library_path()
+#' }
 #' @export
 sTiles_library_path <- function() { .sTiles_ensure_loaded(); .sTiles$libpath }
 
-#' sTiles library version string.
+#' Version of the sTiles solver library
+#'
+#' @return The solver's version string.
+#' @seealso [sTiles_summary()]
+#' @examples
+#' if (sTiles_available()) {
+#'   sTiles_version()
+#' }
 #' @export
 sTiles_version <- function() .Call(.sc("sTiles_version_R"))
 
@@ -449,15 +625,27 @@ sTiles_version <- function() .Call(.sc("sTiles_version_R"))
 # Public API
 # ---------------------------------------------------------------------------
 
-#' Preprocess (analyze) a matrix: ordering bake-off + tile layout ONLY.
+#' Preprocess a matrix: ordering bake-off and tile layout only
 #'
-#' This is the symbolic phase -- it depends only on the sparsity pattern, not
-#' the numeric values, and does no Cholesky. Follow it with sTiles_factorize()
-#' to run the numeric factorization; timing the two separately isolates the
-#' preprocessing cost from the numeric cost.
+#' The symbolic phase. It depends only on the sparsity pattern, not on the
+#' numeric values, and performs no Cholesky. Follow it with [sTiles_factorize()]
+#' for the numeric factorization. Timing the two apart separates the
+#' preprocessing cost, paid once per pattern, from the numeric cost, paid once
+#' per set of values.
 #'
 #' @inheritParams sTiles
-#' @return An object of class "sTiles" that is analyzed but not yet factorized.
+#' @return An object of class "sTiles", analyzed but not yet factorized.
+#' @seealso [sTiles_factorize()], [sTiles_update()], [sTiles()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles_analyze(Q)
+#'   sTiles_factorize(s)
+#'   sTiles_logdet(s)
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
                            inverse = FALSE, log_level = -1L) {
@@ -487,12 +675,26 @@ sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
     obj
 }
 
-#' Numeric Cholesky factorization (reuses the preprocessing from analyze).
+#' Numeric Cholesky factorization, reusing the preprocessing
 #'
-#' @param x  An "sTiles" object from sTiles_analyze() (or sTiles()).
-#' @param Q  Optional: a matrix with the SAME sparsity pattern whose values to
-#'   factor. If omitted, the values captured at analyze time are used.
-#' @return The (invisibly returned) "sTiles" object, now factorized.
+#' Runs the numeric phase on an object that [sTiles_analyze()] has already
+#' prepared, so the ordering and tile layout are not recomputed.
+#'
+#' @param x An "sTiles" object from [sTiles_analyze()] or [sTiles()].
+#' @param Q Optional: a matrix with the SAME sparsity pattern, whose values to
+#'   factor. When omitted, the values captured at analyze time are used.
+#' @return The "sTiles" object, now factorized, invisibly.
+#' @seealso [sTiles_analyze()], [sTiles_update()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles_analyze(Q)
+#'   sTiles_factorize(s)
+#'   sTiles_logdet(s)
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_factorize <- function(x, Q = NULL) {
     vals <- if (is.null(Q)) x$values else {
@@ -507,17 +709,31 @@ sTiles_factorize <- function(x, Q = NULL) {
     invisible(x)
 }
 
-#' New values, same sparsity pattern: re-factorize without re-analyzing.
+#' New values, same sparsity pattern: refactorize without reanalyzing
 #'
 #' The ordering and tile layout depend only on WHERE the non-zeros are, so an
-#' object built by sTiles_analyze() can absorb any number of value updates and
-#' pay only the numeric cost each time. This is the loop an iterative method
-#' wants.
+#' object built by [sTiles_analyze()] can absorb any number of value updates
+#' and pay only the numeric cost each time. This is the loop an iterative
+#' method wants.
 #'
-#' @param x  An "sTiles" object from sTiles_analyze().
-#' @param Q  A matrix with the SAME sparsity pattern, whose values to factor.
-#' @return The (invisibly returned) "sTiles" object, factorized with the new
-#'   values.
+#' @param x An "sTiles" object from [sTiles_analyze()].
+#' @param Q A matrix with the SAME sparsity pattern, whose values to factor.
+#' @return The "sTiles" object, factorized with the new values, invisibly.
+#' @seealso [sTiles_analyze()], [sTiles_factorize()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles_analyze(Q)
+#'   sTiles_factorize(s)
+#'   d1 <- sTiles_logdet(s)
+#'   ## same pattern, different values: no new ordering
+#'   sTiles_update(s, Q * 2)
+#'   d2 <- sTiles_logdet(s)
+#'   c(d1, d2)
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_update <- function(x, Q) {
     if (missing(Q) || is.null(Q))
@@ -525,22 +741,35 @@ sTiles_update <- function(x, Q) {
     sTiles_factorize(x, Q)
 }
 
-#' Factorize a symmetric positive-definite matrix with sTiles.
+#' Factorize a symmetric positive-definite matrix
 #'
-#' One-shot: runs preprocessing (sTiles_analyze) then the numeric factorization
-#' (sTiles_factorize). To time the two phases apart, or to reuse preprocessing
-#' across many value-sets, call sTiles_analyze() + sTiles_factorize() yourself.
+#' One shot: runs the preprocessing ([sTiles_analyze()]) and then the numeric
+#' factorization ([sTiles_factorize()]). To time the two phases apart, or to
+#' reuse one preprocessing across many sets of values, call those two yourself.
 #'
-#' @param Q  A symmetric positive-definite matrix (Matrix::sparseMatrix or a
-#'   base matrix).  Only the lower triangle is used.
-#' @param cores  Worker threads (default 1).
-#' @param mode  "auto", "dense", "semisparse" or "sparse" (default "auto").
-#' @param tile_size  Tile size, or -1 for auto (default 40).
-#' @param inverse  Reserve selected-inverse storage; required for
-#'   sTiles_selinv()/_diag()/_elm()/_row() (default FALSE).
-#' @param log_level  libstiles verbosity: -1 silent (default), 0 timing,
-#'   1 info, 2 debug, 3 trace.
+#' @param Q A symmetric positive-definite matrix, either a
+#'   `Matrix::sparseMatrix` or a base matrix. Only the lower triangle is read.
+#' @param cores Worker threads (default 1).
+#' @param mode Tile regime: "auto" (default), "dense", "semisparse" or
+#'   "sparse".
+#' @param tile_size Tile size, or -1 to let the solver choose (default 40).
+#' @param inverse Reserve selected-inverse storage, required by
+#'   [sTiles_selinv()] and the `sTiles_selinv_*()` queries (default `FALSE`).
+#' @param log_level Solver verbosity: -1 silent (default), 0 timing, 1 info,
+#'   2 debug, 3 trace.
 #' @return An object of class "sTiles" wrapping a live factorization.
+#' @seealso [sTiles_logdet()], [sTiles_solve()], [sTiles_selinv()],
+#'   [sTiles_summary()], [sTiles_close()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q)
+#'   sTiles_logdet(s)
+#'   sTiles_solve(s, rep(1, 50))
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
                    inverse = FALSE, log_level = -1L) {
@@ -550,59 +779,168 @@ sTiles <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
     s
 }
 
-#' Log-determinant of Q ( = 2 * sum(log diag(L)) ).
+#' Log-determinant of the factorized matrix
+#'
+#' Returns `log(det(Q))`, computed from the factor as `2 * sum(log(diag(L)))`.
+#'
+#' @param x A factorized "sTiles" object.
+#' @return The log-determinant, a single number.
+#' @seealso [sTiles()], [sTiles_summary()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q)
+#'   sTiles_logdet(s)
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_logdet <- function(x) .Call(.sc("sTiles_logdet_R"), x$ptr)
 
-#' Compute the selected inverse, reusing the current numeric factorization.
+#' Compute the selected inverse, reusing the current factorization
 #'
-#' Z = Q^-1 restricted to the pattern of the Cholesky factor (pattern(L+L^T)).
-#' Requires the handle to have been built with inverse = TRUE. Idempotent, and
-#' otherwise computed lazily on the first sTiles_selinv_*() query. Call it
-#' explicitly to time the selected inverse on its own, and re-call it after each
-#' sTiles_factorize() to refresh Z for new values.
-#' @return The (invisibly returned) "sTiles" object.
+#' Computes Z, the inverse of Q restricted to the pattern of the Cholesky
+#' factor, `pattern(L + L^T)`. The object must have been built with
+#' `inverse = TRUE`. The call is idempotent, and the computation otherwise
+#' happens lazily on the first `sTiles_selinv_*()` query. Call it explicitly to
+#' time the selected inverse on its own, and call it again after each
+#' [sTiles_factorize()] to refresh Z for the new values.
+#'
+#' @param x A factorized "sTiles" object built with `inverse = TRUE`.
+#' @return The "sTiles" object, invisibly.
+#' @seealso [sTiles_selinv_diag()], [sTiles_selinv_elm()],
+#'   [sTiles_selinv_row()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q, inverse = TRUE)
+#'   sTiles_selinv(s)
+#'   head(sTiles_selinv_diag(s))
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_selinv <- function(x) {
     .Call(.sc("sTiles_selinv_R"), x$ptr)
     invisible(x)
 }
 
-#' Diagonal of the selected inverse, diag(Q^-1) -- the marginal variances.
+#' Diagonal of the selected inverse: the marginal variances
+#'
+#' Returns `diag(solve(Q))`, in the original ordering. Triggers the
+#' selected-inverse computation on first use.
+#'
+#' @param x A factorized "sTiles" object built with `inverse = TRUE`.
+#' @return A numeric vector of length `n`, the diagonal of the inverse.
+#' @seealso [sTiles_selinv()], [sTiles_selinv_elm()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q, inverse = TRUE)
+#'   head(sTiles_selinv_diag(s))
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_selinv_diag <- function(x) .Call(.sc("sTiles_selinv_diag_R"), x$ptr)
 
-#' Selected-inverse entry (Q^-1)[i, j] at ANY position (1-based, original order).
+#' One entry of the selected inverse
 #'
-#' Returns the selected inverse at (i, j) when that position lies in the factor
-#' pattern (pattern(L+L^T)), and exactly 0 outside it. Both triangles work (Z is
-#' symmetric). Triggers the selected-inverse computation on first use.
+#' Returns the selected inverse at position `(i, j)` when that position lies in
+#' the factor pattern, `pattern(L + L^T)`, and exactly 0 outside it. Both
+#' triangles are accepted, since Z is symmetric. Triggers the selected-inverse
+#' computation on first use.
+#'
+#' @param x A factorized "sTiles" object built with `inverse = TRUE`.
+#' @param i,j Row and column, 1-based, in the original ordering.
+#' @return The entry as a single number, 0 outside the factor pattern.
+#' @seealso [sTiles_selinv()], [sTiles_selinv_row()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q, inverse = TRUE)
+#'   sTiles_selinv_elm(s, 1, 2)
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_selinv_elm <- function(x, i, j)
     .Call(.sc("sTiles_selinv_elm_R"), x$ptr, as.integer(i), as.integer(j))
 
-#' Selected-inverse values (Q^-1)[node, k] for each k in `neighbors` (1-based).
+#' Several entries from one row of the selected inverse
+#'
+#' Returns the selected inverse at `(node, k)` for each `k` in `neighbors`, the
+#' access pattern a graph model wants. Entries outside the factor pattern come
+#' back as 0.
+#'
+#' @param x A factorized "sTiles" object built with `inverse = TRUE`.
+#' @param node Row index, 1-based, in the original ordering.
+#' @param neighbors Integer vector of column indices, 1-based.
+#' @return A numeric vector, one value per entry of `neighbors`.
+#' @seealso [sTiles_selinv()], [sTiles_selinv_elm()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q, inverse = TRUE)
+#'   sTiles_selinv_row(s, 5, c(4, 5, 6))
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_selinv_row <- function(x, node, neighbors)
     .Call(.sc("sTiles_selinv_row_R"), x$ptr, as.integer(node),
           as.integer(neighbors))
 
-#' Solve with the factorization.
+#' Solve a linear system with the factorization
 #'
-#' @param x  A factorized "sTiles" object.
-#' @param b  Right-hand side: a length-n vector or an n x nrhs matrix.
-#' @param system  Which system to solve: "A" for Q x = b (default), "L" for
-#'   L y = b (forward), "Lt" for L^T x = b (backward).
-#' @return The solution, same shape as `b`.
+#' @param x A factorized "sTiles" object.
+#' @param b Right-hand side: a length-`n` vector, or an `n` by `nrhs` matrix.
+#' @param system Which system to solve: "A" for `Q x = b` (default), "L" for
+#'   the forward solve `L y = b`, "Lt" for the backward solve `t(L) x = b`.
+#' @return The solution, with the same shape as `b`.
+#' @seealso [sTiles()], [sTiles_logdet()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q)
+#'   x <- sTiles_solve(s, rep(1, 50))
+#'   max(abs(as.vector(Q %*% x) - 1))
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_solve <- function(x, b, system = c("A", "L", "Lt")) {
     which <- switch(match.arg(system), A = 0L, L = 1L, Lt = 2L)
     .Call(.sc("sTiles_solve_R"), x$ptr, as.double(b), which)
 }
 
-#' Structured summary of a factorization: dimensions, fill, mode, phase state,
-#' and library-measured timings. Returns a list (e.g. sTiles_summary(s)$chol_time)
-#' and prints a short report.
+#' Structured summary of a factorization
+#'
+#' Collects the dimensions, the fill, the tile mode, the phase the object is
+#' in, and the timings the solver measured. The result is an ordinary list, so
+#' single numbers are easy to pull out (`sTiles_summary(s)$chol_time`), and it
+#' prints as a short report.
+#'
+#' @param x An "sTiles" object.
+#' @return An object of class "sTiles_summary": a list with elements `n`,
+#'   `nnz`, `nnz_factor`, `mode`, `cores`, `inverse`, `factored`,
+#'   `analyze_time`, `chol_time`, `selinv_time`, `version` and `library`.
+#' @seealso [sTiles()], [sTiles_version()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q)
+#'   sTiles_summary(s)$nnz_factor
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_summary <- function(x) {
     modes <- c("dense", "semisparse", "sparse", "auto")
@@ -625,10 +963,39 @@ sTiles_summary <- function(x) {
     out
 }
 
-#' Free the factorization now (otherwise freed at garbage collection).
+#' Free a factorization now
+#'
+#' Releases the solver's memory immediately. Optional: an object that goes out
+#' of scope is freed at the next garbage collection anyway. Worth calling in a
+#' loop over large matrices, where waiting for the collector means holding
+#' several factorizations at once.
+#'
+#' @param x An "sTiles" object.
+#' @return `NULL`, invisibly.
+#' @seealso [sTiles()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q)
+#'   sTiles_close(s)
+#' }
 #' @export
 sTiles_close <- function(x) invisible(.Call(.sc("sTiles_free_R"), x$ptr))
 
+#' Print a sTiles factorization object
+#'
+#' @param x An "sTiles" object.
+#' @param ... Ignored, present for consistency with [print()].
+#' @return `x`, invisibly.
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   print(sTiles(Q))
+#' }
 #' @export
 print.sTiles <- function(x, ...) {
     modes <- c("dense", "semisparse", "sparse", "auto")
@@ -639,6 +1006,18 @@ print.sTiles <- function(x, ...) {
     invisible(x)
 }
 
+#' Print a sTiles summary
+#'
+#' @param x An object of class "sTiles_summary" from [sTiles_summary()].
+#' @param ... Ignored, present for consistency with [print()].
+#' @return `x`, invisibly.
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   print(sTiles_summary(sTiles(Q)))
+#' }
 #' @export
 print.sTiles_summary <- function(x, ...) {
     fmt_t <- function(t) if (is.na(t)) "-" else sprintf("%.4g s", t)

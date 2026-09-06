@@ -20,6 +20,10 @@ export(sTiles_selinv_elm)   # any (Q^-1)[i, j]
 export(sTiles_selinv_row)
 export(sTiles_solve)        # system = "A" (Qx=b) | "L" | "Lt"
 
+# -- the solver library (a separate component, never fetched implicitly) --
+export(sTiles_available)        # is a solver present? no network, no loading
+export(sTiles_install_library)  # explicit, user-invoked download into the cache
+
 # -- introspection / meta --
 export(sTiles_summary)      # dims, fill, mode, state, measured timings, library
 export(sTiles_version)

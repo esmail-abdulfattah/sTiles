@@ -1,0 +1,15 @@
+Licensing of the components used by this package
+================================================
+
+The R package sTiles (the R code in R/, the C glue in src/ and the vendored
+header src/stiles.h) is released under the MIT license, see the LICENSE file.
+
+The solver library it drives, libstiles, is a SEPARATE component. It is not
+contained in this package and is not covered by the MIT license above: it is
+distributed under its own terms by the sTiles project (Esmail Abdul Fattah and
+the sTiles team, KAUST). See https://esmail-abdulfattah.github.io/sTiles/ for
+those terms and for the prebuilt libraries.
+
+Nothing in this package downloads libstiles unless you ask for it, either by
+calling sTiles_install_library() or by answering the prompt that an interactive
+session shows the first time a solver is needed.

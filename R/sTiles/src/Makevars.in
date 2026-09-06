@@ -13,10 +13,6 @@
 # LoadLibrary/GetProcAddress instead (see the _WIN32 block in
 # sTiles_glue.c), which needs kernel32.
 
-ifeq ($(shell uname -s),Darwin)
-PKG_LIBS += -undefined dynamic_lookup
-endif
-
-ifeq ($(OS),Windows_NT)
-PKG_LIBS += -lkernel32
-endif
+# ifeq/+= are GNU make extensions, which a portable package may not use, so the
+# platform decision happens in ./configure and lands in @PKG_LIBS@ instead.
+PKG_LIBS = @PKG_LIBS@

@@ -1,0 +1,4 @@
+# Windows PE/DLL linking cannot leave the sTiles_* symbols undefined, so the
+# glue resolves them itself through LoadLibrary/GetProcAddress, which needs
+# kernel32 (see the _WIN32 block in sTiles_glue.c).
+PKG_LIBS = -lkernel32
