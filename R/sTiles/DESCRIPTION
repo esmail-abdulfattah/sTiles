@@ -3,7 +3,7 @@ Type: Package
 Title: Tile-Based Sparse Cholesky Factorization and Selected Inverse
 Version: 2026.9.4
 Authors@R: person("Esmail", "Abdul Fattah", role = c("aut", "cre", "cph"),
-    email = "esmail.abdulfattah@kaust.edu.sa")
+    email = "esmail.abdulfattah@gmail.com")
 Description: Interface to the 'sTiles' framework for tile-based sparse Cholesky
     factorization: log-determinants, selected inverse (marginal variances) and
     triangular solves, with symbolic reuse so that repeated factorizations
