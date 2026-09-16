@@ -412,9 +412,13 @@ class sTiles:
         """
         self._ensure_selinv()
         out = np.empty(self.n, dtype=np.float64)
-        get = lib.sTiles_get_selinv_elm
         h = byref(self._handle)
         g = self.group
+        bulk = getattr(lib, "sTiles_get_selinv_diag", None)
+        if bulk is not None and bulk(g, 0, h, self.n, out.ctypes.data_as(_ffi.c_double_p)) == self.n:
+            return out
+        # Older libraries: one FFI call per node.
+        get = lib.sTiles_get_selinv_elm
         for i in range(self.n):
             out[i] = get(g, 0, i, i, h)
         return out
@@ -457,20 +461,26 @@ class sTiles:
         if B.shape[0] != self.n:
             raise ValueError(f"rhs has {B.shape[0]} rows, expected {self.n}")
         nrhs = B.shape[1]
-        # libstiles wants column-major (each rhs contiguous); overwrite in place.
-        work = np.asfortranarray(B, dtype=np.float64).copy(order="F")
+        # libstiles wants column-major (each rhs contiguous) and overwrites in
+        # place, so make exactly one copy, in that layout, and hand it back as
+        # is: the old asfortranarray + copy + ascontiguousarray chain made
+        # three passes over B (the last a strided transpose) and cost 2-4x the
+        # solve itself for 64 right-hand sides.
+        work = np.array(B, dtype=np.float64, order="F", copy=True)
         lib.sTiles_bind(self.group, 0, byref(self._handle))
         rc = fn(self.group, 0, byref(self._handle),
                 work.ctypes.data_as(_ffi.c_double_p), nrhs)
         lib.sTiles_unbind(self.group, 0, byref(self._handle))
         self._check(rc, fn.__name__)
-        return work[:, 0].copy() if one_d else np.ascontiguousarray(work)
+        return work[:, 0] if one_d else work
 
     def solve(self, b, system="A") -> np.ndarray:
         """
         Solve with the factorization.  ``b`` is a length-n vector or n x nrhs
         matrix.  ``system``: ``"A"`` solves ``Q x = b`` (default), ``"L"`` solves
         ``L y = b`` (forward), ``"Lt"`` solves ``L^T x = b`` (backward).
+        ``b`` is never modified.  A matrix result is a fresh column-major
+        (Fortran-ordered) array, the layout the solver works in.
         """
         fn = {"A": lib.sTiles_solve_LLT, "L": lib.sTiles_solve_L,
               "Lt": lib.sTiles_solve_LT}.get(system)

@@ -537,6 +537,15 @@ _decl("sTiles_get_chol_elm", c_double, [c_int, c_int, c_int, c_int, c_void_p])
 #                               int size, void**)
 _decl("sTiles_get_selinv_row", c_double_p,
       [c_int, c_int, c_int, c_int_p, c_int, c_void_p])
+# int sTiles_get_selinv_diag(int g, int c, void** h, int n, double* out): the
+# whole diagonal in one call. Added to libstiles after Version_2026.09.04, so
+# it is optional: core.py falls back to the per-element loop when the loaded
+# library predates it (the loop costs ~0.7 us per ctypes call, 20x C on 100k
+# nodes; the bulk call costs what R and Julia pay).
+try:
+    _decl("sTiles_get_selinv_diag", c_int, [c_int, c_int, c_void_p, c_int, c_double_p])
+except AttributeError:
+    pass
 _decl("sTiles_clear_selinv", c_int, [c_int, c_int, c_void_p])
 _decl("sTiles_get_chol_timing", c_double, [c_int, c_int, c_void_p])
 _decl("sTiles_get_selinv_timing", c_double, [c_int, c_int, c_void_p])
