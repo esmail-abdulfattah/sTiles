@@ -10,8 +10,14 @@
 # Markdown docs are kept internal; the site (docs/) is the documentation.
 # (.gitkeep files are preserved below so binary-drop dirs still exist.)
 # README.md is the exception: it is the repo landing page and points at the site.
+# The per-package READMEs are exceptions too. Python puts its PyPI description
+# in pyproject.toml and R puts its in DESCRIPTION, but Project.toml has no
+# description field at all, so for Julia the README file is the only thing the
+# package page can show.
 *.md
 !/README.md
+!/julia/README.md
+!/python/README.md
 !**/.gitkeep
 
 # Python build / cache
@@ -60,6 +66,9 @@ binaries/libstiles-*/
 # Dropped from the public repo (kept locally for reference)
 prebuilt/
 examples/
+# ... except the Julia package's own examples, which its README walks through
+# (a directory must be re-included before the files inside it can be)
+!/julia/examples/
 docs/suits/old_site/
 
 # local release tooling, not part of the published package
