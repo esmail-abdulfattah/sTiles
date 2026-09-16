@@ -24,12 +24,81 @@ const RELEASE_REPO = get(ENV, "STILES_RELEASE_REPO", "esmail-abdulfattah/sTiles"
 const LIBHANDLE = Ref{Ptr{Cvoid}}(C_NULL)
 const LIBPATH   = Ref{String}("")
 
+# A machine can legitimately have this package and not the solver: no network
+# yet, a CPU the prebuilt library does not support, or a cluster whose login
+# node installs packages without reaching the compute environment. Throwing
+# from __init__ would make `using sTiles` itself fail there, so the package
+# could not even be loaded to say what is wrong, and it could not be installed,
+# precompiled or inspected either. The failure is kept here instead and raised
+# by the first call that actually needs the solver.
+const LOAD_ERROR = Ref{Any}(nothing)
+
 """
     library_path() -> String
 
-Absolute path of the loaded `libstiles` shared object.
+Absolute path of the loaded `libstiles` shared object, or `""` if none is
+loaded.
 """
 library_path() = LIBPATH[]
+
+"""
+    sTiles.available() -> Bool
+
+Whether the solver library is loaded and ready to use. `false` means the
+package imported fine but found no `libstiles`; [`sTiles.why_unavailable`](@ref)
+says why and [`sTiles.load!`](@ref) retries.
+"""
+available() = LIBHANDLE[] != C_NULL
+
+"""
+    sTiles.why_unavailable() -> Union{Nothing,String}
+
+The error from the last load attempt, or `nothing` if the solver is loaded.
+"""
+function why_unavailable()
+    available() && return nothing
+    err = LOAD_ERROR[]
+    err === nothing && return "no load has been attempted yet"
+    return err isa sTilesError ? err.msg : sprint(showerror, err)
+end
+
+"""
+    sTiles.load!() -> String
+
+Load the solver now and return its path. Use it to retry after a failed
+attempt, for instance once `STILES_LIB` points at a library or the machine is
+back online. Throws if the solver still cannot be found.
+"""
+function load!()
+    handle, path = _load_library()
+    LIBHANDLE[] = handle
+    LIBPATH[] = path
+    _resolve_symbols(handle)
+    LOAD_ERROR[] = nothing
+    return path
+end
+
+"""Attempt a load, recording any failure rather than raising it."""
+function _try_load!()
+    try
+        load!()
+    catch exc
+        LOAD_ERROR[] = exc
+    end
+    return nothing
+end
+
+"""Raise a clear error if the solver is not loaded; called before every ccall."""
+function _ensure_loaded()
+    available() && return nothing
+    msg = "the sTiles solver library is not loaded, so this call cannot run."
+    why = why_unavailable()
+    why === nothing || (msg *= "\n\n" * why)
+    msg *= "\n\nPoint STILES_LIB at a libstiles for this platform and call " *
+           "sTiles.load!() to retry. See " *
+           "https://esmail-abdulfattah.github.io/sTiles/"
+    throw(sTilesError(msg))
+end
 
 function _lib_filename()
     Sys.isapple()   && return "libstiles.dylib"

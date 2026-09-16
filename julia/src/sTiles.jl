@@ -8,7 +8,9 @@ inside the solver, so results are identical to the Python and R bindings.
 
 No build step and no compiler: the library for your platform is located (or
 downloaded from the project's GitHub Release and cached) when the package
-loads.
+loads. Importing the package always succeeds; if no solver could be loaded,
+`sTiles.available()` is `false`, `sTiles.why_unavailable()` says why, and
+`sTiles.load!()` retries.
 
 ```julia
 using sTiles, LinearAlgebra, SparseArrays
@@ -64,10 +66,8 @@ function __init__()
     # the library loads so its getenv() sees it; export STILES_NO_BANNER=0 to
     # restore it.
     haskey(ENV, "STILES_NO_BANNER") || (ENV["STILES_NO_BANNER"] = "1")
-    handle, path = _load_library()
-    LIBHANDLE[] = handle
-    LIBPATH[] = path
-    _resolve_symbols(handle)
+    # Never throws: see the comment on LOAD_ERROR in library.jl.
+    _try_load!()
     return nothing
 end
 

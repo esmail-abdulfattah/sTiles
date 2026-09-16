@@ -50,6 +50,7 @@ function _resolve_symbols(handle::Ptr{Cvoid})
 end
 
 @inline function _fp(name::Symbol)
+    _ensure_loaded()
     p = get(SYMBOLS, name, C_NULL)
     p == C_NULL && throw(sTilesError(
         "the loaded libstiles does not export $name (loaded $(LIBPATH[]))"))

@@ -198,4 +198,16 @@ closing(f, F) = try f(F) finally close(F) end
         gb = sTiles.estimate_memory(1000, 5000)
         @test gb isa Float64 && gb >= 0
     end
+
+    # The solver loads lazily and importing the package never throws, so that a
+    # machine without a libstiles can still install, precompile and load this
+    # package and be told what is missing. These tests run with one loaded.
+    @testset "load state" begin
+        @test sTiles.available()
+        @test sTiles.why_unavailable() === nothing
+        @test !isempty(sTiles.library_path())
+        @test isfile(sTiles.library_path())
+        @test sTiles.load!() == sTiles.library_path()    # reload is idempotent
+        @test sTiles.available()
+    end
 end
