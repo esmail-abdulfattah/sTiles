@@ -13,12 +13,23 @@
 #      package or the working directory, same CI-artifact layout -- so unzipped
 #      GitHub Actions artifacts are picked up with zero configuration.
 #   5. bundled deps/<os>-<arch>/  -- vendored into the package by sync_binaries.sh.
-#   6. the download cache, newest release first.
+#   6. the download cache, for the pinned solver release.
 #   7. repo dev fallback: lib/libstiles.{so,dylib} in an ancestor.
-#   8. GitHub Release download, cached under ~/.cache/sTiles/<tag>/<plat>/.
-#      Disable with $STILES_NO_DOWNLOAD=1.
+#   8. GitHub Release download of the PINNED release (SOLVER_RELEASE below),
+#      cached under ~/.cache/sTiles/<tag>/<plat>/. Disable with
+#      $STILES_NO_DOWNLOAD=1.
 
 const RELEASE_REPO = get(ENV, "STILES_RELEASE_REPO", "esmail-abdulfattah/sTiles")
+
+# The solver release this version of the package was built and tested against.
+# It is PINNED, not resolved to "latest", so that one version of this package
+# always means one specific libstiles. Tracking the latest release would let a
+# future solver change the behaviour of code that was installed months ago, and
+# would make the package unreproducible: two people installing the same version
+# on different days could get different numerics. Bump this deliberately when a
+# new solver release has been tested against the wrapper, together with the
+# package version in Project.toml. STILES_RELEASE_TAG overrides it for testing.
+const SOLVER_RELEASE = "Version_2026.09.17"
 
 # Filled in by __init__.
 const LIBHANDLE = Ref{Ptr{Cvoid}}(C_NULL)
@@ -163,18 +174,17 @@ function _ancestors(p::AbstractString)
     return out
 end
 
-"""Cached solvers for this platform, newest release first (the offline path)."""
-function _cached_libs(ci::AbstractString, fname::AbstractString)
-    root = _cache_dir()
-    isdir(root) || return String[]
-    hits = String[]
-    for tag in sort!(readdir(root); rev = true)
-        p = joinpath(root, tag, ci, fname)
-        isfile(p) && push!(hits, p)
-    end
-    flat = joinpath(root, ci, fname)          # pre-versioning layout
-    isfile(flat) && push!(hits, flat)
-    return hits
+"""
+Cached solver for this platform, for the PINNED release only.
+
+Deliberately not "whatever is cached": picking up a different release from the
+cache is the same unreproducibility the pin exists to prevent, and it would be
+invisible to the user. A solver from another release is used only when asked
+for explicitly, through STILES_LIB, STILES_LIB_DIR or STILES_RELEASE_TAG.
+"""
+function _cached_lib(ci::AbstractString, fname::AbstractString)
+    p = joinpath(_cache_dir(), _solver_tag(), ci, fname)
+    return isfile(p) ? p : nothing
 end
 
 function _candidate_paths()
@@ -208,8 +218,9 @@ function _candidate_paths()
     push!(cands, joinpath(pkgroot, "deps", _platform_tag(), fname))
     push!(cands, joinpath(pkgroot, "deps", fname))
 
-    # Previously downloaded solvers, newest release first.
-    append!(cands, _cached_libs(ci, fname))
+    # The pinned release, if it is already in the download cache.
+    hit = _cached_lib(ci, fname)
+    hit === nothing || push!(cands, hit)
 
     # Repo dev fallback.
     for parent in roots
@@ -243,19 +254,10 @@ function _check_cpu_supported()
     return nothing
 end
 
-"""Current release tag, so the cache can be keyed by it. `nothing` when offline."""
-function _latest_tag()
+"""The solver release this package uses: the pin, unless overridden for testing."""
+function _solver_tag()
     tag = get(ENV, "STILES_RELEASE_TAG", "")
-    isempty(tag) || return tag
-    try
-        io = IOBuffer()
-        Downloads.download("https://api.github.com/repos/$RELEASE_REPO/releases/latest",
-                           io; timeout = 10)
-        m = match(r"\"tag_name\"\s*:\s*\"([^\"]+)\"", String(take!(io)))
-        return m === nothing ? nothing : String(m.captures[1])
-    catch
-        return nothing        # offline is normal, not an error
-    end
+    return isempty(tag) ? SOLVER_RELEASE : tag
 end
 
 function _unzip(zipfile::AbstractString, dest::AbstractString)
@@ -285,11 +287,7 @@ function _download_from_release(; force::Bool = false)
     ci    = _ci_folder()
     fname = _lib_filename()
 
-    tag = _latest_tag()
-    if tag === nothing                        # offline: use whatever is cached
-        have = _cached_libs(ci, fname)
-        return isempty(have) ? nothing : have[1]
-    end
+    tag = _solver_tag()
     dest = joinpath(_cache_dir(), tag, ci)
     libpath = joinpath(dest, fname)
     (isfile(libpath) && !force) && return libpath
