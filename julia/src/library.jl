@@ -29,7 +29,7 @@ const RELEASE_REPO = get(ENV, "STILES_RELEASE_REPO", "esmail-abdulfattah/sTiles"
 # on different days could get different numerics. Bump this deliberately when a
 # new solver release has been tested against the wrapper, together with the
 # package version in Project.toml. STILES_RELEASE_TAG overrides it for testing.
-const SOLVER_RELEASE = "Version_2026.09.17"
+const SOLVER_RELEASE = "Version_2026.09.24"
 
 # Filled in by __init__.
 const LIBHANDLE = Ref{Ptr{Cvoid}}(C_NULL)
