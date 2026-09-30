@@ -187,7 +187,7 @@ TEMPLATE = """<!DOCTYPE html>
 
 <div class="hero"><div class="container"><div class="hero-content">
     <h1>Solver Benchmarks</h1>
-    <div class="sub">sTiles against five sparse direct solvers across the full 88-matrix
+    <div class="sub">sTiles against five sparse direct solvers across the full 60-matrix
     suite. All results shown here are from the sTiles paper.</div>
 </div></div></div>
 
@@ -198,7 +198,7 @@ TEMPLATE = """<!DOCTYPE html>
         over a sweep of thread counts. Times below are the same measurements reported in the paper.
     </p>
     <div class="setup">
-        <span class="chip">88 matrices</span>
+        <span class="chip">60 matrices</span>
         <span class="chip">6 solvers</span>
         <span class="chip">Intel 2&times;Xeon Gold &middot; 40 cores</span>
         <span class="chip">best over 1&ndash;40 core sweep</span>
@@ -209,11 +209,12 @@ TEMPLATE = """<!DOCTYPE html>
         <div class="fig-lbl">Factorization time across all matrices</div>
         <div class="fig-wrap"><img src="results/all_matrices_time.png" alt="Best factorization time for every matrix and solver" loading="lazy"></div>
         <p class="cap">Best factorization time (minimum over the swept core counts) for every matrix
-        in the 88-matrix suite and every solver, on the Intel node. Matrices are sorted along the
+        in the 60-matrix suite and every solver, on the Intel node. Matrices are sorted along the
         horizontal axis by sTiles' time, so the sTiles curve is monotonic; a competitor marker below
-        it is faster than sTiles on that matrix, above it slower. PARDISO tracks sTiles closely, ahead
-        on the inexpensive matrices and behind on the expensive ones; MUMPS, PaStiX, CHOLMOD, and
-        symPACK are slower across most of the suite.</p>
+        it is faster than sTiles on that matrix, above it slower. PARDISO is the closest solver: it is
+        faster than sTiles on 15 matrices, all below 0.5&nbsp;s; sTiles is faster on the other 45,
+        including all 12 above 0.5&nbsp;s. MUMPS, PaStiX, CHOLMOD, and symPACK are slower than sTiles
+        on 97 to 100% of the matrices each of them factors.</p>
     </div>
 
     <div class="fig">
@@ -229,19 +230,20 @@ TEMPLATE = """<!DOCTYPE html>
         <div class="fig-lbl">Speedup of sTiles over PARDISO</div>
         <div class="fig-wrap"><img src="results/speedup_dist.png" alt="Per-matrix speedup of sTiles over PARDISO" loading="lazy"></div>
         <p class="cap">Per-matrix speedup of sTiles over PARDISO against matrix cost (both axes
-        logarithmic; a value above the 1&times; line means sTiles is faster). By count the contest is
-        a near-tie: sTiles is slower on 54 matrices and faster on 34, yet the geometric-mean ratio
-        (1.03&times;) already favors sTiles, because its fewer wins are the larger ones. Every loss is
-        on a cheap matrix (all but one under 0.5&nbsp;s), while the wins are on the expensive matrices
-        and reach minutes.</p>
+        logarithmic; a value above the 1&times; line means sTiles is faster). sTiles is faster on 45
+        matrices and slower on 15, with a geometric-mean ratio of 1.50&times;. The two outcomes are
+        asymmetric: every loss is on an inexpensive matrix, all 15 under 0.15&nbsp;s and the largest
+        margin 0.133&nbsp;s, while the wins are on the expensive matrices and reach minutes.</p>
     </div>
 
     <div class="fig">
-        <div class="fig-lbl">Strong scaling to 40 cores</div>
+        <div class="fig-lbl">Parallel efficiency to 40 cores</div>
         <div class="fig-wrap"><img src="results/scaling.png" alt="Strong scaling of sTiles vs PARDISO" style="max-width:680px;" loading="lazy"></div>
-        <p class="cap">Strong scaling (speedup over one core) of a single factorization on three large
-        finite-element matrices, sTiles (solid) against PARDISO (dashed), with the ideal line. Both
-        flatten near 32 cores (shaded band), the socket's memory-bandwidth ceiling for sparse Cholesky.</p>
+        <p class="cap">Parallel efficiency (speedup over one core divided by the core count; 1.0 is ideal)
+        of a single factorization on three large finite-element matrices, sTiles (solid) against
+        PARDISO (dashed). sTiles holds above 0.85 through 16 cores, where PARDISO has already fallen
+        to 0.5&ndash;0.6; both drop sharply past 32 cores (shaded band), the socket's
+        memory-bandwidth ceiling for sparse Cholesky.</p>
     </div>
 </div></section>
 
