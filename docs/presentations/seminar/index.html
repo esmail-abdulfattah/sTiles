@@ -4769,9 +4769,9 @@ tr.step,th.step,td.step{transform:none;}
 
     <div class="sifoot step" data-step="3">
       The inverse of a sparse matrix is full. INLA never wants it: it wants the
-      diagonal and the pattern entries. On the bern graph the factor holds
-      <b>83 million</b> entries and the full inverse would hold
-      <b>474 billion</b>, about <b>3.8 TB</b>.
+      diagonal and the pattern entries. On a precision matrix with
+      <b>688,632</b> unknowns the factor holds <b>83 million</b> entries and the
+      full inverse would hold <b>474 billion</b>, about <b>3.8 TB</b>.
     </div>
   </div>
   <div class="slide-no"></div>
@@ -4883,8 +4883,8 @@ tr.step,th.step,td.step{transform:none;}
     <div class="portrow">
       <div class="port step" data-step="1">
         <div class="p-h">cost<em>against the factorization</em></div>
-        <div class="p-b"><b>about 2&times;</b><span>one selected inverse, on the
-          688k bern graph</span></div>
+        <div class="p-b"><b>about 2&times;</b><span>one selected inverse, on a
+          precision matrix with 688k unknowns</span></div>
         <div class="p-b"><b>one</b><span>per hyperparameter configuration, so
           1,073 of them in that fit</span></div>
       </div>
