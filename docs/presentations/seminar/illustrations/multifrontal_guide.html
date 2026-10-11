@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multifrontal Cholesky: guide and stepper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f8fa;--card:#fff;--ink:#16202c;--muted:#5b6776;--line:#d7dde5;
+--w-bg:#dbe8ff;--w-bd:#1f5fbf;--r-bg:#ffe9d1;--r-bd:#c2410c;--d-bg:#dcf3e1;--d-bd:#2f8f4e;--d-ink:#17602f;--p-bg:#eef0f3;--p-bd:#b9c1cc;--p-ink:#5b6776;--hl:#fff4bf;
+--v-bg:#ebe6fb;--v-bd:#6b54c8;--t-bg:#d9f1ee;--t-bd:#1f8a7e}
+@media (prefers-color-scheme:dark){:root{--bg:#11151b;--card:#19202a;--ink:#e7ecf2;--muted:#9aa7b6;--line:#2c3644;
+--w-bg:#173a73;--w-bd:#7fb0ff;--r-bg:#5a2e12;--r-bd:#ffa268;--d-bg:#173d24;--d-bd:#5fc27f;--d-ink:#a9e6bb;--p-bg:#222b37;--p-bd:#4a5667;--p-ink:#9aa7b6;--hl:#4a431a;
+--v-bg:#2d2658;--v-bd:#a898f0;--t-bg:#123f3a;--t-bd:#5fd0c2}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1160px;margin:0 auto;padding:28px 16px 64px}
+h1{font-size:28px;margin:0 0 6px;font-weight:680;text-wrap:balance;letter-spacing:-.01em}
+.lede{color:var(--muted);margin:0 0 18px;max-width:72ch}
+nav{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 8px}
+nav a{font-size:14px;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 12px}
+nav a:hover{border-color:var(--w-bd)}
+nav a.go{background:var(--w-bd);border-color:var(--w-bd);color:#fff}
+section.s{margin-top:34px}
+section.s>h2{font-size:21px;margin:0 0 4px;font-weight:660;text-wrap:balance}
+.q{color:var(--muted);font-style:italic;margin:0 0 10px}
+.prose{max-width:74ch}
+.prose p{margin:0 0 10px}
+.prose ul{margin:0 0 10px;padding-left:20px}
+.prose li{margin-bottom:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.key{border-left:4px solid var(--w-bd);background:var(--card);padding:10px 14px;margin:12px 0;max-width:74ch;border-radius:0 8px 8px 0}
+.row{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;margin:12px 0}
+.fig{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.fig h4{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-weight:600}
+.tw{overflow-x:auto;margin:10px 0}
+table{border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 14px 6px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:620;color:var(--muted);font-size:13.5px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;background:var(--p-bg);border-radius:4px;padding:1px 5px}
+.reg{display:flex;flex-direction:column;gap:10px;max-width:44ch;font-size:15px}
+.reg div{display:grid;grid-template-columns:18px 1fr;gap:10px;align-items:start}
+.reg i{width:16px;height:16px;border-radius:3px;margin-top:4px}
+.wrap{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:20px;align-items:start;margin-top:12px}
+@media (max-width:920px){.wrap{grid-template-columns:1fr}}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--p-bd);border-radius:8px;padding:6px 16px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--w-bd)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,nav a:focus-visible{outline:2px solid var(--w-bd);outline-offset:2px}
+.count{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.dots{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.dot{width:12px;height:12px;padding:0;border-radius:50%;border:1px solid var(--p-bd);background:var(--p-bg)}
+.dot.on{background:var(--w-bd);border-color:var(--w-bd)}
+#ttl{font-size:19px;margin:0 0 4px;font-weight:650}
+.kern{display:inline-block;font-size:12.5px;letter-spacing:.02em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 10px;margin-bottom:8px}
+.text{margin:0 0 10px;max-width:66ch}
+.io{font-size:14.5px;background:var(--p-bg);border-radius:8px;padding:8px 12px;margin:0 0 14px;display:grid;gap:2px}
+.io b{font-weight:640}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-weight:600}
+.work{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 28px;margin-bottom:16px;align-items:start}
+@media (max-width:560px){.work{grid-template-columns:1fr}}
+.cap{font-size:13.5px;color:var(--muted);max-width:30ch;margin:6px 0 0}
+.stack{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.u{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.u.read{border:2px dashed var(--r-bd)}
+.u.new{border:2px solid var(--w-bd)}
+.u .nm{font-size:13.5px;font-weight:650}.u .to{font-size:12.5px;color:var(--muted);display:block}
+ol.calc{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+ol.calc li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:4px 14px;padding:7px 8px;border-bottom:1px solid var(--line);cursor:pointer;font-variant-numeric:tabular-nums}
+@media (max-width:560px){ol.calc li{grid-template-columns:1fr}}
+ol.calc li.hl{background:var(--hl)}
+ol.calc b{color:var(--w-bd);font-weight:700}
+.sym{color:var(--muted)}
+sub{font-size:.72em}
+.none{color:var(--muted);margin:0}
+.foot{color:var(--muted);font-size:13.5px;margin:10px 0 0}
+svg{display:block;max-width:100%;height:auto}
+#g,#tree{width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--muted);margin:10px 0 16px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:3px;display:inline-block}
+
+/* Embedded in the deck (?embed=1): only the stepper, section 10, and of
+   that only the figure on the left, the matrix and the tree of fronts, so
+   the slide shows the colours moving and nothing else. Matches the
+   supernodal embed: the narration carries the explanation, and the right
+   panel (step title, text, in/out, front, stack, Computation) comes off.
+   The control bar is kept and ordered last, so it sits under the figure. */
+body.embed h1,body.embed .lede,body.embed nav,
+body.embed section.s:not(#s10),
+body.embed #s10>h2,body.embed #s10>.prose,
+body.embed #ttl,body.embed #kern,body.embed #txt,body.embed #io,
+body.embed .work,body.embed #calc,body.embed #foot,
+body.embed #s10>.wrap>.card[aria-live]>h3{display:none}
+body.embed{overflow:hidden}
+html:has(body.embed){overflow:hidden}
+body.embed main{padding:6px 10px 10px;max-width:none}
+body.embed section.s{margin-top:0}
+body.embed .card[aria-live]{display:flex;flex-direction:column;border:0;
+  background:transparent;padding:0}
+/* one column: with the right panel gone the bar falls under the figure
+   instead of standing beside it */
+body.embed .wrap{grid-template-columns:minmax(0,470px);justify-content:center;
+  gap:10px}
+body.embed .card:first-child{justify-self:center}
+
+/* ── embedded in talk.html: the deck's palette and type ───────────────
+   The deck is warm off-white (#fbfbf9) set in Inter, with one accent hue
+   per act. The cool blue/green/grey of this page reads as a foreign
+   object dropped into it, so under .embed every variable is remapped to
+   the deck's own values. Standalone the page is untouched.
+
+   The three brand hues carry fixed meaning for the whole talk: orange is
+   the dense route, teal the sparse one, lime semi-structured. This figure
+   is in the sparse act, so teal is the one that may be reused, for the
+   finished factor. "Read in this step" takes the deck's gold, the accent
+   it defines as distinct from all three routes. "Written in this step" is
+   plain ink: the thing happening now is the darkest mark on the slide.
+
+   The remap also pins the light palette. Standalone this page follows
+   prefers-color-scheme, and a presenter on a dark desktop would otherwise
+   get dark panels inside a light deck. */
+body.embed{
+  --bg:transparent;   --card:transparent;
+  --ink:#14161a;      --muted:#6b7280;    --line:#dfe1de;
+  --w-bg:#ffffff;     --w-bd:#14161a;                        /* writing now */
+  --r-bg:#fbf3dd;     --r-bd:#c9a227;                        /* reading now */
+  --d-bg:#e6efec;     --d-bd:#3c8277;     --d-ink:#2f6b61;   /* finished L  */
+  --p-bg:#f2f2ee;     --p-bd:#dfe1de;     --p-ink:#6b7280;   /* not yet     */
+  --hl:#fbf3dd;
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+/* the deck frames the figure; a card border inside it is a third nested box */
+body.embed .card{border:0;background:transparent;padding:0}
+body.embed .legend{color:var(--muted)}
+body.embed h3{color:var(--muted);letter-spacing:.06em}
+/* update matrices and tree, kept off the three route hues */
+body.embed{--v-bg:#eef2d9;--v-bd:#8d9f32;--t-bg:#e6efec;--t-bd:#3c8277}
+body.nobar .bar{display:none}
+/* notree: beside the supernodal stepper the two panels must be the
+   same object, matrix against matrix. The tree of fronts has no
+   counterpart on that side, and dropping it here lets both matrices
+   render a third larger. The standalone guide keeps it. */
+body.notree #tree,body.notree #s10 h3:has(+#tree){display:none}
+body.embed .bar{order:99;justify-content:center;margin-top:4px}
+</style>
+</head>
+<body>
+<main>
+<h1>Multifrontal Cholesky: the whole method on one 10 × 10 example</h1>
+<p class="lede">A guide that follows the method in the order it actually runs, with one short section for each point that tends to cause confusion, followed by an interactive walk-through of all 22 steps with their arithmetic.</p>
+<nav aria-label="Sections">
+<a href="#s1">1 Matrix</a><a href="#s2">2 Supernodes</a><a href="#s3">3 Tree</a><a href="#s4">4 A front</a><a href="#s5">5 Four operations</a><a href="#s6">6 Naming U</a><a href="#s7">7 Where U goes</a><a href="#s8">8 Why add U</a><a href="#s9">9 Following index 9</a><a class="go" href="#s10">10 Stepper</a><a href="#s11">11 Versus supernodal</a>
+</nav>
+
+<section class="s" id="s1">
+<h2>1. The matrix</h2>
+<div class="prose"><p>A is symmetric positive definite, 10 × 10. We want L with A = L·Lᵀ. Only the lower triangle is shown; blank positions are zeros. Here L has nonzeros in exactly the same positions as A, so there is no fill-in to worry about.</p></div>
+<div class="row">
+<div class="fig"><h4>A (lower triangle)</h4><svg id="gA" width="368" height="372" viewBox="0 0 368 372" role="img" aria-label="Lower triangle of A"></svg></div>
+<div class="fig"><h4>L (the answer)</h4><svg id="gL" width="368" height="372" viewBox="0 0 368 372" role="img" aria-label="The factor L"></svg></div>
+</div>
+</section>
+
+<section class="s" id="s2">
+<h2>2. Supernodes: how the columns are cut</h2>
+<p class="q">Is a supernode a list of nodes or of columns? Is the cut the same as in the supernodal method?</p>
+<div class="prose">
+<p>Both, and yes. Column j of the matrix and node j of the tree are the same object, so a supernode is a group of consecutive columns, or equally a group of tree nodes. The dashed lines in the figures above cut the ten columns into S1 to S5.</p>
+<ul>
+<li>Columns go in the same supernode when their nonzero patterns nest: each column has the rows of the previous one, minus its own diagonal. That makes the group a dense block with no holes.</li>
+<li>Every column belongs to exactly one supernode.</li>
+<li>The cut is decided from the pattern alone, before any arithmetic, so the supernodal and the multifrontal method start from the same S1 to S5.</li>
+</ul>
+</div>
+<div class="tw"><table>
+<tr><th>Supernode</th><th>Columns</th><th>Rows below them</th><th>Full row list</th></tr>
+<tr><td>S1</td><td>1, 2</td><td>4, 9</td><td>1, 2, 4, 9</td></tr>
+<tr><td>S2</td><td>3</td><td>4, 6</td><td>3, 4, 6</td></tr>
+<tr><td>S3</td><td>4, 5, 6</td><td>9</td><td>4, 5, 6, 9</td></tr>
+<tr><td>S4</td><td>7, 8</td><td>9, 10</td><td>7, 8, 9, 10</td></tr>
+<tr><td>S5</td><td>9, 10</td><td>none</td><td>9, 10</td></tr>
+</table></div>
+</section>
+
+<section class="s" id="s3">
+<h2>3. The tree: from columns to fronts</h2>
+<p class="q">How is the tree of fronts constructed?</p>
+<div class="prose">
+<p>First a tree on the columns: the parent of column j is the row of its first nonzero below the diagonal in L. Column 1 has rows 2, 4, 9 below it, so its parent is 2. Column 2 has rows 4, 9, so its parent is 4. And so on.</p>
+<p>Then each supernode (dashed box) is collapsed into one node. Only the arrows that leave a box survive.</p>
+</div>
+<div class="fig" style="max-width:720px">
+<svg viewBox="0 0 680 454" width="680" role="img" aria-label="Left: tree on the ten columns with supernodes outlined. Right: the same tree with each supernode collapsed into one front.">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" style="stroke:var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<g style="fill:var(--muted);font-size:13px" text-anchor="middle"><text x="240" y="14">Tree on the columns</text><text x="550" y="14">Tree of fronts</text></g>
+<g fill="none" style="stroke:var(--v-bd)" stroke-dasharray="5 4"><rect x="210" y="24" width="60" height="112" rx="8"/><rect x="130" y="146" width="60" height="168" rx="8"/><rect x="290" y="146" width="60" height="108" rx="8"/><rect x="80" y="326" width="60" height="108" rx="8"/><rect x="190" y="326" width="60" height="48" rx="8"/></g>
+<g style="fill:var(--ink);font-size:14px;font-weight:650" dominant-baseline="central"><text x="200" y="80" text-anchor="end">S5</text><text x="120" y="230" text-anchor="end">S3</text><text x="360" y="200">S4</text><text x="70" y="380" text-anchor="end">S1</text><text x="260" y="350">S2</text></g>
+<g style="stroke:var(--muted)" stroke-width="1.5" marker-end="url(#ah)"><line x1="240" y1="94" x2="240" y2="68"/><line x1="172.8" y1="160.4" x2="225.6" y2="120.8"/><line x1="307.2" y1="160.4" x2="254.4" y2="120.8"/><line x1="160" y1="214" x2="160" y2="188"/><line x1="160" y1="274" x2="160" y2="248"/><line x1="320" y1="214" x2="320" y2="188"/><line x1="120.2" y1="337.7" x2="148.5" y2="303.8"/><line x1="208.7" y1="338.7" x2="172.7" y2="302.7"/><line x1="110" y1="394" x2="110" y2="368"/>
+<line x1="505" y1="200" x2="540" y2="112"/><line x1="595" y1="200" x2="560" y2="112"/><line x1="468" y1="320" x2="492" y2="242"/><line x1="532" y1="320" x2="508" y2="242"/></g>
+<g style="fill:var(--p-bg);stroke:var(--p-bd)"><circle cx="240" cy="50" r="16"/><circle cx="240" cy="110" r="16"/><circle cx="160" cy="170" r="16"/><circle cx="160" cy="230" r="16"/><circle cx="160" cy="290" r="16"/><circle cx="320" cy="170" r="16"/><circle cx="320" cy="230" r="16"/><circle cx="110" cy="350" r="16"/><circle cx="110" cy="410" r="16"/><circle cx="220" cy="350" r="16"/></g>
+<g style="fill:var(--ink);font-size:14px;font-weight:600" text-anchor="middle" dominant-baseline="central"><text x="240" y="50">10</text><text x="240" y="110">9</text><text x="160" y="170">6</text><text x="160" y="230">5</text><text x="160" y="290">4</text><text x="320" y="170">8</text><text x="320" y="230">7</text><text x="110" y="350">2</text><text x="110" y="410">1</text><text x="220" y="350">3</text></g>
+<line x1="420" y1="30" x2="420" y2="430" style="stroke:var(--line)"/>
+<g style="fill:var(--v-bg);stroke:var(--v-bd)"><rect x="518" y="62" width="64" height="48" rx="8"/><rect x="468" y="202" width="64" height="48" rx="8"/><rect x="568" y="202" width="64" height="48" rx="8"/><rect x="432" y="322" width="64" height="48" rx="8"/><rect x="504" y="322" width="64" height="48" rx="8"/></g>
+<g style="fill:var(--ink);font-size:14px;font-weight:650" text-anchor="middle" dominant-baseline="central"><text x="550" y="78">S5</text><text x="500" y="218">S3</text><text x="600" y="218">S4</text><text x="464" y="338">S1</text><text x="536" y="338">S2</text></g>
+<g style="fill:var(--muted);font-size:12px" text-anchor="middle" dominant-baseline="central"><text x="550" y="96">9, 10</text><text x="500" y="236">4, 5, 6</text><text x="600" y="236">7, 8</text><text x="464" y="356">1, 2</text><text x="536" y="356">3</text></g>
+</svg></div>
+<div class="prose">
+<ul>
+<li>A new supernode must start wherever two branches meet. Node 4 has two children (2 and 3), and node 9 has two children (6 and 8).</li>
+<li>The parent of a front is the front that owns its first below row. S1's below rows are 4, 9; column 4 is in S3; so S3 is the parent of S1.</li>
+<li>Fronts are processed children first: S1, S2, S3, S4, S5.</li>
+</ul>
+</div>
+</section>
+
+<section class="s" id="s4">
+<h2>4. What a front is</h2>
+<div class="prose"><p>Each supernode gets its own small dense square matrix, the front. It has one row and one column for every index in the supernode's row list. S1's row list is 1, 2, 4, 9, so its front is 4 × 4. It has three regions, and each region has one job.</p></div>
+<div class="row">
+<div class="fig"><h4>Front of S1, just assembled</h4>
+<svg width="216" height="212" viewBox="0 0 216 212" role="img" aria-label="Front of S1 with pivot block, below block and trailing block">
+<g style="fill:var(--muted);font-size:12px" text-anchor="middle"><text x="62" y="18">1</text><text x="106" y="18">2</text><text x="150" y="18">4</text><text x="194" y="18">9</text><text x="20" y="54">1</text><text x="20" y="98">2</text><text x="20" y="142">4</text><text x="20" y="186">9</text></g>
+<g style="fill:var(--v-bg);stroke:var(--v-bd)"><rect x="42" y="30" width="40" height="40" rx="4"/><rect x="42" y="74" width="40" height="40" rx="4"/><rect x="86" y="74" width="40" height="40" rx="4"/></g>
+<g style="fill:var(--t-bg);stroke:var(--t-bd)"><rect x="42" y="118" width="40" height="40" rx="4"/><rect x="86" y="118" width="40" height="40" rx="4"/><rect x="42" y="162" width="40" height="40" rx="4"/><rect x="86" y="162" width="40" height="40" rx="4"/></g>
+<g style="fill:var(--r-bg);stroke:var(--r-bd)"><rect x="130" y="118" width="40" height="40" rx="4"/><rect x="130" y="162" width="40" height="40" rx="4"/><rect x="174" y="162" width="40" height="40" rx="4"/></g>
+<g style="fill:var(--ink);font-size:14px;font-weight:600" text-anchor="middle" dominant-baseline="central"><text x="62" y="50">4</text><text x="62" y="94">2</text><text x="106" y="94">5</text><text x="62" y="138">2</text><text x="106" y="138">3</text><text x="62" y="182">2</text><text x="106" y="182">5</text><text x="150" y="138">0</text><text x="150" y="182">0</text><text x="194" y="182">0</text></g>
+</svg></div>
+<div class="reg">
+<div><i style="background:var(--v-bg);border:1px solid var(--v-bd)"></i><span><b>Pivot block</b> (rows and columns 1, 2). Filled from A. Becomes the diagonal part of L.</span></div>
+<div><i style="background:var(--t-bg);border:1px solid var(--t-bd)"></i><span><b>Below block</b> (rows 4, 9; columns 1, 2). Filled from A. Becomes the rest of these columns of L.</span></div>
+<div><i style="background:var(--r-bg);border:1px solid var(--r-bd)"></i><span><b>Trailing block</b> (rows and columns 4, 9). Starts at zero. Does not belong to S1's columns at all: it collects what S1 owes to later columns, and leaves as the update matrix U1.</span></div>
+</div>
+</div>
+<div class="key">The left part of a front (pivot and below blocks) is exactly the supernode's block from the supernodal method. The trailing block is the extra piece that only the multifrontal method has.</div>
+</section>
+
+<section class="s" id="s5">
+<h2>5. The four operations on a front, in order</h2>
+<p class="q">Do we do the Cholesky on top, then SYRK below it?</p>
+<div class="prose"><p>Almost. The triangular solve has to come between them, because SYRK must be applied to finished entries of L, not to the raw values. Here is S1 with its numbers.</p></div>
+<div class="tw"><table>
+<tr><th>#</th><th>Operation</th><th>Acts on</th><th>Before</th><th>After</th></tr>
+<tr><td>1</td><td>Assemble</td><td>whole front</td><td>empty</td><td>entries of A, zeros in the trailing block</td></tr>
+<tr><td>2</td><td>Dense Cholesky (POTRF)</td><td>pivot block, rows 1, 2</td><td><code>[4; 2 5]</code></td><td><code>[2; 1 2]</code></td></tr>
+<tr><td>3</td><td>Triangular solve (TRSM)</td><td>below block, rows 4, 9</td><td><code>[2 3; 2 5]</code></td><td><code>[1 1; 1 2]</code></td></tr>
+<tr><td>4</td><td>Update (SYRK)</td><td>trailing block</td><td><code>[0; 0 0]</code></td><td><code>[−2; −3 −5]</code> = U1</td></tr>
+</table></div>
+<div class="prose">
+<p>Step 4 multiplies the finished below block by its own transpose, which gives <code>[2; 3 5]</code>, and subtracts that from the trailing block. If SYRK were run on the raw below block <code>[2 3; 2 5]</code> it would give <code>[13; 19 29]</code>, which is wrong.</p>
+<p>After step 4 the pivot and below blocks are copied out as final columns of L, the trailing block is kept as U1, and the front is thrown away.</p>
+</div>
+</section>
+
+<section class="s" id="s6">
+<h2>6. Naming: U1 is what S1 made</h2>
+<p class="q">S3 has index 9, so shouldn't that be U3? Why is it added to U1?</p>
+<div class="prose">
+<p>The number in the name says who <b>produced</b> the matrix, not where it is used. And the direction is: a child's U is added <b>into the parent's front</b>. Nothing is ever added to a U.</p>
+<p>So for S3: U1 and U2 are inputs, made earlier by its children. U3 is its output, and does not exist until S3 has finished its four operations.</p>
+</div>
+<div class="tw"><table>
+<tr><th>Front</th><th>Receives (inputs)</th><th>Produces (output)</th><th>Indices of the output</th><th>Sends it to</th></tr>
+<tr><td>S1</td><td>nothing, it is a leaf</td><td>U1</td><td>4, 9</td><td>S3</td></tr>
+<tr><td>S2</td><td>nothing, it is a leaf</td><td>U2</td><td>4, 6</td><td>S3</td></tr>
+<tr><td>S3</td><td>U1, U2</td><td>U3</td><td>9</td><td>S5</td></tr>
+<tr><td>S4</td><td>nothing, it is a leaf</td><td>U4</td><td>9, 10</td><td>S5</td></tr>
+<tr><td>S5</td><td>U3, U4</td><td>nothing, it is the root</td><td></td><td></td></tr>
+</table></div>
+<div class="key">The indices of an update matrix are always the below rows of the supernode that made it. U1 has indices 4, 9 because those are S1's below rows.</div>
+</section>
+
+<section class="s" id="s7">
+<h2>7. Where an update matrix goes</h2>
+<p class="q">U1 has indices 4 and 9. Why is it for S3 and not for S5?</p>
+<div class="prose">
+<p>An update matrix goes, whole, to the front that owns its <b>first</b> index. U1's first index is 4, and column 4 belongs to S3. That front is always the parent in the tree.</p>
+<ul>
+<li><b>Why the first index:</b> column 4 is the next one to be eliminated among those S1 affects, so it needs S1's contribution soonest.</li>
+<li><b>Why index 9 goes along:</b> S3's front has a slot for index 9 too (its row list is 4, 5, 6, 9), so U1 does not need to be split. S3 carries that part for S5.</li>
+<li><b>Why it always fits:</b> a child's below rows are always contained in its parent's row list. S1's below rows {4, 9} are inside S3's {4, 5, 6, 9}.</li>
+</ul>
+<p>Adding a U into a front is called <b>extend-add</b>: each entry is added at the position that has the same row and column labels.</p>
+</div>
+</section>
+
+<section class="s" id="s8">
+<h2>8. Why the children's U must be added</h2>
+<p class="q">S3's front is assembled from A. Why are U1 and U2 then added to it?</p>
+<div class="prose">
+<p>Because the entries of A alone are not what S3 has to factor. Look at entry (4,4) in the ordinary Cholesky formula:</p>
+<p style="font-variant-numeric:tabular-nums">ℓ<sub>4,4</sub> = √(a<sub>4,4</sub> − ℓ<sub>4,1</sub>² − ℓ<sub>4,2</sub>² − ℓ<sub>4,3</sub>²) = √(7 − 1 − 1 − 1) = √4 = 2</p>
+<p>The front starts with a<sub>4,4</sub> = 7. The subtractions for columns 1 and 2 arrive inside U1 (as −2), and the one for column 3 inside U2 (as −1). Without them S3 would compute √7.</p>
+</div>
+<div class="tw"><table>
+<tr><th>Entry of S3's front</th><th>From A</th><th>From U1</th><th>From U2</th><th>Value S3 works with</th></tr>
+<tr><td>(4,4)</td><td>7</td><td>−2</td><td>−1</td><td>4</td></tr>
+<tr><td>(6,4)</td><td>4</td><td></td><td>−2</td><td>2</td></tr>
+<tr><td>(6,6)</td><td>10</td><td></td><td>−4</td><td>6</td></tr>
+<tr><td>(9,4)</td><td>5</td><td>−3</td><td></td><td>2</td></tr>
+<tr><td>(9,9), trailing</td><td>0</td><td>−5</td><td></td><td>−5, kept for S5</td></tr>
+<tr><td>(5,4), (5,5), (6,5), (9,5), (9,6)</td><td>2, 5, 3, 3, 4</td><td></td><td></td><td>unchanged</td></tr>
+</table></div>
+<div class="key">A front = the entries of A for its own columns + everything the columns below it in the tree owe to it. The second part is delivered by the children's update matrices.</div>
+</section>
+
+<section class="s" id="s9">
+<h2>9. Following index 9 all the way up</h2>
+<div class="prose"><p>Entry (9,9) is the best one to follow, because columns from three different supernodes contribute to it. The full formula is</p>
+<p style="font-variant-numeric:tabular-nums">ℓ<sub>9,9</sub> = √(14 − <span style="color:var(--v-bd)">(1 + 4)</span> − <span style="color:var(--t-bd)">(1 + 1 + 1)</span> − <span style="color:var(--r-bd)">(1 + 1)</span>) = √4 = 2</p>
+<p>with <span style="color:var(--v-bd)">5 from S1</span> (columns 1, 2), <span style="color:var(--t-bd)">3 from S3</span> (columns 4, 5, 6) and <span style="color:var(--r-bd)">2 from S4</span> (columns 7, 8). This is how those pieces travel:</p></div>
+<div class="tw"><table>
+<tr><th>Moment</th><th>Where the (9,9) value lives</th><th>Value</th></tr>
+<tr><td>S1 forms U1</td><td>U1, entry (9,9)</td><td>−5</td></tr>
+<tr><td>S3 assembles from A</td><td>trailing slot of S3's front</td><td>0</td></tr>
+<tr><td>S3 extend-adds U1</td><td>trailing slot of S3's front</td><td>0 + (−5) = −5</td></tr>
+<tr><td>S3 factors and solves</td><td>trailing slot, untouched</td><td>−5</td></tr>
+<tr><td>S3 forms U3</td><td>U3, its only entry</td><td>−5 − 3 = −8</td></tr>
+<tr><td>S4 forms U4</td><td>U4, entry (9,9)</td><td>−2</td></tr>
+<tr><td>S5 assembles from A</td><td>pivot block of S5's front</td><td>14</td></tr>
+<tr><td>S5 extend-adds U3, then U4</td><td>pivot block of S5's front</td><td>14 − 8 − 2 = 4</td></tr>
+<tr><td>S5 factors</td><td>final entry of L</td><td>√4 = 2</td></tr>
+</table></div>
+<div class="prose"><p>The trailing slot of S3's front is U3 under construction. U1 deposits its share there, S3 adds its own, and only then is the result named U3. S1 never talks to S5 directly.</p></div>
+</section>
+
+<section class="s" id="s10">
+<h2>10. The stepper: all 22 steps with their arithmetic</h2>
+<div class="prose"><p>Use Next and Back, the arrow keys, or the dots. Click a computation line or a cell of the front to match them up.</p></div>
+<div class="wrap">
+<div class="card" aria-label="Factor and tree">
+<h3>A, and L as it is produced</h3>
+<svg id="g" viewBox="0 0 368 372" role="img" aria-label="Entries of A, replaced by entries of L as fronts finish"></svg>
+<div class="legend">
+<span><i class="sw" style="background:var(--w-bg);border:2px solid var(--w-bd)"></i>written in this step</span>
+<span><i class="sw" style="background:var(--r-bg);border:2px dashed var(--r-bd)"></i>read in this step</span>
+<span><i class="sw" style="background:var(--d-bg);border:1px solid var(--d-bd)"></i>finished entry of L</span>
+<span><i class="sw" style="background:var(--p-bg);border:1px solid var(--p-bd)"></i>entry of A, or assembled value</span>
+</div>
+<h3>Tree of fronts</h3>
+<svg id="tree" viewBox="0 0 368 170" role="img" aria-label="Tree of fronts with the active front highlighted"></svg>
+</div>
+<div class="card" aria-live="polite">
+<div class="bar">
+<button id="prev">Back</button><button id="next">Next</button>
+<span class="count" id="cnt"></span>
+<div class="dots" id="dots"></div>
+</div>
+<div id="ttl"></div>
+<div id="kern"></div>
+<p class="text" id="txt"></p>
+<div class="io" id="io"></div>
+<div class="work">
+<div><h3 id="fh">Current front</h3><div id="front"></div><p class="cap" id="fcap"></p></div>
+<div><h3>Update matrices waiting on the stack</h3><div class="stack" id="stack"></div></div>
+</div>
+<h3>Computation</h3>
+<div id="calc"></div>
+<p class="foot" id="foot"></p>
+</div>
+</div>
+</section>
+
+<section class="s" id="s11">
+<h2>11. Versus the supernodal method</h2>
+<div class="prose"><p>Same matrix, same supernodes, same tree, same dense kernels, same L. The only difference is the route an update takes.</p></div>
+<div class="tw"><table>
+<tr><th></th><th>Supernodal</th><th>Multifrontal</th></tr>
+<tr><td>Working block for S1</td><td>4 × 2 rectangle</td><td>4 × 4 front (rectangle + trailing block)</td></tr>
+<tr><td>Where S1's update goes</td><td>straight into S3's storage and into S5's storage</td><td>into its own trailing block, then to S3 only, as U1</td></tr>
+<tr><td>Who a supernode talks to</td><td>every later supernode it affects</td><td>its parent only</td></tr>
+<tr><td>How (9,9) is updated</td><td>three separate direct updates: from S1, S3, S4</td><td>two update matrices: U3 (S1 and S3 merged) and U4</td></tr>
+<tr><td>Is A modified in place?</td><td>yes, the blocks are updated where they sit</td><td>no, A is only read; all work is in fronts</td></tr>
+<tr><td>Extra memory</td><td>little</td><td>the stack of update matrices</td></tr>
+</table></div>
+</section>
+</main>
+<script>
+const D={"steps": [{"title": "Start", "kernel": "", "text": "Nothing has been computed. The grid on the left shows the entries of A; they are only ever read, never modified in place. Work proceeds front by front, from the leaves of the tree to the root.", "cur": null, "tdone": [], "gvals": {"1-1": 4, "2-1": 2, "2-2": 5, "3-3": 9, "4-1": 2, "4-2": 3, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 2, "9-2": 5, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": [], "front": null, "stack": [], "lines": []}, {"title": "S1: assemble the front from A", "kernel": "assembly", "text": "S1 is a leaf, so its front is built from A alone. The front has one row and one column for each index in S1's row list (1, 2, 4, 9). Columns 1 and 2 are copied from A; the trailing block on rows 4 and 9 starts at zero.", "cur": "S1", "tdone": [], "gvals": {"1-1": 4, "2-1": 2, "2-2": 5, "3-3": 9, "4-1": 2, "4-2": 3, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 2, "9-2": 5, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2"], "gdone": [], "front": {"name": "S1", "idx": [1, 2, 4, 9], "npiv": 2, "vals": {"1-1": 4, "2-1": 2, "2-2": 5, "4-1": 2, "4-2": 3, "4-4": 0, "9-1": 2, "9-2": 5, "9-4": 0, "9-9": 0}, "w": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2"], "r": [], "fin": []}, "stack": [], "lines": [{"k": "1-1", "sym": "f<sub>1,1</sub> = a<sub>1,1</sub>", "num": "= <b>4</b>"}, {"k": "2-1", "sym": "f<sub>2,1</sub> = a<sub>2,1</sub>", "num": "= <b>2</b>"}, {"k": "4-1", "sym": "f<sub>4,1</sub> = a<sub>4,1</sub>", "num": "= <b>2</b>"}, {"k": "9-1", "sym": "f<sub>9,1</sub> = a<sub>9,1</sub>", "num": "= <b>2</b>"}, {"k": "2-2", "sym": "f<sub>2,2</sub> = a<sub>2,2</sub>", "num": "= <b>5</b>"}, {"k": "4-2", "sym": "f<sub>4,2</sub> = a<sub>4,2</sub>", "num": "= <b>3</b>"}, {"k": "9-2", "sym": "f<sub>9,2</sub> = a<sub>9,2</sub>", "num": "= <b>5</b>"}, {"k": "", "sym": "trailing block, rows 4, 9", "num": "= <b>0</b> (filled in by the children and by this front)"}]}, {"title": "S1: factor the pivot block", "kernel": "POTRF · dense Cholesky", "text": "Dense Cholesky on the pivot block, the 2 × 2 triangle for columns 1 and 2. These entries of L are final and are copied out to the factor.", "cur": "S1", "tdone": [], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 9, "4-1": 2, "4-2": 3, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 2, "9-2": 5, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": ["1-1", "2-1", "2-2"], "gr": [], "gdone": [], "front": {"name": "S1", "idx": [1, 2, 4, 9], "npiv": 2, "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "4-1": 2, "4-2": 3, "4-4": 0, "9-1": 2, "9-2": 5, "9-4": 0, "9-9": 0}, "w": ["1-1", "2-1", "2-2"], "r": [], "fin": []}, "stack": [], "lines": [{"k": "1-1", "sym": "ℓ<sub>1,1</sub> = √f<sub>1,1</sub>", "num": "= √4 = <b>2</b>"}, {"k": "2-1", "sym": "ℓ<sub>2,1</sub> = f<sub>2,1</sub> / ℓ<sub>1,1</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "2-2", "sym": "ℓ<sub>2,2</sub> = √(f<sub>2,2</sub> − ℓ<sub>2,1</sub>²)", "num": "= √(5 − 1²) = √4 = <b>2</b>"}]}, {"title": "S1: solve the rows below", "kernel": "TRSM · triangular solve", "text": "One triangular solve finishes rows 4 and 9 of the pivot columns. S1's columns of L are now complete.", "cur": "S1", "tdone": [], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 9, "4-1": 1, "4-2": 1, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": ["4-1", "4-2", "9-1", "9-2"], "gr": [], "gdone": ["1-1", "2-1", "2-2"], "front": {"name": "S1", "idx": [1, 2, 4, 9], "npiv": 2, "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "4-1": 1, "4-2": 1, "4-4": 0, "9-1": 1, "9-2": 2, "9-4": 0, "9-9": 0}, "w": ["4-1", "4-2", "9-1", "9-2"], "r": ["1-1", "2-1", "2-2"], "fin": ["1-1", "2-1", "2-2"]}, "stack": [], "lines": [{"k": "4-1", "sym": "ℓ<sub>4,1</sub> = f<sub>4,1</sub> / ℓ<sub>1,1</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "4-2", "sym": "ℓ<sub>4,2</sub> = (f<sub>4,2</sub> − ℓ<sub>4,1</sub>·ℓ<sub>2,1</sub>) / ℓ<sub>2,2</sub>", "num": "= (3 − 1·1) / 2 = 2 / 2 = <b>1</b>"}, {"k": "9-1", "sym": "ℓ<sub>9,1</sub> = f<sub>9,1</sub> / ℓ<sub>1,1</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "9-2", "sym": "ℓ<sub>9,2</sub> = (f<sub>9,2</sub> − ℓ<sub>9,1</sub>·ℓ<sub>2,1</sub>) / ℓ<sub>2,2</sub>", "num": "= (5 − 1·1) / 2 = 4 / 2 = <b>2</b>"}]}, {"title": "S1: form the update matrix U1", "kernel": "SYRK · update matrix", "text": "Subtract the pivot columns' contribution from the trailing block. What is left is the update matrix U1 on indices {4, 9}. The front is discarded and U1 waits on the stack for the parent, S3.", "cur": "S1", "tdone": [], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 9, "4-1": 1, "4-2": 1, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2"], "front": {"name": "S1", "idx": [1, 2, 4, 9], "npiv": 2, "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "4-1": 1, "4-2": 1, "4-4": -2, "9-1": 1, "9-2": 2, "9-4": -3, "9-9": -5}, "w": ["4-4", "9-4", "9-9"], "r": ["4-1", "4-2", "9-1", "9-2"], "fin": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2"]}, "stack": [{"name": "U1", "to": "S3", "idx": [4, 9], "vals": {"4-4": -2, "9-4": -3, "9-9": -5}, "st": "new"}], "lines": [{"k": "4-4", "sym": "u<sub>4,4</sub> = f<sub>4,4</sub> − (ℓ<sub>4,1</sub>·ℓ<sub>4,1</sub> + ℓ<sub>4,2</sub>·ℓ<sub>4,2</sub>)", "num": "= 0 − (1·1 + 1·1) = 0 − 2 = <b>−2</b>"}, {"k": "9-4", "sym": "u<sub>9,4</sub> = f<sub>9,4</sub> − (ℓ<sub>9,1</sub>·ℓ<sub>4,1</sub> + ℓ<sub>9,2</sub>·ℓ<sub>4,2</sub>)", "num": "= 0 − (1·1 + 2·1) = 0 − 3 = <b>−3</b>"}, {"k": "9-9", "sym": "u<sub>9,9</sub> = f<sub>9,9</sub> − (ℓ<sub>9,1</sub>·ℓ<sub>9,1</sub> + ℓ<sub>9,2</sub>·ℓ<sub>9,2</sub>)", "num": "= 0 − (1·1 + 2·2) = 0 − 5 = <b>−5</b>"}]}, {"title": "S2: assemble the front from A", "kernel": "assembly", "text": "S2 is also a leaf. Its front has indices (3, 4, 6): column 3 from A, and a trailing block on rows 4 and 6 that starts at zero. U1 stays on the stack.", "cur": "S2", "tdone": ["S1"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 9, "4-1": 1, "4-2": 1, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": ["3-3", "4-3", "6-3"], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2"], "front": {"name": "S2", "idx": [3, 4, 6], "npiv": 1, "vals": {"3-3": 9, "4-3": 3, "4-4": 0, "6-3": 6, "6-4": 0, "6-6": 0}, "w": ["3-3", "4-3", "6-3"], "r": [], "fin": []}, "stack": [{"name": "U1", "to": "S3", "idx": [4, 9], "vals": {"4-4": -2, "9-4": -3, "9-9": -5}, "st": ""}], "lines": [{"k": "3-3", "sym": "f<sub>3,3</sub> = a<sub>3,3</sub>", "num": "= <b>9</b>"}, {"k": "4-3", "sym": "f<sub>4,3</sub> = a<sub>4,3</sub>", "num": "= <b>3</b>"}, {"k": "6-3", "sym": "f<sub>6,3</sub> = a<sub>6,3</sub>", "num": "= <b>6</b>"}, {"k": "", "sym": "trailing block, rows 4, 6", "num": "= <b>0</b> (filled in by the children and by this front)"}]}, {"title": "S2: factor the pivot block", "kernel": "POTRF · dense Cholesky", "text": "The pivot block is a single entry, so the dense Cholesky is one square root.", "cur": "S2", "tdone": ["S1"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": ["3-3"], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2"], "front": {"name": "S2", "idx": [3, 4, 6], "npiv": 1, "vals": {"3-3": 3, "4-3": 3, "4-4": 0, "6-3": 6, "6-4": 0, "6-6": 0}, "w": ["3-3"], "r": [], "fin": []}, "stack": [{"name": "U1", "to": "S3", "idx": [4, 9], "vals": {"4-4": -2, "9-4": -3, "9-9": -5}, "st": ""}], "lines": [{"k": "3-3", "sym": "ℓ<sub>3,3</sub> = √f<sub>3,3</sub>", "num": "= √9 = <b>3</b>"}]}, {"title": "S2: solve the rows below", "kernel": "TRSM · triangular solve", "text": "Divide rows 4 and 6 by the pivot.", "cur": "S2", "tdone": ["S1"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": ["4-3", "6-3"], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3"], "front": {"name": "S2", "idx": [3, 4, 6], "npiv": 1, "vals": {"3-3": 3, "4-3": 1, "4-4": 0, "6-3": 2, "6-4": 0, "6-6": 0}, "w": ["4-3", "6-3"], "r": ["3-3"], "fin": ["3-3"]}, "stack": [{"name": "U1", "to": "S3", "idx": [4, 9], "vals": {"4-4": -2, "9-4": -3, "9-9": -5}, "st": ""}], "lines": [{"k": "4-3", "sym": "ℓ<sub>4,3</sub> = f<sub>4,3</sub> / ℓ<sub>3,3</sub>", "num": "= 3 / 3 = <b>1</b>"}, {"k": "6-3", "sym": "ℓ<sub>6,3</sub> = f<sub>6,3</sub> / ℓ<sub>3,3</sub>", "num": "= 6 / 3 = <b>2</b>"}]}, {"title": "S2: form the update matrix U2", "kernel": "SYRK · update matrix", "text": "The trailing block becomes U2 on indices {4, 6}. It joins U1 on the stack; both are waiting for S3.", "cur": "S2", "tdone": ["S1"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "front": {"name": "S2", "idx": [3, 4, 6], "npiv": 1, "vals": {"3-3": 3, "4-3": 1, "4-4": -1, "6-3": 2, "6-4": -2, "6-6": -4}, "w": ["4-4", "6-4", "6-6"], "r": ["4-3", "6-3"], "fin": ["3-3", "4-3", "6-3"]}, "stack": [{"name": "U1", "to": "S3", "idx": [4, 9], "vals": {"4-4": -2, "9-4": -3, "9-9": -5}, "st": ""}, {"name": "U2", "to": "S3", "idx": [4, 6], "vals": {"4-4": -1, "6-4": -2, "6-6": -4}, "st": "new"}], "lines": [{"k": "4-4", "sym": "u<sub>4,4</sub> = f<sub>4,4</sub> − ℓ<sub>4,3</sub>·ℓ<sub>4,3</sub>", "num": "= 0 − 1·1 = 0 − 1 = <b>−1</b>"}, {"k": "6-4", "sym": "u<sub>6,4</sub> = f<sub>6,4</sub> − ℓ<sub>6,3</sub>·ℓ<sub>4,3</sub>", "num": "= 0 − 2·1 = 0 − 2 = <b>−2</b>"}, {"k": "6-6", "sym": "u<sub>6,6</sub> = f<sub>6,6</sub> − ℓ<sub>6,3</sub>·ℓ<sub>6,3</sub>", "num": "= 0 − 2·2 = 0 − 4 = <b>−4</b>"}]}, {"title": "S3: assemble the front from A", "kernel": "assembly", "text": "S3's front has indices (4, 5, 6, 9). First the entries of A for columns 4, 5 and 6 are placed; the trailing entry (9,9) starts at zero.", "cur": "S3", "tdone": ["S1", "S2"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6"], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "front": {"name": "S3", "idx": [4, 5, 6, 9], "npiv": 3, "vals": {"4-4": 7, "5-4": 2, "5-5": 5, "6-4": 4, "6-5": 3, "6-6": 10, "9-4": 5, "9-5": 3, "9-6": 4, "9-9": 0}, "w": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6"], "r": [], "fin": []}, "stack": [{"name": "U1", "to": "S3", "idx": [4, 9], "vals": {"4-4": -2, "9-4": -3, "9-9": -5}, "st": ""}, {"name": "U2", "to": "S3", "idx": [4, 6], "vals": {"4-4": -1, "6-4": -2, "6-6": -4}, "st": ""}], "lines": [{"k": "4-4", "sym": "f<sub>4,4</sub> = a<sub>4,4</sub>", "num": "= <b>7</b>"}, {"k": "5-4", "sym": "f<sub>5,4</sub> = a<sub>5,4</sub>", "num": "= <b>2</b>"}, {"k": "6-4", "sym": "f<sub>6,4</sub> = a<sub>6,4</sub>", "num": "= <b>4</b>"}, {"k": "9-4", "sym": "f<sub>9,4</sub> = a<sub>9,4</sub>", "num": "= <b>5</b>"}, {"k": "5-5", "sym": "f<sub>5,5</sub> = a<sub>5,5</sub>", "num": "= <b>5</b>"}, {"k": "6-5", "sym": "f<sub>6,5</sub> = a<sub>6,5</sub>", "num": "= <b>3</b>"}, {"k": "9-5", "sym": "f<sub>9,5</sub> = a<sub>9,5</sub>", "num": "= <b>3</b>"}, {"k": "6-6", "sym": "f<sub>6,6</sub> = a<sub>6,6</sub>", "num": "= <b>10</b>"}, {"k": "9-6", "sym": "f<sub>9,6</sub> = a<sub>9,6</sub>", "num": "= <b>4</b>"}, {"k": "", "sym": "trailing block, rows 9", "num": "= <b>0</b> (filled in by the children and by this front)"}]}, {"title": "S3: extend-add U1", "kernel": "extend-add", "text": "U1 has indices {4, 9}. Each entry is added at the position with the same row and column labels. Entry (9,9) lands in the trailing block: S3 does not need it, it is only carrying it up the tree for S5.", "cur": "S3", "tdone": ["S1", "S2"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "front": {"name": "S3", "idx": [4, 5, 6, 9], "npiv": 3, "vals": {"4-4": 5, "5-4": 2, "5-5": 5, "6-4": 4, "6-5": 3, "6-6": 10, "9-4": 2, "9-5": 3, "9-6": 4, "9-9": -5}, "w": ["4-4", "9-4", "9-9"], "r": [], "fin": []}, "stack": [{"name": "U1", "to": "S3", "idx": [4, 9], "vals": {"4-4": -2, "9-4": -3, "9-9": -5}, "st": "read"}, {"name": "U2", "to": "S3", "idx": [4, 6], "vals": {"4-4": -1, "6-4": -2, "6-6": -4}, "st": ""}], "lines": [{"k": "4-4", "sym": "f<sub>4,4</sub> ← f<sub>4,4</sub> + u<sub>4,4</sub>", "num": "= 7 + (−2) = <b>5</b>"}, {"k": "9-4", "sym": "f<sub>9,4</sub> ← f<sub>9,4</sub> + u<sub>9,4</sub>", "num": "= 5 + (−3) = <b>2</b>"}, {"k": "9-9", "sym": "f<sub>9,9</sub> ← f<sub>9,9</sub> + u<sub>9,9</sub>", "num": "= 0 + (−5) = <b>−5</b>"}]}, {"title": "S3: extend-add U2", "kernel": "extend-add", "text": "U2 has indices {4, 6}. All three of its entries land inside the pivot block. Both children are now consumed and leave the stack.", "cur": "S3", "tdone": ["S1", "S2"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "front": {"name": "S3", "idx": [4, 5, 6, 9], "npiv": 3, "vals": {"4-4": 4, "5-4": 2, "5-5": 5, "6-4": 2, "6-5": 3, "6-6": 6, "9-4": 2, "9-5": 3, "9-6": 4, "9-9": -5}, "w": ["4-4", "6-4", "6-6"], "r": [], "fin": []}, "stack": [{"name": "U2", "to": "S3", "idx": [4, 6], "vals": {"4-4": -1, "6-4": -2, "6-6": -4}, "st": "read"}], "lines": [{"k": "4-4", "sym": "f<sub>4,4</sub> ← f<sub>4,4</sub> + u<sub>4,4</sub>", "num": "= 5 + (−1) = <b>4</b>"}, {"k": "6-4", "sym": "f<sub>6,4</sub> ← f<sub>6,4</sub> + u<sub>6,4</sub>", "num": "= 4 + (−2) = <b>2</b>"}, {"k": "6-6", "sym": "f<sub>6,6</sub> ← f<sub>6,6</sub> + u<sub>6,6</sub>", "num": "= 10 + (−4) = <b>6</b>"}]}, {"title": "S3: factor the pivot block", "kernel": "POTRF · dense Cholesky", "text": "All contributions are in. Dense Cholesky on the 3 × 3 pivot block (columns 4 to 6).", "cur": "S3", "tdone": ["S1", "S2"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6"], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "front": {"name": "S3", "idx": [4, 5, 6, 9], "npiv": 3, "vals": {"4-4": 2, "5-4": 1, "5-5": 2, "6-4": 1, "6-5": 1, "6-6": 2, "9-4": 2, "9-5": 3, "9-6": 4, "9-9": -5}, "w": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6"], "r": [], "fin": []}, "stack": [], "lines": [{"k": "4-4", "sym": "ℓ<sub>4,4</sub> = √f<sub>4,4</sub>", "num": "= √4 = <b>2</b>"}, {"k": "5-4", "sym": "ℓ<sub>5,4</sub> = f<sub>5,4</sub> / ℓ<sub>4,4</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "6-4", "sym": "ℓ<sub>6,4</sub> = f<sub>6,4</sub> / ℓ<sub>4,4</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "5-5", "sym": "ℓ<sub>5,5</sub> = √(f<sub>5,5</sub> − ℓ<sub>5,4</sub>²)", "num": "= √(5 − 1²) = √4 = <b>2</b>"}, {"k": "6-5", "sym": "ℓ<sub>6,5</sub> = (f<sub>6,5</sub> − ℓ<sub>6,4</sub>·ℓ<sub>5,4</sub>) / ℓ<sub>5,5</sub>", "num": "= (3 − 1·1) / 2 = 2 / 2 = <b>1</b>"}, {"k": "6-6", "sym": "ℓ<sub>6,6</sub> = √(f<sub>6,6</sub> − ℓ<sub>6,4</sub>² − ℓ<sub>6,5</sub>²)", "num": "= √(6 − 1² − 1²) = √4 = <b>2</b>"}]}, {"title": "S3: solve the rows below", "kernel": "TRSM · triangular solve", "text": "One triangular solve finishes row 9.", "cur": "S3", "tdone": ["S1", "S2"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": ["9-4", "9-5", "9-6"], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6"], "front": {"name": "S3", "idx": [4, 5, 6, 9], "npiv": 3, "vals": {"4-4": 2, "5-4": 1, "5-5": 2, "6-4": 1, "6-5": 1, "6-6": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-9": -5}, "w": ["9-4", "9-5", "9-6"], "r": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6"], "fin": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6"]}, "stack": [], "lines": [{"k": "9-4", "sym": "ℓ<sub>9,4</sub> = f<sub>9,4</sub> / ℓ<sub>4,4</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "9-5", "sym": "ℓ<sub>9,5</sub> = (f<sub>9,5</sub> − ℓ<sub>9,4</sub>·ℓ<sub>5,4</sub>) / ℓ<sub>5,5</sub>", "num": "= (3 − 1·1) / 2 = 2 / 2 = <b>1</b>"}, {"k": "9-6", "sym": "ℓ<sub>9,6</sub> = (f<sub>9,6</sub> − ℓ<sub>9,4</sub>·ℓ<sub>6,4</sub> − ℓ<sub>9,5</sub>·ℓ<sub>6,5</sub>) / ℓ<sub>6,6</sub>", "num": "= (4 − 1·1 − 1·1) / 2 = 2 / 2 = <b>1</b>"}]}, {"title": "S3: form the update matrix U3", "kernel": "SYRK · update matrix", "text": "The trailing entry already held S1's contribution (−5). Subtracting S3's own contribution gives U3 = −8: the updates of S1 and S3 to entry (9,9), merged into one number and passed up to S5. In the supernodal method these arrived as two separate, direct updates.", "cur": "S3", "tdone": ["S1", "S2"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6"], "front": {"name": "S3", "idx": [4, 5, 6, 9], "npiv": 3, "vals": {"4-4": 2, "5-4": 1, "5-5": 2, "6-4": 1, "6-5": 1, "6-6": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-9": -8}, "w": ["9-9"], "r": ["9-4", "9-5", "9-6"], "fin": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6"]}, "stack": [{"name": "U3", "to": "S5", "idx": [9], "vals": {"9-9": -8}, "st": "new"}], "lines": [{"k": "9-9", "sym": "u<sub>9,9</sub> = f<sub>9,9</sub> − (ℓ<sub>9,4</sub>·ℓ<sub>9,4</sub> + ℓ<sub>9,5</sub>·ℓ<sub>9,5</sub> + ℓ<sub>9,6</sub>·ℓ<sub>9,6</sub>)", "num": "= −5 − (1·1 + 1·1 + 1·1) = −5 − 3 = <b>−8</b>"}]}, {"title": "S4: assemble the front from A", "kernel": "assembly", "text": "S4 is a leaf in a different branch of the tree, so it needs nothing from the stack. U3 waits untouched.", "cur": "S4", "tdone": ["S1", "S2", "S3"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": [], "gr": ["7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6"], "front": {"name": "S4", "idx": [7, 8, 9, 10], "npiv": 2, "vals": {"7-7": 4, "8-7": 2, "8-8": 10, "9-7": 2, "9-8": 4, "9-9": 0, "10-7": 4, "10-8": 5, "10-9": 0, "10-10": 0}, "w": ["7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "r": [], "fin": []}, "stack": [{"name": "U3", "to": "S5", "idx": [9], "vals": {"9-9": -8}, "st": ""}], "lines": [{"k": "7-7", "sym": "f<sub>7,7</sub> = a<sub>7,7</sub>", "num": "= <b>4</b>"}, {"k": "8-7", "sym": "f<sub>8,7</sub> = a<sub>8,7</sub>", "num": "= <b>2</b>"}, {"k": "9-7", "sym": "f<sub>9,7</sub> = a<sub>9,7</sub>", "num": "= <b>2</b>"}, {"k": "10-7", "sym": "f<sub>10,7</sub> = a<sub>10,7</sub>", "num": "= <b>4</b>"}, {"k": "8-8", "sym": "f<sub>8,8</sub> = a<sub>8,8</sub>", "num": "= <b>10</b>"}, {"k": "9-8", "sym": "f<sub>9,8</sub> = a<sub>9,8</sub>", "num": "= <b>4</b>"}, {"k": "10-8", "sym": "f<sub>10,8</sub> = a<sub>10,8</sub>", "num": "= <b>5</b>"}, {"k": "", "sym": "trailing block, rows 9, 10", "num": "= <b>0</b> (filled in by the children and by this front)"}]}, {"title": "S4: factor the pivot block", "kernel": "POTRF · dense Cholesky", "text": "Dense Cholesky on the 2 × 2 pivot block (columns 7 and 8).", "cur": "S4", "tdone": ["S1", "S2", "S3"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "gw": ["7-7", "8-7", "8-8"], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6"], "front": {"name": "S4", "idx": [7, 8, 9, 10], "npiv": 2, "vals": {"7-7": 2, "8-7": 1, "8-8": 3, "9-7": 2, "9-8": 4, "9-9": 0, "10-7": 4, "10-8": 5, "10-9": 0, "10-10": 0}, "w": ["7-7", "8-7", "8-8"], "r": [], "fin": []}, "stack": [{"name": "U3", "to": "S5", "idx": [9], "vals": {"9-9": -8}, "st": ""}], "lines": [{"k": "7-7", "sym": "ℓ<sub>7,7</sub> = √f<sub>7,7</sub>", "num": "= √4 = <b>2</b>"}, {"k": "8-7", "sym": "ℓ<sub>8,7</sub> = f<sub>8,7</sub> / ℓ<sub>7,7</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "8-8", "sym": "ℓ<sub>8,8</sub> = √(f<sub>8,8</sub> − ℓ<sub>8,7</sub>²)", "num": "= √(10 − 1²) = √9 = <b>3</b>"}]}, {"title": "S4: solve the rows below", "kernel": "TRSM · triangular solve", "text": "One triangular solve finishes rows 9 and 10.", "cur": "S4", "tdone": ["S1", "S2", "S3"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 14, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "gw": ["9-7", "9-8", "10-7", "10-8"], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8"], "front": {"name": "S4", "idx": [7, 8, 9, 10], "npiv": 2, "vals": {"7-7": 2, "8-7": 1, "8-8": 3, "9-7": 1, "9-8": 1, "9-9": 0, "10-7": 2, "10-8": 1, "10-9": 0, "10-10": 0}, "w": ["9-7", "9-8", "10-7", "10-8"], "r": ["7-7", "8-7", "8-8"], "fin": ["7-7", "8-7", "8-8"]}, "stack": [{"name": "U3", "to": "S5", "idx": [9], "vals": {"9-9": -8}, "st": ""}], "lines": [{"k": "9-7", "sym": "ℓ<sub>9,7</sub> = f<sub>9,7</sub> / ℓ<sub>7,7</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "9-8", "sym": "ℓ<sub>9,8</sub> = (f<sub>9,8</sub> − ℓ<sub>9,7</sub>·ℓ<sub>8,7</sub>) / ℓ<sub>8,8</sub>", "num": "= (4 − 1·1) / 3 = 3 / 3 = <b>1</b>"}, {"k": "10-7", "sym": "ℓ<sub>10,7</sub> = f<sub>10,7</sub> / ℓ<sub>7,7</sub>", "num": "= 4 / 2 = <b>2</b>"}, {"k": "10-8", "sym": "ℓ<sub>10,8</sub> = (f<sub>10,8</sub> − ℓ<sub>10,7</sub>·ℓ<sub>8,7</sub>) / ℓ<sub>8,8</sub>", "num": "= (5 − 2·1) / 3 = 3 / 3 = <b>1</b>"}]}, {"title": "S4: form the update matrix U4", "kernel": "SYRK · update matrix", "text": "The trailing block becomes U4 on indices {9, 10}. S4 could have been processed at the same time as S1, S2 and S3: it shares no data with them.", "cur": "S4", "tdone": ["S1", "S2", "S3"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 14, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "front": {"name": "S4", "idx": [7, 8, 9, 10], "npiv": 2, "vals": {"7-7": 2, "8-7": 1, "8-8": 3, "9-7": 1, "9-8": 1, "9-9": -2, "10-7": 2, "10-8": 1, "10-9": -3, "10-10": -5}, "w": ["9-9", "10-9", "10-10"], "r": ["9-7", "9-8", "10-7", "10-8"], "fin": ["7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"]}, "stack": [{"name": "U3", "to": "S5", "idx": [9], "vals": {"9-9": -8}, "st": ""}, {"name": "U4", "to": "S5", "idx": [9, 10], "vals": {"9-9": -2, "10-9": -3, "10-10": -5}, "st": "new"}], "lines": [{"k": "9-9", "sym": "u<sub>9,9</sub> = f<sub>9,9</sub> − (ℓ<sub>9,7</sub>·ℓ<sub>9,7</sub> + ℓ<sub>9,8</sub>·ℓ<sub>9,8</sub>)", "num": "= 0 − (1·1 + 1·1) = 0 − 2 = <b>−2</b>"}, {"k": "10-9", "sym": "u<sub>10,9</sub> = f<sub>10,9</sub> − (ℓ<sub>10,7</sub>·ℓ<sub>9,7</sub> + ℓ<sub>10,8</sub>·ℓ<sub>9,8</sub>)", "num": "= 0 − (2·1 + 1·1) = 0 − 3 = <b>−3</b>"}, {"k": "10-10", "sym": "u<sub>10,10</sub> = f<sub>10,10</sub> − (ℓ<sub>10,7</sub>·ℓ<sub>10,7</sub> + ℓ<sub>10,8</sub>·ℓ<sub>10,8</sub>)", "num": "= 0 − (2·2 + 1·1) = 0 − 5 = <b>−5</b>"}]}, {"title": "S5: assemble the front from A", "kernel": "assembly", "text": "S5 is the root. Its front has indices (9, 10) and is entirely pivot block; there is no trailing part.", "cur": "S5", "tdone": ["S1", "S2", "S3", "S4"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 14, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "gw": [], "gr": ["9-9", "10-9", "10-10"], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "front": {"name": "S5", "idx": [9, 10], "npiv": 2, "vals": {"9-9": 14, "10-9": 5, "10-10": 10}, "w": ["9-9", "10-9", "10-10"], "r": [], "fin": []}, "stack": [{"name": "U3", "to": "S5", "idx": [9], "vals": {"9-9": -8}, "st": ""}, {"name": "U4", "to": "S5", "idx": [9, 10], "vals": {"9-9": -2, "10-9": -3, "10-10": -5}, "st": ""}], "lines": [{"k": "9-9", "sym": "f<sub>9,9</sub> = a<sub>9,9</sub>", "num": "= <b>14</b>"}, {"k": "10-9", "sym": "f<sub>10,9</sub> = a<sub>10,9</sub>", "num": "= <b>5</b>"}, {"k": "10-10", "sym": "f<sub>10,10</sub> = a<sub>10,10</sub>", "num": "= <b>10</b>"}]}, {"title": "S5: extend-add U3", "kernel": "extend-add", "text": "U3 has the single index {9}. It delivers, in one number, everything S1 and S3 owed to entry (9,9).", "cur": "S5", "tdone": ["S1", "S2", "S3", "S4"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 14, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "front": {"name": "S5", "idx": [9, 10], "npiv": 2, "vals": {"9-9": 6, "10-9": 5, "10-10": 10}, "w": ["9-9"], "r": [], "fin": []}, "stack": [{"name": "U3", "to": "S5", "idx": [9], "vals": {"9-9": -8}, "st": "read"}, {"name": "U4", "to": "S5", "idx": [9, 10], "vals": {"9-9": -2, "10-9": -3, "10-10": -5}, "st": ""}], "lines": [{"k": "9-9", "sym": "f<sub>9,9</sub> ← f<sub>9,9</sub> + u<sub>9,9</sub>", "num": "= 14 + (−8) = <b>6</b>"}]}, {"title": "S5: extend-add U4", "kernel": "extend-add", "text": "U4 has indices {9, 10} and covers the whole front. The stack is now empty.", "cur": "S5", "tdone": ["S1", "S2", "S3", "S4"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 14, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "front": {"name": "S5", "idx": [9, 10], "npiv": 2, "vals": {"9-9": 4, "10-9": 2, "10-10": 5}, "w": ["9-9", "10-9", "10-10"], "r": [], "fin": []}, "stack": [{"name": "U4", "to": "S5", "idx": [9, 10], "vals": {"9-9": -2, "10-9": -3, "10-10": -5}, "st": "read"}], "lines": [{"k": "9-9", "sym": "f<sub>9,9</sub> ← f<sub>9,9</sub> + u<sub>9,9</sub>", "num": "= 6 + (−2) = <b>4</b>"}, {"k": "10-9", "sym": "f<sub>10,9</sub> ← f<sub>10,9</sub> + u<sub>10,9</sub>", "num": "= 5 + (−3) = <b>2</b>"}, {"k": "10-10", "sym": "f<sub>10,10</sub> ← f<sub>10,10</sub> + u<sub>10,10</sub>", "num": "= 10 + (−5) = <b>5</b>"}]}, {"title": "S5: factor the pivot block", "kernel": "POTRF · dense Cholesky", "text": "Dense Cholesky on the last 2 × 2 block. A root produces no update matrix, so the factorization is complete.", "cur": "S5", "tdone": ["S1", "S2", "S3", "S4"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 2, "10-7": 2, "10-8": 1, "10-9": 1, "10-10": 2}, "gw": ["9-9", "10-9", "10-10"], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "front": {"name": "S5", "idx": [9, 10], "npiv": 2, "vals": {"9-9": 2, "10-9": 1, "10-10": 2}, "w": ["9-9", "10-9", "10-10"], "r": [], "fin": []}, "stack": [], "lines": [{"k": "9-9", "sym": "ℓ<sub>9,9</sub> = √f<sub>9,9</sub>", "num": "= √4 = <b>2</b>"}, {"k": "10-9", "sym": "ℓ<sub>10,9</sub> = f<sub>10,9</sub> / ℓ<sub>9,9</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "10-10", "sym": "ℓ<sub>10,10</sub> = √(f<sub>10,10</sub> − ℓ<sub>10,9</sub>²)", "num": "= √(5 − 1²) = √4 = <b>2</b>"}]}, {"title": "Done: L is complete", "kernel": "", "text": "Every front has been assembled, factored and discarded. The factor matches the one from the supernodal method exactly; only the route the updates took was different.", "cur": null, "tdone": ["S1", "S2", "S3", "S4", "S5"], "gvals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 2, "10-7": 2, "10-8": 1, "10-9": 1, "10-10": 2}, "gw": [], "gr": [], "gdone": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8", "9-9", "10-9", "10-10"], "front": null, "stack": [], "lines": []}], "cells": [[1, 1], [2, 1], [2, 2], [3, 3], [4, 1], [4, 2], [4, 3], [4, 4], [5, 4], [5, 5], [6, 3], [6, 4], [6, 5], [6, 6], [7, 7], [8, 7], [8, 8], [9, 1], [9, 2], [9, 4], [9, 5], [9, 6], [9, 7], [9, 8], [9, 9], [10, 7], [10, 8], [10, 9], [10, 10]]};
+const INFO={S1:{recv:[],prod:'U1',to:'S3',piv:'1, 2',trail:'4, 9'},S2:{recv:[],prod:'U2',to:'S3',piv:'3',trail:'4, 6'},S3:{recv:['U1','U2'],prod:'U3',to:'S5',piv:'4, 5, 6',trail:'9'},S4:{recv:[],prod:'U4',to:'S5',piv:'7, 8',trail:'9, 10'},S5:{recv:['U3','U4'],prod:null,to:null,piv:'9, 10',trail:''}};
+const N='http://www.w3.org/2000/svg';
+let i=0,sel=null;
+function mk(parent,n,a,t){const e=document.createElementNS(N,n);for(const k in a)e.setAttribute(k,a[k]);if(t!==undefined)e.textContent=t;parent.appendChild(e);return e}
+const v=x=>'var(--'+x+')';
+const fmt=x=>x<0?'−'+(-x):''+x;
+function cell(svg,x,y,s,val,kind,id,click){
+  let a={x:x,y:y,width:s,height:s,rx:4,fill:v('p-bg'),stroke:v('p-bd'),'stroke-width':1},ink=v('p-ink'),fw=400;
+  if(kind.d){a.fill=v('d-bg');a.stroke=v('d-bd');ink=v('d-ink');fw=650}
+  if(kind.r){a.fill=v('r-bg');a.stroke=v('r-bd');a['stroke-width']=2;a['stroke-dasharray']='5 3'}
+  if(kind.w){a.fill=v('w-bg');a.stroke=v('w-bd');a['stroke-width']=2;ink=v('ink');fw=650}
+  if(kind.n){ink=v('ink')}
+  if(id&&sel===id&&click)a['stroke-width']=3.5;
+  const r=mk(svg,'rect',a);if(click){r.style.cursor='pointer';r.addEventListener('click',()=>pick(id))}
+  mk(svg,'text',{x:x+s/2,y:y+s/2+.5,'text-anchor':'middle','dominant-baseline':'central','font-size':s>32?14:12.5,'font-weight':fw,fill:ink,'pointer-events':'none'},fmt(val));
+}
+function small(idx,vals,npiv,kinds,click){
+  const s=40,m=idx.length,o=28,W=o+m*s+4,H=o+m*s+4;
+  const svg=document.createElementNS(N,'svg');svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.setAttribute('width',W);svg.setAttribute('height',H);
+  idx.forEach((g,k)=>{mk(svg,'text',{x:o+k*s+s/2,y:16,'text-anchor':'middle','font-size':12,fill:v('muted')},g);mk(svg,'text',{x:12,y:o+k*s+s/2,'text-anchor':'middle','dominant-baseline':'central','font-size':12,fill:v('muted')},g)});
+  idx.forEach((gi,a)=>idx.forEach((gj,b)=>{if(a<b)return;const id=gi+'-'+gj;cell(svg,o+b*s+2,o+a*s+2,s-4,vals[id],kinds(id),id,click)}));
+  if(npiv&&npiv<m){const p=o+npiv*s;mk(svg,'line',{x1:p,y1:4,x2:p,y2:H,stroke:v('muted'),'stroke-dasharray':'4 3'});mk(svg,'line',{x1:2,y1:p,x2:W,y2:p,stroke:v('muted'),'stroke-dasharray':'4 3'})}
+  return svg;
+}
+function grid(g,vals,kind){
+  const C=32,X=40,Y=44;g.innerHTML='';
+  [['S1',1.5],['S2',3],['S3',5],['S4',7.5],['S5',9.5]].forEach(l=>mk(g,'text',{x:X+(l[1]-.5)*C,y:14,'text-anchor':'middle','font-size':14,'font-weight':650,fill:v('ink')},l[0]));
+  for(let c=1;c<=10;c++){mk(g,'text',{x:X+(c-.5)*C,y:36,'text-anchor':'middle','font-size':11.5,fill:v('muted')},c);mk(g,'text',{x:X-14,y:Y+(c-.5)*C,'text-anchor':'middle','dominant-baseline':'central','font-size':11.5,fill:v('muted')},c)}
+  mk(g,'rect',{x:X,y:Y,width:10*C,height:10*C,fill:'none',stroke:v('line')});
+  D.cells.forEach(p=>{const id=p[0]+'-'+p[1];cell(g,X+(p[1]-1)*C+2,Y+(p[0]-1)*C+2,C-4,vals[id],kind(id),id,false)});
+  [2,3,6,8].forEach(c=>mk(g,'line',{x1:X+c*C,y1:22,x2:X+c*C,y2:Y+10*C,stroke:v('muted'),'stroke-dasharray':'4 3'}));
+}
+grid(document.getElementById('gA'),D.steps[0].gvals,()=>({n:1}));
+grid(document.getElementById('gL'),D.steps[D.steps.length-1].gvals,()=>({d:1}));
+function draw(){
+  const s=D.steps[i];
+  const gw=new Set(s.gw),gr=new Set(s.gr),gd=new Set(s.gdone);
+  grid(document.getElementById('g'),s.gvals,id=>({w:gw.has(id),r:gr.has(id),d:gd.has(id)}));
+  const t=document.getElementById('tree');t.innerHTML='';
+  const P={S5:[230,26],S3:[150,84],S4:[310,84],S1:[90,142],S2:[210,142]};
+  [['S1','S3'],['S2','S3'],['S3','S5'],['S4','S5']].forEach(e=>{const a=P[e[0]],b=P[e[1]];mk(t,'line',{x1:a[0],y1:a[1]-17,x2:b[0],y2:b[1]+17,stroke:v('muted'),'stroke-width':1.2})});
+  for(const k in P){const dn=s.tdone.includes(k),cu=s.cur===k;
+    mk(t,'rect',{x:P[k][0]-26,y:P[k][1]-16,width:52,height:32,rx:8,fill:cu?v('w-bg'):dn?v('d-bg'):v('p-bg'),stroke:cu?v('w-bd'):dn?v('d-bd'):v('p-bd'),'stroke-width':cu?2:1});
+    mk(t,'text',{x:P[k][0],y:P[k][1]+.5,'text-anchor':'middle','dominant-baseline':'central','font-size':14,'font-weight':650,fill:cu?v('ink'):dn?v('d-ink'):v('p-ink')},k)}
+  const last=D.steps.length-1;
+  document.getElementById('ttl').textContent=s.title;
+  document.getElementById('kern').innerHTML=s.kernel?'<span class="kern">'+s.kernel+'</span>':'';
+  document.getElementById('txt').textContent=s.text;
+  document.getElementById('cnt').textContent=i===0?'Start':i===last?'Finished':'Step '+i+' of '+(last-1);
+  const fd=document.getElementById('front'),io=document.getElementById('io'),fc=document.getElementById('fcap');fd.innerHTML='';
+  if(s.front){const f=s.front,w=new Set(f.w),r=new Set(f.r),d=new Set(f.fin),I=INFO[f.name];
+    document.getElementById('fh').textContent='Current front: '+f.name;
+    fd.appendChild(small(f.idx,f.vals,f.npiv,id=>({w:w.has(id),r:r.has(id),d:d.has(id)}),true));
+    io.style.display='';
+    io.innerHTML='<span><b>'+f.name+' receives:</b> '+(I.recv.length?I.recv.map(u=>u+' (made by S'+u[1]+')').join(', '):'nothing, it is a leaf')+'</span><span><b>'+f.name+' produces:</b> '+(I.prod?I.prod+', sent to '+I.to:'nothing, it is the root')+'</span>';
+    fc.textContent='Columns '+I.piv+' are the pivots and become L.'+(I.trail?' The corner on '+(I.trail.includes(',')?'indices ':'index ')+I.trail+' is the trailing block and becomes '+I.prod+'.':' There is no trailing block.')}
+  else{document.getElementById('fh').textContent='Current front';fd.innerHTML='<p class="none">none</p>';io.style.display='none';fc.textContent=''}
+  const sd=document.getElementById('stack');sd.innerHTML='';
+  if(!s.stack.length)sd.innerHTML='<p class="none">empty</p>';
+  s.stack.forEach(u=>{const b=document.createElement('div');b.className='u '+u.st;
+    b.innerHTML='<span class="nm">'+u.name+'</span><span class="to">made by S'+u.name[1]+', for '+u.to+(u.st==='read'?' · being added now':u.st==='new'?' · just formed':'')+'</span>';
+    b.appendChild(small(u.idx,u.vals,0,()=>({r:u.st==='read',w:u.st==='new'}),false));sd.appendChild(b)});
+  const c=document.getElementById('calc');
+  if(s.lines.length){c.innerHTML='<ol class="calc">'+s.lines.map(l=>'<li data-k="'+l.k+'"'+(l.k&&sel===l.k?' class="hl"':'')+'><span class="sym">'+l.sym+'</span><span>'+l.num+'</span></li>').join('')+'</ol>';
+    c.querySelectorAll('li').forEach(li=>{if(li.dataset.k)li.addEventListener('click',()=>pick(li.dataset.k))});
+    document.getElementById('foot').textContent='f is an entry of the current front, u an entry of an update matrix, a an entry of A.'}
+  else{c.innerHTML='<p class="none">'+(i===0?'Press Next to begin.':'No arithmetic in this state.')+'</p>';document.getElementById('foot').textContent=''}
+  document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===last;
+  document.querySelectorAll('.dot').forEach((b,j)=>b.classList.toggle('on',j===i));
+}
+function pick(id){sel=sel===id?null:id;draw()}
+function go(j){i=Math.max(0,Math.min(D.steps.length-1,j));sel=null;draw()}
+const dots=document.getElementById('dots');
+D.steps.forEach((s,j)=>{const b=document.createElement('button');b.className='dot';b.title=s.title;b.setAttribute('aria-label',s.title);b.onclick=()=>go(j);dots.appendChild(b)});
+document.getElementById('prev').onclick=()=>go(i-1);document.getElementById('next').onclick=()=>go(i+1);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(i+1);if(e.key==='ArrowLeft')go(i-1)});
+draw();
+</script>
+<script>
+if(/[?&]embed\b/.test(location.search))document.body.classList.add("embed");
+if(/[?&]nobar\b/.test(location.search))document.body.classList.add("nobar");
+if(/[?&]notree\b/.test(location.search))document.body.classList.add("notree");
+/* see the matching block in supernodal_cholesky_stepper.html. This page
+   has the finer cut of the two, so the deck's tick IS its state index. */
+addEventListener('message',function(e){
+  var m=e.data; if(!m||m.type!=='sx-go')return;
+  go(m.i!==undefined ? m.i : Math.round(m.p*(D.steps.length-1)));
+});</script>
+</body>
+</html>

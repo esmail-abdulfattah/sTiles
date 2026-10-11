@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supernodal Cholesky, step by step</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f8fa;--card:#fff;--ink:#16202c;--muted:#5b6776;--line:#d7dde5;
+--w-bg:#dbe8ff;--w-bd:#1f5fbf;--r-bg:#ffe9d1;--r-bd:#c2410c;--d-bg:#dcf3e1;--d-bd:#2f8f4e;--d-ink:#17602f;--p-bg:#eef0f3;--p-bd:#b9c1cc;--p-ink:#5b6776;--hl:#fff4bf;
+--k0:#1f5fbf;--k0bg:#dbe8ff;--k1:#7c3aed;--k1bg:#ece0ff;--k2:#0f766e;--k2bg:#d2efeb}
+@media (prefers-color-scheme:dark){:root{--bg:#11151b;--card:#19202a;--ink:#e7ecf2;--muted:#9aa7b6;--line:#2c3644;
+--w-bg:#173a73;--w-bd:#7fb0ff;--r-bg:#5a2e12;--r-bd:#ffa268;--d-bg:#173d24;--d-bd:#5fc27f;--d-ink:#a9e6bb;--p-bg:#222b37;--p-bd:#4a5667;--p-ink:#9aa7b6;--hl:#4a431a;
+--k0:#7fb0ff;--k0bg:#173a73;--k1:#c4a4ff;--k1bg:#3a2a66;--k2:#5fd4c4;--k2bg:#124a44}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:24px;margin:0 0 4px;font-weight:650;text-wrap:balance}
+.lede{color:var(--muted);margin:0 0 20px;max-width:70ch}
+.wrap{display:grid;grid-template-columns:minmax(0,460px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--p-bd);border-radius:8px;padding:6px 16px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--w-bd)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,.dot:focus-visible{outline:2px solid var(--w-bd);outline-offset:2px}
+.count{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.dots{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
+.dot{width:14px;height:14px;padding:0;border-radius:50%;border:1px solid var(--p-bd);background:var(--p-bg)}
+.dot.on{background:var(--w-bd);border-color:var(--w-bd)}
+h2{font-size:19px;margin:0 0 4px;font-weight:650}
+.kern{display:inline-block;font-size:12.5px;letter-spacing:.02em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 10px;margin-bottom:8px}
+.text{margin:0 0 14px;max-width:62ch}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-weight:600}
+ol.calc{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+ol.calc li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:4px 14px;padding:7px 8px;border-bottom:1px solid var(--line);cursor:pointer;font-variant-numeric:tabular-nums}
+@media (max-width:560px){ol.calc li{grid-template-columns:1fr}}
+ol.calc li.hl{background:var(--hl)}
+ol.calc b{color:var(--w-bd);font-weight:700}
+.sym{color:var(--muted)}
+sub{font-size:.72em}
+.none{color:var(--muted);margin:0}
+.foot{color:var(--muted);font-size:13.5px;margin:10px 0 0}
+svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--muted);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:3px;display:inline-block}
+.cell{cursor:pointer}
+
+.tabs{display:flex;gap:6px;margin:0 0 16px;border-bottom:1px solid var(--line);padding-bottom:0}
+.tab{border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;background:transparent;padding:7px 16px;margin-bottom:-1px;color:var(--muted)}
+.tab[aria-selected=true]{background:var(--card);color:var(--ink);font-weight:650;border-color:var(--line)}
+.hidden{display:none}
+.ranks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 14px}
+@media (max-width:620px){.ranks{grid-template-columns:1fr}}
+.rk{border:1px solid var(--line);border-top-width:3px;border-radius:8px;padding:8px 10px;min-height:92px}
+.rk h4{margin:0 0 2px;font-size:13.5px;font-weight:650}
+.rk .own{color:var(--muted);font-size:12px;margin-bottom:6px}
+.rk .act{font-size:13px;font-variant-numeric:tabular-nums}
+.rk .why{color:var(--r-bd);font-size:12.5px;margin-top:3px}
+.state{display:inline-block;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:1px 6px;margin-bottom:5px;font-weight:650}
+.st-run{background:var(--d-bg);color:var(--d-ink)}
+.st-spin{background:var(--r-bg);color:var(--r-bd)}
+.st-done{background:var(--p-bg);color:var(--p-ink)}
+.cnts{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;font-size:13px}
+.cnt-chip{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-variant-numeric:tabular-nums}
+.cnt-chip.zero{border-color:var(--d-bd);background:var(--d-bg);color:var(--d-ink)}
+.gantt{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.gantt th{font-weight:600;color:var(--muted);padding:2px 4px;text-align:center}
+.gantt th.rw{text-align:left;width:4.5em}
+.gantt td{padding:2px}
+.gantt button{width:100%;border-radius:4px;padding:5px 2px;font-size:11.5px;line-height:1.1;border:1px solid transparent;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.gantt button.now{outline:2px solid var(--ink);outline-offset:1px}
+.g-idle{background:var(--p-bg);color:var(--p-ink)}
+.g-spin{background:var(--r-bg);color:var(--r-bd);border-color:var(--r-bd)!important;border-style:dashed!important}
+.plan{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:12px}
+@media (max-width:760px){.plan{grid-template-columns:1fr}}
+.plan h3{margin-top:0}
+.plan ul{margin:0;padding-left:18px}
+.plan li{margin-bottom:4px}
+.wide{grid-column:1/-1}
+.note{color:var(--muted);font-size:13.5px;margin:0 0 16px;max-width:78ch}
+ol.calc li .rkdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.etree{font-variant-numeric:tabular-nums;line-height:1.7;margin:0}
+.etree code{font-size:13px}
+
+/* Embedded in the deck (?embed=1): the slide supplies its own heading and
+   the room is being talked to, so the page chrome and the explanatory
+   note come off and only the stepper itself remains. */
+body.embed h1,body.embed .lede,body.embed .note{display:none}
+body.embed main{padding:6px 10px 10px}
+body.embed{overflow:hidden}
+/* Embedded, the slide shows the matrix only: the title, the prose and the
+   Computation block come off and he narrates them. The control bar stays,
+   or there is no way to step. The grid is pulled in so the matrix is not
+   left stranded beside an empty column. */
+body.embed #ttl,body.embed #kern,body.embed #txt,body.embed #calc,body.embed #foot,
+body.embed #ttl2,body.embed #kern2,body.embed #txt2,body.embed #calc2,body.embed #foot2,
+body.embed .card h3{display:none}
+body.embed .wrap{grid-template-columns:minmax(0,470px);justify-content:center;gap:10px}
+body.embed .card:first-child{justify-self:center}
+
+/* ── embedded in talk.html: the deck's palette and type ───────────────
+   The deck is warm off-white (#fbfbf9) set in Inter, with one accent hue
+   per act. The cool blue/green/grey of this page reads as a foreign
+   object dropped into it, so under .embed every variable is remapped to
+   the deck's own values. Standalone the page is untouched.
+
+   The three brand hues carry fixed meaning for the whole talk: orange is
+   the dense route, teal the sparse one, lime semi-structured. This figure
+   is in the sparse act, so teal is the one that may be reused, for the
+   finished factor. "Read in this step" takes the deck's gold, the accent
+   it defines as distinct from all three routes. "Written in this step" is
+   plain ink: the thing happening now is the darkest mark on the slide.
+
+   The remap also pins the light palette. Standalone this page follows
+   prefers-color-scheme, and a presenter on a dark desktop would otherwise
+   get dark panels inside a light deck. */
+body.embed{
+  --bg:transparent;   --card:transparent;
+  --ink:#14161a;      --muted:#6b7280;    --line:#dfe1de;
+  --w-bg:#ffffff;     --w-bd:#14161a;                        /* writing now */
+  --r-bg:#fbf3dd;     --r-bd:#c9a227;                        /* reading now */
+  --d-bg:#e6efec;     --d-bd:#3c8277;     --d-ink:#2f6b61;   /* finished L  */
+  --p-bg:#f2f2ee;     --p-bd:#dfe1de;     --p-ink:#6b7280;   /* not yet     */
+  --hl:#fbf3dd;
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+/* the deck frames the figure; a card border inside it is a third nested box */
+body.embed .card{border:0;background:transparent;padding:0}
+body.embed .legend{color:var(--muted)}
+body.embed h3{color:var(--muted);letter-spacing:.06em}
+/* tabs as the deck draws them: no boxes, one teal underline */
+body.embed .tabs{border-bottom:1px solid var(--line);gap:0;margin-bottom:12px}
+body.embed .tab{background:transparent;border:0;border-radius:0;margin:0;
+  padding:5px 14px;color:var(--muted);border-bottom:2px solid transparent}
+body.embed .tab[aria-selected=true]{background:transparent;color:#2f6b61;
+  border-bottom-color:#3c8277;font-weight:700}
+/* three ranks, in hues the deck already owns and that stay apart at distance */
+body.embed{--k0:#2f6b61;--k0bg:#e6efec;--k1:#8a6d14;--k1bg:#fbf3dd;
+  --k2:#3d434c;--k2bg:#eceeea}
+body.nobar .bar{display:none}
+body.embed .bar{justify-content:center}
+body.embed .card[aria-live]{border:0;background:transparent;padding:0}
+
+html:has(body.embed){overflow:hidden}
+</style>
+</head>
+<body>
+
+<main>
+<h1>Supernodal Cholesky, step by step</h1>
+<p class="lede">A 10 &times; 10 matrix whose factor L has five supernodes. The same factorization twice: once on one rank, then split over three.</p>
+<div class="tabs" role="tablist">
+<button class="tab" id="tab-s" role="tab" aria-selected="true" aria-controls="view-s">Serial &middot; one rank</button>
+<button class="tab" id="tab-p" role="tab" aria-selected="false" aria-controls="view-p">Parallel &middot; three ranks</button>
+</div>
+
+<div id="view-s" role="tabpanel">
+<p class="note">Each supernode applies the updates it is owed, factors its diagonal block, then solves the block below. Each cell shows the number it holds after the current step; the panel shows the arithmetic that produced it. This fan-in grouping is the order of sTiles' owner-pull collector; the default push collector does the same arithmetic grouped by source supernode instead, which is what the parallel tab shows.</p>
+<div class="wrap">
+<section class="card" aria-label="Matrix">
+<svg id="g" viewBox="0 0 440 452" role="img" aria-label="Lower triangle of the matrix with current values"></svg>
+<div class="legend">
+<span><i class="sw" style="background:var(--w-bg);border:2px solid var(--w-bd)"></i>written in this step</span>
+<span><i class="sw" style="background:var(--r-bg);border:2px dashed var(--r-bd)"></i>read in this step</span>
+<span><i class="sw" style="background:var(--d-bg);border:1px solid var(--d-bd)"></i>finished entry of L</span>
+<span><i class="sw" style="background:var(--p-bg);border:1px solid var(--p-bd)"></i>not finished yet</span>
+</div>
+</section>
+<section class="card" aria-live="polite">
+<div class="bar">
+<button id="prev">Back</button><button id="next">Next</button>
+<span class="count" id="cnt"></span>
+<div class="dots" id="dots"></div>
+</div>
+<h2 id="ttl"></h2>
+<div id="kern"></div>
+<p class="text" id="txt"></p>
+<h3>Computation</h3>
+<div id="calc"></div>
+<p class="foot" id="foot"></p>
+</section>
+</div>
+</div>
+
+<div id="view-p" role="tabpanel" class="hidden">
+<p class="note">The same matrix on three ranks. One tick = one task per rank, every task costed the same, which is the only fiction here; the partition, the task lists, the order inside each rank and every wait are the ones sTiles' sparse path actually produces for this matrix. Serial takes 16 tasks, this schedule takes 8 ticks.</p>
+<div class="wrap">
+<section class="card" aria-label="Matrix">
+<svg id="g2" viewBox="0 0 440 452" role="img" aria-label="Lower triangle of the matrix, cells coloured by the rank that writes them"></svg>
+<div class="legend">
+<span><i class="sw" style="background:var(--k0bg);border:2px solid var(--k0)"></i>R0 writes</span>
+<span><i class="sw" style="background:var(--k1bg);border:2px solid var(--k1)"></i>R1 writes</span>
+<span><i class="sw" style="background:var(--k2bg);border:2px solid var(--k2)"></i>R2 writes</span>
+<span><i class="sw" style="background:var(--r-bg);border:2px dashed var(--r-bd)"></i>read</span>
+<span><i class="sw" style="background:var(--d-bg);border:1px solid var(--d-bd)"></i>finished entry of L</span>
+</div>
+</section>
+<section class="card" aria-live="polite">
+<div class="bar">
+<button id="prev2">Back</button><button id="next2">Next</button>
+<span class="count" id="cnt2"></span>
+<div class="dots" id="dots2"></div>
+</div>
+<h2 id="ttl2"></h2>
+<p class="text" id="txt2"></p>
+<div class="ranks" id="ranks2"></div>
+<h3>Updates still owed as the tick began (<code>updates_remaining</code>)</h3>
+<div class="cnts" id="cnts2"></div>
+<h3>Computation</h3>
+<div id="calc2"></div>
+<p class="foot" id="foot2"></p>
+</section>
+</div>
+<section class="card" style="margin-top:20px">
+<h3>Timeline</h3>
+<table class="gantt" id="gantt"></table>
+<div class="plan">
+<div>
+<h3>How the work was split</h3>
+<p class="etree">Supernodal elimination tree, level in brackets:<br>
+<code>S1[0] &rarr; S3[1]&nbsp;&nbsp; S2[0] &rarr; S3[1]&nbsp;&nbsp; S4[0] &rarr; S5[2]&nbsp;&nbsp; S3[1] &rarr; S5[2]</code></p>
+<ul>
+<li>Level 0 holds three supernodes, so three ranks can be busy; levels 1 and 2 hold one each.</li>
+<li>Owner flops, used by the partitioner: S3 34.0, S5 28.7, S1 10.7, S4 10.7, S2 2.3.</li>
+<li>Heaviest first to the least loaded rank gives <b>R0 = S1, S5</b> (39.3), <b>R2 = S2, S3</b> (36.3), <b>R1 = S4</b> (10.7).</li>
+<li>Each rank then runs its supernodes in level order, and inside a supernode: FACTOR, its TRSMs, then its updates.</li>
+</ul>
+</div>
+<div>
+<h3>What the counters do</h3>
+<ul>
+<li><code>progress</code>: one byte per cell, set when a FACTOR or TRSM finishes it. A TRSM waits on its diagonal cell; an update waits on both of its source cells.</li>
+<li><code>updates_remaining</code>: per cell, started at the number of updates aimed at it (here (S3,S3) 2, (S5,S3) 1, (S5,S5) 3) and counted down by each scatter. A FACTOR or TRSM may not touch a cell until its count is 0.</li>
+<li>Concurrent scatters into one cell are serialised by that cell's spinlock, so they land in arrival order, not in source order.</li>
+<li>No barrier between levels. Levels only shape the static assignment; at run time a rank blocks on cells, not on phases.</li>
+</ul>
+</div>
+<p class="foot wide">Two honest caveats. sTiles would not use three ranks here: its structural cap works out to exactly 3 for this tree, but the work floor then sees 86 flops in total and drops the matrix to one rank, where the serial tab is what runs. And the spin waits above are per cell, so a rank blocked on one cell does nothing else; there is no work stealing.</p>
+</div>
+</section>
+</div>
+</main>
+<script>
+const D={"steps": [{"title": "Start: load A", "kernel": "", "text": "The lower-triangle entries of A are copied into the five supernode blocks. Nothing has been computed yet.", "w": [], "r": [], "done": [], "vals": {"1-1": 4, "2-1": 2, "2-2": 5, "3-3": 9, "4-1": 2, "4-2": 3, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 2, "9-2": 5, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": []}, {"title": "S1: factor the diagonal block", "kernel": "POTRF · dense Cholesky", "text": "Nothing comes before S1, so there are no updates to collect. Do a dense Cholesky on its 2 × 2 triangle (rows 1 and 2).", "w": ["1-1", "2-1", "2-2"], "r": [], "done": [], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 9, "4-1": 2, "4-2": 3, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 2, "9-2": 5, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "1-1", "sym": "ℓ<sub>1,1</sub> = √a<sub>1,1</sub>", "num": "= √4 = <b>2</b>"}, {"k": "2-1", "sym": "ℓ<sub>2,1</sub> = a<sub>2,1</sub> / ℓ<sub>1,1</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "2-2", "sym": "ℓ<sub>2,2</sub> = √(a<sub>2,2</sub> − ℓ<sub>2,1</sub>²)", "num": "= √(5 − 1²) = √4 = <b>2</b>"}]}, {"title": "S1: solve the below block", "kernel": "TRSM · triangular solve", "text": "Use the triangle just factored to finish rows 4 and 9 with one triangular solve. S1 is now final.", "w": ["4-1", "4-2", "9-1", "9-2"], "r": ["1-1", "2-1", "2-2"], "done": ["1-1", "2-1", "2-2"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 9, "4-1": 1, "4-2": 1, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "4-1", "sym": "ℓ<sub>4,1</sub> = a<sub>4,1</sub> / ℓ<sub>1,1</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "4-2", "sym": "ℓ<sub>4,2</sub> = (a<sub>4,2</sub> − ℓ<sub>4,1</sub>·ℓ<sub>2,1</sub>) / ℓ<sub>2,2</sub>", "num": "= (3 − 1·1) / 2 = 2 / 2 = <b>1</b>"}, {"k": "9-1", "sym": "ℓ<sub>9,1</sub> = a<sub>9,1</sub> / ℓ<sub>1,1</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "9-2", "sym": "ℓ<sub>9,2</sub> = (a<sub>9,2</sub> − ℓ<sub>9,1</sub>·ℓ<sub>2,1</sub>) / ℓ<sub>2,2</sub>", "num": "= (5 − 1·1) / 2 = 4 / 2 = <b>2</b>"}]}, {"title": "S2: factor the diagonal block", "kernel": "POTRF · dense Cholesky", "text": "S1 has nothing in row 3, so it sends no update here. S2 is one column wide, so the factor step is a single square root.", "w": ["3-3"], "r": [], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 3, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 6, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "3-3", "sym": "ℓ<sub>3,3</sub> = √a<sub>3,3</sub>", "num": "= √9 = <b>3</b>"}]}, {"title": "S2: solve the below block", "kernel": "TRSM · triangular solve", "text": "Divide rows 4 and 6 by the diagonal entry. S2 is now final.", "w": ["4-3", "6-3"], "r": ["3-3"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 7, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 5, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "4-3", "sym": "ℓ<sub>4,3</sub> = a<sub>4,3</sub> / ℓ<sub>3,3</sub>", "num": "= 3 / 3 = <b>1</b>"}, {"k": "6-3", "sym": "ℓ<sub>6,3</sub> = a<sub>6,3</sub> / ℓ<sub>3,3</sub>", "num": "= 6 / 3 = <b>2</b>"}]}, {"title": "S3: collect the update from S1", "kernel": "GEMM + scatter · update", "text": "S1 reaches S3 through row 4. Its rows 4 and 9 are multiplied together and subtracted from column 4 of S3, in rows 4 and 9.", "w": ["4-4", "9-4"], "r": ["4-1", "4-2", "9-1", "9-2"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 5, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 4, "6-5": 3, "6-6": 10, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 2, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "4-4", "sym": "a<sub>4,4</sub> ← a<sub>4,4</sub> − (ℓ<sub>4,1</sub>·ℓ<sub>4,1</sub> + ℓ<sub>4,2</sub>·ℓ<sub>4,2</sub>)", "num": "= 7 − (1·1 + 1·1) = 7 − 2 = <b>5</b>"}, {"k": "9-4", "sym": "a<sub>9,4</sub> ← a<sub>9,4</sub> − (ℓ<sub>9,1</sub>·ℓ<sub>4,1</sub> + ℓ<sub>9,2</sub>·ℓ<sub>4,2</sub>)", "num": "= 5 − (1·1 + 2·1) = 5 − 3 = <b>2</b>"}]}, {"title": "S3: collect the update from S2", "kernel": "GEMM + scatter · update", "text": "S2 reaches S3 through rows 4 and 6. Its contribution is subtracted from columns 4 and 6 of S3.", "w": ["4-4", "6-4", "6-6"], "r": ["4-3", "6-3"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 4, "5-4": 2, "5-5": 5, "6-3": 2, "6-4": 2, "6-5": 3, "6-6": 6, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 2, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "4-4", "sym": "a<sub>4,4</sub> ← a<sub>4,4</sub> − ℓ<sub>4,3</sub>·ℓ<sub>4,3</sub>", "num": "= 5 − 1·1 = 5 − 1 = <b>4</b>"}, {"k": "6-4", "sym": "a<sub>6,4</sub> ← a<sub>6,4</sub> − ℓ<sub>6,3</sub>·ℓ<sub>4,3</sub>", "num": "= 4 − 2·1 = 4 − 2 = <b>2</b>"}, {"k": "6-6", "sym": "a<sub>6,6</sub> ← a<sub>6,6</sub> − ℓ<sub>6,3</sub>·ℓ<sub>6,3</sub>", "num": "= 10 − 2·2 = 10 − 4 = <b>6</b>"}]}, {"title": "S3: factor the diagonal block", "kernel": "POTRF · dense Cholesky", "text": "All updates are in. Do a dense Cholesky on the 3 × 3 triangle (rows 4 to 6).", "w": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6"], "r": [], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 2, "9-5": 3, "9-6": 4, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "4-4", "sym": "ℓ<sub>4,4</sub> = √a<sub>4,4</sub>", "num": "= √4 = <b>2</b>"}, {"k": "5-4", "sym": "ℓ<sub>5,4</sub> = a<sub>5,4</sub> / ℓ<sub>4,4</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "6-4", "sym": "ℓ<sub>6,4</sub> = a<sub>6,4</sub> / ℓ<sub>4,4</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "5-5", "sym": "ℓ<sub>5,5</sub> = √(a<sub>5,5</sub> − ℓ<sub>5,4</sub>²)", "num": "= √(5 − 1²) = √4 = <b>2</b>"}, {"k": "6-5", "sym": "ℓ<sub>6,5</sub> = (a<sub>6,5</sub> − ℓ<sub>6,4</sub>·ℓ<sub>5,4</sub>) / ℓ<sub>5,5</sub>", "num": "= (3 − 1·1) / 2 = 2 / 2 = <b>1</b>"}, {"k": "6-6", "sym": "ℓ<sub>6,6</sub> = √(a<sub>6,6</sub> − ℓ<sub>6,4</sub>² − ℓ<sub>6,5</sub>²)", "num": "= √(6 − 1² − 1²) = √4 = <b>2</b>"}]}, {"title": "S3: solve the below block", "kernel": "TRSM · triangular solve", "text": "One triangular solve finishes row 9. S3 is now final.", "w": ["9-4", "9-5", "9-6"], "r": ["4-4", "5-4", "5-5", "6-4", "6-5", "6-6"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 4, "8-7": 2, "8-8": 10, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "9-4", "sym": "ℓ<sub>9,4</sub> = a<sub>9,4</sub> / ℓ<sub>4,4</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "9-5", "sym": "ℓ<sub>9,5</sub> = (a<sub>9,5</sub> − ℓ<sub>9,4</sub>·ℓ<sub>5,4</sub>) / ℓ<sub>5,5</sub>", "num": "= (3 − 1·1) / 2 = 2 / 2 = <b>1</b>"}, {"k": "9-6", "sym": "ℓ<sub>9,6</sub> = (a<sub>9,6</sub> − ℓ<sub>9,4</sub>·ℓ<sub>6,4</sub> − ℓ<sub>9,5</sub>·ℓ<sub>6,5</sub>) / ℓ<sub>6,6</sub>", "num": "= (4 − 1·1 − 1·1) / 2 = 2 / 2 = <b>1</b>"}]}, {"title": "S4: factor the diagonal block", "kernel": "POTRF · dense Cholesky", "text": "No earlier supernode has anything in rows 7 or 8, so there are no updates. Dense Cholesky on the 2 × 2 triangle.", "w": ["7-7", "8-7", "8-8"], "r": [], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 2, "9-8": 4, "9-9": 14, "10-7": 4, "10-8": 5, "10-9": 5, "10-10": 10}, "lines": [{"k": "7-7", "sym": "ℓ<sub>7,7</sub> = √a<sub>7,7</sub>", "num": "= √4 = <b>2</b>"}, {"k": "8-7", "sym": "ℓ<sub>8,7</sub> = a<sub>8,7</sub> / ℓ<sub>7,7</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "8-8", "sym": "ℓ<sub>8,8</sub> = √(a<sub>8,8</sub> − ℓ<sub>8,7</sub>²)", "num": "= √(10 − 1²) = √9 = <b>3</b>"}]}, {"title": "S4: solve the below block", "kernel": "TRSM · triangular solve", "text": "One triangular solve finishes rows 9 and 10. S4 is now final.", "w": ["9-7", "9-8", "10-7", "10-8"], "r": ["7-7", "8-7", "8-8"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 14, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "lines": [{"k": "9-7", "sym": "ℓ<sub>9,7</sub> = a<sub>9,7</sub> / ℓ<sub>7,7</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "9-8", "sym": "ℓ<sub>9,8</sub> = (a<sub>9,8</sub> − ℓ<sub>9,7</sub>·ℓ<sub>8,7</sub>) / ℓ<sub>8,8</sub>", "num": "= (4 − 1·1) / 3 = 3 / 3 = <b>1</b>"}, {"k": "10-7", "sym": "ℓ<sub>10,7</sub> = a<sub>10,7</sub> / ℓ<sub>7,7</sub>", "num": "= 4 / 2 = <b>2</b>"}, {"k": "10-8", "sym": "ℓ<sub>10,8</sub> = (a<sub>10,8</sub> − ℓ<sub>10,7</sub>·ℓ<sub>8,7</sub>) / ℓ<sub>8,8</sub>", "num": "= (5 − 2·1) / 3 = 3 / 3 = <b>1</b>"}]}, {"title": "S5: collect the update from S1", "kernel": "GEMM + scatter · update", "text": "S1 reaches S5 through row 9, skipping over S3. This direct delivery to a non-parent is what the supernodal method does.", "w": ["9-9"], "r": ["9-1", "9-2"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 9, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "lines": [{"k": "9-9", "sym": "a<sub>9,9</sub> ← a<sub>9,9</sub> − (ℓ<sub>9,1</sub>·ℓ<sub>9,1</sub> + ℓ<sub>9,2</sub>·ℓ<sub>9,2</sub>)", "num": "= 14 − (1·1 + 2·2) = 14 − 5 = <b>9</b>"}]}, {"title": "S5: collect the update from S3", "kernel": "GEMM + scatter · update", "text": "S3 reaches S5 through row 9 and its contribution is subtracted from the same entry.", "w": ["9-9"], "r": ["9-4", "9-5", "9-6"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 6, "10-7": 2, "10-8": 1, "10-9": 5, "10-10": 10}, "lines": [{"k": "9-9", "sym": "a<sub>9,9</sub> ← a<sub>9,9</sub> − (ℓ<sub>9,4</sub>·ℓ<sub>9,4</sub> + ℓ<sub>9,5</sub>·ℓ<sub>9,5</sub> + ℓ<sub>9,6</sub>·ℓ<sub>9,6</sub>)", "num": "= 9 − (1·1 + 1·1 + 1·1) = 9 − 3 = <b>6</b>"}]}, {"title": "S5: collect the update from S4", "kernel": "GEMM + scatter · update", "text": "S4 reaches S5 through rows 9 and 10, so its contribution covers the whole 2 × 2 triangle.", "w": ["9-9", "10-9", "10-10"], "r": ["9-7", "9-8", "10-7", "10-8"], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 4, "10-7": 2, "10-8": 1, "10-9": 2, "10-10": 5}, "lines": [{"k": "9-9", "sym": "a<sub>9,9</sub> ← a<sub>9,9</sub> − (ℓ<sub>9,7</sub>·ℓ<sub>9,7</sub> + ℓ<sub>9,8</sub>·ℓ<sub>9,8</sub>)", "num": "= 6 − (1·1 + 1·1) = 6 − 2 = <b>4</b>"}, {"k": "10-9", "sym": "a<sub>10,9</sub> ← a<sub>10,9</sub> − (ℓ<sub>10,7</sub>·ℓ<sub>9,7</sub> + ℓ<sub>10,8</sub>·ℓ<sub>9,8</sub>)", "num": "= 5 − (2·1 + 1·1) = 5 − 3 = <b>2</b>"}, {"k": "10-10", "sym": "a<sub>10,10</sub> ← a<sub>10,10</sub> − (ℓ<sub>10,7</sub>·ℓ<sub>10,7</sub> + ℓ<sub>10,8</sub>·ℓ<sub>10,8</sub>)", "num": "= 10 − (2·2 + 1·1) = 10 − 5 = <b>5</b>"}]}, {"title": "S5: factor the diagonal block", "kernel": "POTRF · dense Cholesky", "text": "Dense Cholesky on the last 2 × 2 triangle. There is nothing below it, so the factorization is complete.", "w": ["9-9", "10-9", "10-10"], "r": [], "done": ["1-1", "2-1", "2-2", "4-1", "4-2", "9-1", "9-2", "3-3", "4-3", "6-3", "4-4", "5-4", "5-5", "6-4", "6-5", "6-6", "9-4", "9-5", "9-6", "7-7", "8-7", "8-8", "9-7", "9-8", "10-7", "10-8"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 2, "10-7": 2, "10-8": 1, "10-9": 1, "10-10": 2}, "lines": [{"k": "9-9", "sym": "ℓ<sub>9,9</sub> = √a<sub>9,9</sub>", "num": "= √4 = <b>2</b>"}, {"k": "10-9", "sym": "ℓ<sub>10,9</sub> = a<sub>10,9</sub> / ℓ<sub>9,9</sub>", "num": "= 2 / 2 = <b>1</b>"}, {"k": "10-10", "sym": "ℓ<sub>10,10</sub> = √(a<sub>10,10</sub> − ℓ<sub>10,9</sub>²)", "num": "= √(5 − 1²) = √4 = <b>2</b>"}]}, {"title": "Done: L is complete", "kernel": "", "text": "Every cell now holds its entry of L, and L·Lᵀ reproduces A exactly.", "w": [], "r": [], "done": ["1-1", "2-1", "2-2", "3-3", "4-1", "4-2", "4-3", "4-4", "5-4", "5-5", "6-3", "6-4", "6-5", "6-6", "7-7", "8-7", "8-8", "9-1", "9-2", "9-4", "9-5", "9-6", "9-7", "9-8", "9-9", "10-7", "10-8", "10-9", "10-10"], "vals": {"1-1": 2, "2-1": 1, "2-2": 2, "3-3": 3, "4-1": 1, "4-2": 1, "4-3": 1, "4-4": 2, "5-4": 1, "5-5": 2, "6-3": 2, "6-4": 1, "6-5": 1, "6-6": 2, "7-7": 2, "8-7": 1, "8-8": 3, "9-1": 1, "9-2": 2, "9-4": 1, "9-5": 1, "9-6": 1, "9-7": 1, "9-8": 1, "9-9": 2, "10-7": 2, "10-8": 1, "10-9": 1, "10-10": 2}, "lines": []}], "cells": [[1, 1], [2, 1], [2, 2], [3, 3], [4, 1], [4, 2], [4, 3], [4, 4], [5, 4], [5, 5], [6, 3], [6, 4], [6, 5], [6, 6], [7, 7], [8, 7], [8, 8], [9, 1], [9, 2], [9, 4], [9, 5], [9, 6], [9, 7], [9, 8], [9, 9], [10, 7], [10, 8], [10, 9], [10, 10]], "A": [[4, 2, 0, 2, 0, 0, 0, 0, 2, 0], [2, 5, 0, 3, 0, 0, 0, 0, 5, 0], [0, 0, 9, 3, 0, 6, 0, 0, 0, 0], [2, 3, 3, 7, 2, 4, 0, 0, 5, 0], [0, 0, 0, 2, 5, 3, 0, 0, 3, 0], [0, 0, 6, 4, 3, 10, 0, 0, 4, 0], [0, 0, 0, 0, 0, 0, 4, 2, 2, 4], [0, 0, 0, 0, 0, 0, 2, 10, 4, 5], [2, 5, 0, 5, 3, 4, 2, 4, 14, 5], [0, 0, 0, 0, 0, 0, 4, 5, 5, 10]]};
+const Pd={"steps":[{"tick":0,"title":"Start: load A, hand each rank its slice","vals":{"1-1":"4","2-1":"2","2-2":"5","3-3":"9","4-1":"2","4-2":"3","4-3":"3","4-4":"7","5-4":"2","5-5":"5","6-3":"6","6-4":"4","6-5":"3","6-6":"10","7-7":"4","8-7":"2","8-8":"10","9-1":"2","9-2":"5","9-4":"5","9-5":"3","9-6":"4","9-7":"2","9-8":"4","9-9":"14","10-7":"4","10-8":"5","10-9":"5","10-10":"10"},"w":{},"r":[],"done":[],"lines":[],"ranks":[{"state":"wait","label":"FACTOR S1","kernel":"POTRF","wait":null},{"state":"wait","label":"FACTOR S4","kernel":"POTRF","wait":null},{"state":"wait","label":"FACTOR S2","kernel":"POTRF","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":2,"5-3":1,"4-4":0,"5-4":0,"5-5":3},"text":"Levels of the supernodal elimination tree decide what may run at once: S1, S2 and S4 are leaves (level 0), S3 is level 1, S5 is level 2. Within each level the collector sorts supernodes by flops and gives each to the least loaded rank, then every rank walks its own slice front to back. There is no barrier anywhere: the only synchronisation is per cell."},{"tick":1,"title":"Tick 1: three leaves factor at once","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"2","4-2":"3","4-3":"3","4-4":"7","5-4":"2","5-5":"5","6-3":"6","6-4":"4","6-5":"3","6-6":"10","7-7":"2","8-7":"1","8-8":"3","9-1":"2","9-2":"5","9-4":"5","9-5":"3","9-6":"4","9-7":"2","9-8":"4","9-9":"14","10-7":"4","10-8":"5","10-9":"5","10-10":"10"},"w":{"1-1":0,"2-1":0,"2-2":0,"7-7":1,"8-7":1,"8-8":1,"3-3":2},"r":[],"done":["1-1","2-1","2-2","3-3","7-7","8-7","8-8"],"lines":[{"k":"1-1","sym":"\u2113<sub>1,1</sub> = \u221aa<sub>1,1</sub>","num":"= \u221a4 = <b>2</b>","rank":0},{"k":"2-1","sym":"\u2113<sub>2,1</sub> = a<sub>2,1</sub> / \u2113<sub>1,1</sub>","num":"= 2 / 2 = <b>1</b>","rank":0},{"k":"2-2","sym":"\u2113<sub>2,2</sub> = \u221a(a<sub>2,2</sub> \u2212 \u2113<sub>2,1</sub>\u00b2)","num":"= \u221a(5 \u2212 1\u00b2) = \u221a4 = <b>2</b>","rank":0},{"k":"7-7","sym":"\u2113<sub>7,7</sub> = \u221aa<sub>7,7</sub>","num":"= \u221a4 = <b>2</b>","rank":1},{"k":"8-7","sym":"\u2113<sub>8,7</sub> = a<sub>8,7</sub> / \u2113<sub>7,7</sub>","num":"= 2 / 2 = <b>1</b>","rank":1},{"k":"8-8","sym":"\u2113<sub>8,8</sub> = \u221a(a<sub>8,8</sub> \u2212 \u2113<sub>8,7</sub>\u00b2)","num":"= \u221a(10 \u2212 1\u00b2) = \u221a9 = <b>3</b>","rank":1},{"k":"3-3","sym":"\u2113<sub>3,3</sub> = \u221aa<sub>3,3</sub>","num":"= \u221a9 = <b>3</b>","rank":2}],"ranks":[{"state":"run","label":"FACTOR S1","kernel":"POTRF","wait":null},{"state":"run","label":"FACTOR S4","kernel":"POTRF","wait":null},{"state":"run","label":"FACTOR S2","kernel":"POTRF","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":2,"5-3":1,"4-4":0,"5-4":0,"5-5":3},"text":"Three leaves, three ranks, three POTRFs at once. Nothing earlier owes an update to a leaf's diagonal block, so its counter is already 0 and no rank waits."},{"tick":2,"title":"Tick 2: three panels solve at once","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"1","4-2":"1","4-3":"1","4-4":"7","5-4":"2","5-5":"5","6-3":"2","6-4":"4","6-5":"3","6-6":"10","7-7":"2","8-7":"1","8-8":"3","9-1":"2","9-2":"5","9-4":"5","9-5":"3","9-6":"4","9-7":"1","9-8":"1","9-9":"14","10-7":"2","10-8":"1","10-9":"5","10-10":"10"},"w":{"4-1":0,"4-2":0,"9-7":1,"9-8":1,"10-7":1,"10-8":1,"4-3":2,"6-3":2},"r":["1-1","2-1","2-2","3-3","7-7","8-7","8-8"],"done":["1-1","2-1","2-2","3-3","4-1","4-2","4-3","6-3","7-7","8-7","8-8","9-7","9-8","10-7","10-8"],"lines":[{"k":"4-1","sym":"\u2113<sub>4,1</sub> = a<sub>4,1</sub> / \u2113<sub>1,1</sub>","num":"= 2 / 2 = <b>1</b>","rank":0},{"k":"4-2","sym":"\u2113<sub>4,2</sub> = (a<sub>4,2</sub> \u2212 \u2113<sub>4,1</sub>\u00b7\u2113<sub>2,1</sub>) / \u2113<sub>2,2</sub>","num":"= (3 \u2212 1\u00b71) / 2 = 2 / 2 = <b>1</b>","rank":0},{"k":"9-7","sym":"\u2113<sub>9,7</sub> = a<sub>9,7</sub> / \u2113<sub>7,7</sub>","num":"= 2 / 2 = <b>1</b>","rank":1},{"k":"9-8","sym":"\u2113<sub>9,8</sub> = (a<sub>9,8</sub> \u2212 \u2113<sub>9,7</sub>\u00b7\u2113<sub>8,7</sub>) / \u2113<sub>8,8</sub>","num":"= (4 \u2212 1\u00b71) / 3 = 3 / 3 = <b>1</b>","rank":1},{"k":"10-7","sym":"\u2113<sub>10,7</sub> = a<sub>10,7</sub> / \u2113<sub>7,7</sub>","num":"= 4 / 2 = <b>2</b>","rank":1},{"k":"10-8","sym":"\u2113<sub>10,8</sub> = (a<sub>10,8</sub> \u2212 \u2113<sub>10,7</sub>\u00b7\u2113<sub>8,7</sub>) / \u2113<sub>8,8</sub>","num":"= (5 \u2212 2\u00b71) / 3 = 3 / 3 = <b>1</b>","rank":1},{"k":"4-3","sym":"\u2113<sub>4,3</sub> = a<sub>4,3</sub> / \u2113<sub>3,3</sub>","num":"= 3 / 3 = <b>1</b>","rank":2},{"k":"6-3","sym":"\u2113<sub>6,3</sub> = a<sub>6,3</sub> / \u2113<sub>3,3</sub>","num":"= 6 / 3 = <b>2</b>","rank":2}],"ranks":[{"state":"run","label":"TRSM S1\u2192(S3,S1)","kernel":"TRSM","wait":null},{"state":"run","label":"TRSM S4\u2192(S5,S4)","kernel":"TRSM","wait":null},{"state":"run","label":"TRSM S2\u2192(S3,S2)","kernel":"TRSM","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":2,"5-3":1,"4-4":0,"5-4":0,"5-5":3},"text":"Each rank solves its own panel against the diagonal block it just produced. These TRSMs read only cells their own rank wrote, so again nobody waits."},{"tick":3,"title":"Tick 3: the first updates are pushed","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"1","4-2":"1","4-3":"1","4-4":"6","5-4":"2","5-5":"5","6-3":"2","6-4":"2","6-5":"3","6-6":"6","7-7":"2","8-7":"1","8-8":"3","9-1":"1","9-2":"2","9-4":"5","9-5":"3","9-6":"4","9-7":"1","9-8":"1","9-9":"12","10-7":"2","10-8":"1","10-9":"2","10-10":"5"},"w":{"9-1":0,"9-2":0,"9-9":1,"10-9":1,"10-10":1,"4-4":2,"6-4":2,"6-6":2},"r":["1-1","10-7","10-8","2-1","2-2","4-3","6-3","9-7","9-8"],"done":["1-1","2-1","2-2","3-3","4-1","4-2","4-3","6-3","7-7","8-7","8-8","9-1","9-2","9-7","9-8","10-7","10-8"],"lines":[{"k":"9-1","sym":"\u2113<sub>9,1</sub> = a<sub>9,1</sub> / \u2113<sub>1,1</sub>","num":"= 2 / 2 = <b>1</b>","rank":0},{"k":"9-2","sym":"\u2113<sub>9,2</sub> = (a<sub>9,2</sub> \u2212 \u2113<sub>9,1</sub>\u00b7\u2113<sub>2,1</sub>) / \u2113<sub>2,2</sub>","num":"= (5 \u2212 1\u00b71) / 2 = 4 / 2 = <b>2</b>","rank":0},{"k":"9-9","sym":"a<sub>9,9</sub> \u2190 a<sub>9,9</sub> \u2212 (\u2113<sub>9,7</sub>\u00b7\u2113<sub>9,7</sub> + \u2113<sub>9,8</sub>\u00b7\u2113<sub>9,8</sub>)","num":"= 14 \u2212 (1\u00b71 + 1\u00b71) = 14 \u2212 2 = <b>12</b>","rank":1},{"k":"10-9","sym":"a<sub>10,9</sub> \u2190 a<sub>10,9</sub> \u2212 (\u2113<sub>10,7</sub>\u00b7\u2113<sub>9,7</sub> + \u2113<sub>10,8</sub>\u00b7\u2113<sub>9,8</sub>)","num":"= 5 \u2212 (2\u00b71 + 1\u00b71) = 5 \u2212 3 = <b>2</b>","rank":1},{"k":"10-10","sym":"a<sub>10,10</sub> \u2190 a<sub>10,10</sub> \u2212 (\u2113<sub>10,7</sub>\u00b7\u2113<sub>10,7</sub> + \u2113<sub>10,8</sub>\u00b7\u2113<sub>10,8</sub>)","num":"= 10 \u2212 (2\u00b72 + 1\u00b71) = 10 \u2212 5 = <b>5</b>","rank":1},{"k":"4-4","sym":"a<sub>4,4</sub> \u2190 a<sub>4,4</sub> \u2212 \u2113<sub>4,3</sub>\u00b7\u2113<sub>4,3</sub>","num":"= 7 \u2212 1\u00b71 = 7 \u2212 1 = <b>6</b>","rank":2},{"k":"6-4","sym":"a<sub>6,4</sub> \u2190 a<sub>6,4</sub> \u2212 \u2113<sub>6,3</sub>\u00b7\u2113<sub>4,3</sub>","num":"= 4 \u2212 2\u00b71 = 4 \u2212 2 = <b>2</b>","rank":2},{"k":"6-6","sym":"a<sub>6,6</sub> \u2190 a<sub>6,6</sub> \u2212 \u2113<sub>6,3</sub>\u00b7\u2113<sub>6,3</sub>","num":"= 10 \u2212 2\u00b72 = 10 \u2212 4 = <b>6</b>","rank":2}],"ranks":[{"state":"run","label":"TRSM S1\u2192(S5,S1)","kernel":"TRSM","wait":null},{"state":"run","label":"UPDATE S4\u2192(S5,S5)","kernel":"GEMM + scatter","wait":null},{"state":"run","label":"UPDATE S2\u2192(S3,S3)","kernel":"GEMM + scatter","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":2,"5-3":1,"4-4":0,"5-4":0,"5-5":3},"text":"R0 finishes its second panel; R1 and R2 start pushing updates. Watch 9-9: R1's update from S4 lands first, ahead of S1's. The serial run applies S1 first. Same three terms, different order, which in floating point differs in the last ulp. That is exactly why the push collector is not bitwise identical across rank counts."},{"tick":4,"title":"Tick 4: R2 spins, R1 runs out of work","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"1","4-2":"1","4-3":"1","4-4":"4","5-4":"2","5-5":"5","6-3":"2","6-4":"2","6-5":"3","6-6":"6","7-7":"2","8-7":"1","8-8":"3","9-1":"1","9-2":"2","9-4":"5","9-5":"3","9-6":"4","9-7":"1","9-8":"1","9-9":"12","10-7":"2","10-8":"1","10-9":"2","10-10":"5"},"w":{"4-4":0},"r":["4-1","4-2"],"done":["1-1","2-1","2-2","3-3","4-1","4-2","4-3","6-3","7-7","8-7","8-8","9-1","9-2","9-7","9-8","10-7","10-8"],"lines":[{"k":"4-4","sym":"a<sub>4,4</sub> \u2190 a<sub>4,4</sub> \u2212 (\u2113<sub>4,1</sub>\u00b7\u2113<sub>4,1</sub> + \u2113<sub>4,2</sub>\u00b7\u2113<sub>4,2</sub>)","num":"= 6 \u2212 (1\u00b71 + 1\u00b71) = 6 \u2212 2 = <b>4</b>","rank":0}],"ranks":[{"state":"run","label":"UPDATE S1\u2192(S3,S3)","kernel":"GEMM + scatter","wait":null},{"state":"done","label":"finished","kernel":"","wait":null},{"state":"spin","label":"FACTOR S3","kernel":"POTRF","wait":"1 update still owed to (S3,S3)"}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":1,"5-3":1,"4-4":0,"5-4":0,"5-5":2},"text":"R0 delivers S1's update into S3's diagonal block, the second of the two that cell is owed. R2 wants to factor S3, but when the tick began the counter still read 1, so it spins. R1 has run out of work and idles for the rest of the factorization: the tree is too narrow above level 0 to keep three ranks busy."},{"tick":5,"title":"Tick 5: the counter cleared, so S3 factors","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"1","4-2":"1","4-3":"1","4-4":"2","5-4":"1","5-5":"2","6-3":"2","6-4":"1","6-5":"1","6-6":"2","7-7":"2","8-7":"1","8-8":"3","9-1":"1","9-2":"2","9-4":"2","9-5":"3","9-6":"4","9-7":"1","9-8":"1","9-9":"12","10-7":"2","10-8":"1","10-9":"2","10-10":"5"},"w":{"9-4":0,"4-4":2,"5-4":2,"6-4":2,"5-5":2,"6-5":2,"6-6":2},"r":["4-1","4-2","9-1","9-2"],"done":["1-1","2-1","2-2","3-3","4-1","4-2","4-3","4-4","5-4","5-5","6-3","6-4","6-5","6-6","7-7","8-7","8-8","9-1","9-2","9-7","9-8","10-7","10-8"],"lines":[{"k":"9-4","sym":"a<sub>9,4</sub> \u2190 a<sub>9,4</sub> \u2212 (\u2113<sub>9,1</sub>\u00b7\u2113<sub>4,1</sub> + \u2113<sub>9,2</sub>\u00b7\u2113<sub>4,2</sub>)","num":"= 5 \u2212 (1\u00b71 + 2\u00b71) = 5 \u2212 3 = <b>2</b>","rank":0},{"k":"4-4","sym":"\u2113<sub>4,4</sub> = \u221aa<sub>4,4</sub>","num":"= \u221a4 = <b>2</b>","rank":2},{"k":"5-4","sym":"\u2113<sub>5,4</sub> = a<sub>5,4</sub> / \u2113<sub>4,4</sub>","num":"= 2 / 2 = <b>1</b>","rank":2},{"k":"6-4","sym":"\u2113<sub>6,4</sub> = a<sub>6,4</sub> / \u2113<sub>4,4</sub>","num":"= 2 / 2 = <b>1</b>","rank":2},{"k":"5-5","sym":"\u2113<sub>5,5</sub> = \u221a(a<sub>5,5</sub> \u2212 \u2113<sub>5,4</sub>\u00b2)","num":"= \u221a(5 \u2212 1\u00b2) = \u221a4 = <b>2</b>","rank":2},{"k":"6-5","sym":"\u2113<sub>6,5</sub> = (a<sub>6,5</sub> \u2212 \u2113<sub>6,4</sub>\u00b7\u2113<sub>5,4</sub>) / \u2113<sub>5,5</sub>","num":"= (3 \u2212 1\u00b71) / 2 = 2 / 2 = <b>1</b>","rank":2},{"k":"6-6","sym":"\u2113<sub>6,6</sub> = \u221a(a<sub>6,6</sub> \u2212 \u2113<sub>6,4</sub>\u00b2 \u2212 \u2113<sub>6,5</sub>\u00b2)","num":"= \u221a(6 \u2212 1\u00b2 \u2212 1\u00b2) = \u221a4 = <b>2</b>","rank":2}],"ranks":[{"state":"run","label":"UPDATE S1\u2192(S5,S3)","kernel":"GEMM + scatter","wait":null},{"state":"done","label":"finished","kernel":"","wait":null},{"state":"run","label":"FACTOR S3","kernel":"POTRF","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":0,"5-3":1,"4-4":0,"5-4":0,"5-5":2},"text":"The counter reached 0 at the end of the previous tick, so R2's POTRF on S3 goes ahead. R0 scatters S1's update into (S5,S3) at the same time; different cell, no interaction, no lock contention."},{"tick":6,"title":"Tick 6: S3 solves its panel","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"1","4-2":"1","4-3":"1","4-4":"2","5-4":"1","5-5":"2","6-3":"2","6-4":"1","6-5":"1","6-6":"2","7-7":"2","8-7":"1","8-8":"3","9-1":"1","9-2":"2","9-4":"1","9-5":"1","9-6":"1","9-7":"1","9-8":"1","9-9":"7","10-7":"2","10-8":"1","10-9":"2","10-10":"5"},"w":{"9-9":0,"9-4":2,"9-5":2,"9-6":2},"r":["4-4","5-4","5-5","6-4","6-5","6-6","9-1","9-2"],"done":["1-1","2-1","2-2","3-3","4-1","4-2","4-3","4-4","5-4","5-5","6-3","6-4","6-5","6-6","7-7","8-7","8-8","9-1","9-2","9-4","9-5","9-6","9-7","9-8","10-7","10-8"],"lines":[{"k":"9-9","sym":"a<sub>9,9</sub> \u2190 a<sub>9,9</sub> \u2212 (\u2113<sub>9,1</sub>\u00b7\u2113<sub>9,1</sub> + \u2113<sub>9,2</sub>\u00b7\u2113<sub>9,2</sub>)","num":"= 12 \u2212 (1\u00b71 + 2\u00b72) = 12 \u2212 5 = <b>7</b>","rank":0},{"k":"9-4","sym":"\u2113<sub>9,4</sub> = a<sub>9,4</sub> / \u2113<sub>4,4</sub>","num":"= 2 / 2 = <b>1</b>","rank":2},{"k":"9-5","sym":"\u2113<sub>9,5</sub> = (a<sub>9,5</sub> \u2212 \u2113<sub>9,4</sub>\u00b7\u2113<sub>5,4</sub>) / \u2113<sub>5,5</sub>","num":"= (3 \u2212 1\u00b71) / 2 = 2 / 2 = <b>1</b>","rank":2},{"k":"9-6","sym":"\u2113<sub>9,6</sub> = (a<sub>9,6</sub> \u2212 \u2113<sub>9,4</sub>\u00b7\u2113<sub>6,4</sub> \u2212 \u2113<sub>9,5</sub>\u00b7\u2113<sub>6,5</sub>) / \u2113<sub>6,6</sub>","num":"= (4 \u2212 1\u00b71 \u2212 1\u00b71) / 2 = 2 / 2 = <b>1</b>","rank":2}],"ranks":[{"state":"run","label":"UPDATE S1\u2192(S5,S5)","kernel":"GEMM + scatter","wait":null},{"state":"done","label":"finished","kernel":"","wait":null},{"state":"run","label":"TRSM S3\u2192(S5,S3)","kernel":"TRSM","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":0,"5-3":0,"4-4":0,"5-4":0,"5-5":2},"text":"R2's TRSM on row 9 needed two things: its own FACTOR S3 from tick 5, and R0's update into (S5,S3), also tick 5. Both are in. R0 meanwhile pushes S1's last update into 9-9."},{"tick":7,"title":"Tick 7: the critical path, R0 spins","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"1","4-2":"1","4-3":"1","4-4":"2","5-4":"1","5-5":"2","6-3":"2","6-4":"1","6-5":"1","6-6":"2","7-7":"2","8-7":"1","8-8":"3","9-1":"1","9-2":"2","9-4":"1","9-5":"1","9-6":"1","9-7":"1","9-8":"1","9-9":"4","10-7":"2","10-8":"1","10-9":"2","10-10":"5"},"w":{"9-9":2},"r":["9-4","9-5","9-6"],"done":["1-1","2-1","2-2","3-3","4-1","4-2","4-3","4-4","5-4","5-5","6-3","6-4","6-5","6-6","7-7","8-7","8-8","9-1","9-2","9-4","9-5","9-6","9-7","9-8","10-7","10-8"],"lines":[{"k":"9-9","sym":"a<sub>9,9</sub> \u2190 a<sub>9,9</sub> \u2212 (\u2113<sub>9,4</sub>\u00b7\u2113<sub>9,4</sub> + \u2113<sub>9,5</sub>\u00b7\u2113<sub>9,5</sub> + \u2113<sub>9,6</sub>\u00b7\u2113<sub>9,6</sub>)","num":"= 7 \u2212 (1\u00b71 + 1\u00b71 + 1\u00b71) = 7 \u2212 3 = <b>4</b>","rank":2}],"ranks":[{"state":"spin","label":"FACTOR S5","kernel":"POTRF","wait":"1 update still owed to (S5,S5)"},{"state":"done","label":"finished","kernel":"","wait":null},{"state":"run","label":"UPDATE S3\u2192(S5,S5)","kernel":"GEMM + scatter","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":0,"5-3":0,"4-4":0,"5-4":0,"5-5":1},"text":"R0 is at FACTOR S5, the root, but 9-9 is still owed S3's update. It spins while R2 computes precisely that. This is the tail of the critical path: one rank working, the rest waiting, because the top of the tree is one supernode wide."},{"tick":8,"title":"Tick 8: the root factors, L is complete","vals":{"1-1":"2","2-1":"1","2-2":"2","3-3":"3","4-1":"1","4-2":"1","4-3":"1","4-4":"2","5-4":"1","5-5":"2","6-3":"2","6-4":"1","6-5":"1","6-6":"2","7-7":"2","8-7":"1","8-8":"3","9-1":"1","9-2":"2","9-4":"1","9-5":"1","9-6":"1","9-7":"1","9-8":"1","9-9":"2","10-7":"2","10-8":"1","10-9":"1","10-10":"2"},"w":{"9-9":0,"10-9":0,"10-10":0},"r":[],"done":["1-1","2-1","2-2","3-3","4-1","4-2","4-3","4-4","5-4","5-5","6-3","6-4","6-5","6-6","7-7","8-7","8-8","9-1","9-2","9-4","9-5","9-6","9-7","9-8","9-9","10-7","10-8","10-9","10-10"],"lines":[{"k":"9-9","sym":"\u2113<sub>9,9</sub> = \u221aa<sub>9,9</sub>","num":"= \u221a4 = <b>2</b>","rank":0},{"k":"10-9","sym":"\u2113<sub>10,9</sub> = a<sub>10,9</sub> / \u2113<sub>9,9</sub>","num":"= 2 / 2 = <b>1</b>","rank":0},{"k":"10-10","sym":"\u2113<sub>10,10</sub> = \u221a(a<sub>10,10</sub> \u2212 \u2113<sub>10,9</sub>\u00b2)","num":"= \u221a(5 \u2212 1\u00b2) = \u221a4 = <b>2</b>","rank":0}],"ranks":[{"state":"run","label":"FACTOR S5","kernel":"POTRF","wait":null},{"state":"done","label":"finished","kernel":"","wait":null},{"state":"done","label":"finished","kernel":"","wait":null}],"urem":{"1-1":0,"3-1":0,"5-1":0,"2-2":0,"3-2":0,"3-3":0,"5-3":0,"4-4":0,"5-4":0,"5-5":0},"text":"The last counter hit 0, so R0 factors the root block. L is complete and matches the serial run entry for entry."}],"gantt":[[{"s":"run","l":"FACTOR S1"},{"s":"run","l":"TRSM S1\u2192(S3,S1)"},{"s":"run","l":"TRSM S1\u2192(S5,S1)"},{"s":"run","l":"UPDATE S1\u2192(S3,S3)"},{"s":"run","l":"UPDATE S1\u2192(S5,S3)"},{"s":"run","l":"UPDATE S1\u2192(S5,S5)"},{"s":"spin","l":"FACTOR S5"},{"s":"run","l":"FACTOR S5"}],[{"s":"run","l":"FACTOR S4"},{"s":"run","l":"TRSM S4\u2192(S5,S4)"},{"s":"run","l":"UPDATE S4\u2192(S5,S5)"},{"s":"done","l":""},{"s":"done","l":""},{"s":"done","l":""},{"s":"done","l":""},{"s":"done","l":""}],[{"s":"run","l":"FACTOR S2"},{"s":"run","l":"TRSM S2\u2192(S3,S2)"},{"s":"run","l":"UPDATE S2\u2192(S3,S3)"},{"s":"spin","l":"FACTOR S3"},{"s":"run","l":"FACTOR S3"},{"s":"run","l":"TRSM S3\u2192(S5,S3)"},{"s":"run","l":"UPDATE S3\u2192(S5,S5)"},{"s":"done","l":""}]],"cells":[[1,1],[2,1],[2,2],[3,3],[4,1],[4,2],[4,3],[4,4],[5,4],[5,5],[6,3],[6,4],[6,5],[6,6],[7,7],[8,7],[8,8],[9,1],[9,2],[9,4],[9,5],[9,6],[9,7],[9,8],[9,9],[10,7],[10,8],[10,9],[10,10]],"plan":{"level":{"1":0,"2":0,"3":1,"4":0,"5":2},"own":{"1":10.67,"2":2.33,"3":34.0,"4":10.67,"5":28.67},"cap":3,"tot":86.3,"rank_sns":[[1,5],[4],[2,3]],"sn":[null,[1,2],[3,3],[4,6],[7,8],[9,10]],"target":{"3-3":2,"5-3":1,"5-5":3}}};
+
+const N='http://www.w3.org/2000/svg',g=document.getElementById('g'),C=38,X=46,Y=58;
+let i=0,sel=null;
+function elx(p,n,a,t){const e=document.createElementNS(N,n);for(const k in a){if(a[k]===null)continue;e.setAttribute(k,a[k])}if(t!==undefined)e.textContent=t;p.appendChild(e);return e}
+function el(n,a,t){return elx(g,n,a,t)}
+function css(v){return 'var(--'+v+')'}
+function draw(){
+  const s=D.steps[i];g.innerHTML='';
+  [['S1',1.5],['S2',3],['S3',5],['S4',7.5],['S5',9.5]].forEach(l=>el('text',{x:X+(l[1]-.5)*C,y:18,'text-anchor':'middle','font-size':15,'font-weight':650,fill:css('ink')},l[0]));
+  for(let c=1;c<=10;c++){el('text',{x:X+(c-.5)*C,y:46,'text-anchor':'middle','font-size':12,fill:css('muted')},c);el('text',{x:X-16,y:Y+(c-.5)*C,'text-anchor':'middle','dominant-baseline':'central','font-size':12,fill:css('muted')},c)}
+  el('rect',{x:X,y:Y,width:10*C,height:10*C,fill:'none',stroke:css('line')});
+  const w=new Set(s.w),r=new Set(s.r),d=new Set(s.done);
+  D.cells.forEach(p=>{const id=p[0]+'-'+p[1],x=X+(p[1]-1)*C+2,y=Y+(p[0]-1)*C+2;
+    let a={x:x,y:y,width:C-4,height:C-4,rx:4,fill:css('p-bg'),stroke:css('p-bd'),'stroke-width':1,class:'cell'},ink=css('p-ink'),fw=400;
+    if(d.has(id)){a.fill=css('d-bg');a.stroke=css('d-bd');ink=css('d-ink');fw=650}
+    if(r.has(id)){a.fill=css('r-bg');a.stroke=css('r-bd');a['stroke-width']=2;a['stroke-dasharray']='5 3'}
+    if(w.has(id)){a.fill=css('w-bg');a.stroke=css('w-bd');a['stroke-width']=2;ink=css('ink');fw=650}
+    if(sel===id){a['stroke-width']=3.5}
+    const rc=el('rect',a);rc.addEventListener('click',()=>pick(id));
+    const t=el('text',{x:x+(C-4)/2,y:y+(C-4)/2+.5,'text-anchor':'middle','dominant-baseline':'central','font-size':14,'font-weight':fw,fill:ink,'pointer-events':'none'},s.vals[id]);
+  });
+  [2,3,6,8].forEach(c=>el('line',{x1:X+c*C,y1:28,x2:X+c*C,y2:Y+10*C,stroke:css('muted'),'stroke-width':1,'stroke-dasharray':'4 3'}));
+  const last=D.steps.length-1;
+  document.getElementById('ttl').textContent=s.title;
+  document.getElementById('kern').innerHTML=s.kernel?'<span class="kern">'+s.kernel+'</span>':'';
+  document.getElementById('txt').textContent=s.text;
+  document.getElementById('cnt').textContent=i===0?'Start':i===last?'Finished':'Step '+i+' of '+(last-1);
+  const c=document.getElementById('calc');
+  if(s.lines.length){c.innerHTML='<ol class="calc">'+s.lines.map(l=>'<li data-k="'+l.k+'"'+(sel===l.k?' class="hl"':'')+'><span class="sym">'+l.sym+'</span><span>'+l.num+'</span></li>').join('')+'</ol>';
+    c.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>pick(li.dataset.k)));
+    document.getElementById('foot').textContent='a means the number currently in the cell: the entry of A minus any updates collected so far. Click a line or a blue cell to match them up.'}
+  else{c.innerHTML='<p class="none">'+(i===0?'Press Next to begin.':'No arithmetic in this state.')+'</p>';document.getElementById('foot').textContent=''}
+  document.getElementById('prev').disabled=i===0;document.getElementById('next').disabled=i===last;
+  document.querySelectorAll('.dot').forEach((b,j)=>b.classList.toggle('on',j===i));
+}
+function pick(id){sel=sel===id?null:id;draw()}
+function go(j){i=Math.max(0,Math.min(D.steps.length-1,j));sel=null;draw()}
+const dots=document.getElementById('dots');
+D.steps.forEach((s,j)=>{const b=document.createElement('button');b.className='dot';b.title=s.title;b.setAttribute('aria-label',s.title);b.onclick=()=>go(j);dots.appendChild(b)});
+document.getElementById('prev').onclick=()=>go(i-1);document.getElementById('next').onclick=()=>go(i+1);
+document.addEventListener('keydown',e=>{if(view!=='s')return;if(e.key==='ArrowRight')go(i+1);if(e.key==='ArrowLeft')go(i-1)});
+
+// ---------- parallel view ----------
+const RC=['k0','k1','k2'];
+function pdraw(){
+  const s=Pd.steps[pi],sv=document.getElementById('g2');sv.innerHTML='';
+  const owner={};Pd.plan.rank_sns.forEach((l,r)=>l.forEach(I=>owner[I]=r));
+  const sn=[[1,1.5],[2,3],[3,5],[4,7.5],[5,9.5]];
+  sn.forEach(l=>elx(sv,'text',{x:X+(l[1]-.5)*C,y:18,'text-anchor':'middle','font-size':15,'font-weight':650,fill:css(RC[owner[l[0]]])},'S'+l[0]));
+  for(let c=1;c<=10;c++){elx(sv,'text',{x:X+(c-.5)*C,y:46,'text-anchor':'middle','font-size':12,fill:css('muted')},c);elx(sv,'text',{x:X-16,y:Y+(c-.5)*C,'text-anchor':'middle','dominant-baseline':'central','font-size':12,fill:css('muted')},c)}
+  elx(sv,'rect',{x:X,y:Y,width:10*C,height:10*C,fill:'none',stroke:css('line')});
+  const r=new Set(s.r),d=new Set(s.done);
+  Pd.cells.forEach(p=>{const id=p[0]+'-'+p[1],x=X+(p[1]-1)*C+2,y=Y+(p[0]-1)*C+2;
+    let a={x:x,y:y,width:C-4,height:C-4,rx:4,fill:css('p-bg'),stroke:css('p-bd'),'stroke-width':1,class:'cell'},ink=css('p-ink'),fw=400;
+    if(d.has(id)){a.fill=css('d-bg');a.stroke=css('d-bd');ink=css('d-ink');fw=650}
+    if(r.has(id)){a.fill=css('r-bg');a.stroke=css('r-bd');a['stroke-width']=2;a['stroke-dasharray']='5 3'}
+    if(id in s.w){const k=RC[s.w[id]];a.fill=css(k+'bg');a.stroke=css(k);a['stroke-width']=2.5;a['stroke-dasharray']=null;ink=css('ink');fw=650}
+    if(psel===id){a['stroke-width']=3.5}
+    const rc=elx(sv,'rect',a);rc.addEventListener('click',()=>ppick(id));
+    elx(sv,'text',{x:x+(C-4)/2,y:y+(C-4)/2+.5,'text-anchor':'middle','dominant-baseline':'central','font-size':14,'font-weight':fw,fill:ink,'pointer-events':'none'},s.vals[id]);
+  });
+  [2,3,6,8].forEach(c=>elx(sv,'line',{x1:X+c*C,y1:28,x2:X+c*C,y2:Y+10*C,stroke:css('muted'),'stroke-width':1,'stroke-dasharray':'4 3'}));
+  const last=Pd.steps.length-1;
+  document.getElementById('ttl2').textContent=s.title;
+  document.getElementById('txt2').textContent=s.text;
+  document.getElementById('cnt2').textContent=pi===0?'Start':'Tick '+pi+' of '+last;
+  document.getElementById('ranks2').innerHTML=s.ranks.map((rk,ri)=>{
+    const own=Pd.plan.rank_sns[ri].map(I=>'S'+I).join(', ');
+    const st=rk.state==='run'?'<span class="state st-run">running</span>':rk.state==='spin'?'<span class="state st-spin">spinning</span>':rk.state==='done'?'<span class="state st-done">idle</span>':'<span class="state st-done">ready</span>';
+    const kn=rk.kernel?' <span class="kern" style="margin:0">'+rk.kernel+'</span>':'';
+    return '<div class="rk" style="border-top-color:'+css(RC[ri])+'"><h4 style="color:'+css(RC[ri])+'">R'+ri+'</h4><div class="own">owns '+own+'</div>'+st+
+      '<div class="act">'+(rk.state==='done'?'slice finished':rk.state==='wait'?'first task: '+rk.label:rk.label)+kn+'</div>'+
+      (rk.wait?'<div class="why">waits: '+rk.wait+'</div>':'')+'</div>';
+  }).join('');
+  document.getElementById('cnts2').innerHTML=Object.keys(Pd.plan.target).map(k=>{
+    const tot=Pd.plan.target[k],now=s.urem[k];
+    const nm='(S'+k.split('-')[0]+',S'+k.split('-')[1]+')';
+    return '<span class="cnt-chip'+(now===0?' zero':'')+'">'+nm+' &nbsp;'+now+' / '+tot+'</span>';
+  }).join('');
+  const c2=document.getElementById('calc2');
+  if(s.lines.length){
+    c2.innerHTML='<ol class="calc">'+s.lines.map(l=>'<li data-k="'+l.k+'"'+(psel===l.k?' class="hl"':'')+'><span class="sym"><i class="rkdot" style="background:'+css(RC[l.rank])+'"></i>'+l.sym+'</span><span>'+l.num+'</span></li>').join('')+'</ol>';
+    c2.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>ppick(li.dataset.k)));
+    document.getElementById('foot2').textContent='Lines are tagged with the rank that ran them. Everything on one tick happens at the same time.';
+  } else {c2.innerHTML='<p class="none">'+(pi===0?'Press Next to begin.':'No arithmetic in this state.')+'</p>';document.getElementById('foot2').textContent=''}
+  document.getElementById('prev2').disabled=pi===0;document.getElementById('next2').disabled=pi===last;
+  document.querySelectorAll('#dots2 .dot').forEach((b,j)=>b.classList.toggle('on',j===pi));
+  gdraw();
+}
+function gdraw(){
+  const T=Pd.gantt[0].length;
+  let h='<tr><th class="rw"></th>';
+  for(let t=1;t<=T;t++)h+='<th>'+t+'</th>';
+  h+='</tr>';
+  Pd.gantt.forEach((row,ri)=>{
+    h+='<tr><th class="rw" style="color:'+css(RC[ri])+'">R'+ri+'</th>';
+    row.forEach((g,t)=>{
+      const on=(pi===t+1)?' now':'';
+      if(g.s==='run')h+='<td><button class="'+on.trim()+'" style="background:'+css(RC[ri]+'bg')+';border-color:'+css(RC[ri])+';color:var(--ink)" data-t="'+(t+1)+'" title="'+g.l+'">'+g.l.replace(/^(FACTOR|TRSM|UPDATE) /,m=>m[0]+' ')+'</button></td>';
+      else if(g.s==='spin')h+='<td><button class="g-spin'+on+'" data-t="'+(t+1)+'" title="spin: '+g.l+'">spin</button></td>';
+      else h+='<td><button class="g-idle'+on+'" data-t="'+(t+1)+'" title="idle">&middot;</button></td>';
+    });
+    h+='</tr>';
+  });
+  const gt=document.getElementById('gantt');gt.innerHTML=h;
+  gt.querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>pgo(+b.dataset.t));
+}
+function ppick(id){psel=psel===id?null:id;pdraw()}
+function pgo(j){pi=Math.max(0,Math.min(Pd.steps.length-1,j));psel=null;pdraw()}
+let pi=0,psel=null;
+const dots2=document.getElementById('dots2');
+Pd.steps.forEach((s,j)=>{const b=document.createElement('button');b.className='dot';b.title=s.title;b.setAttribute('aria-label',s.title);b.onclick=()=>pgo(j);dots2.appendChild(b)});
+document.getElementById('prev2').onclick=()=>pgo(pi-1);document.getElementById('next2').onclick=()=>pgo(pi+1);
+
+// ---------- tabs ----------
+let view='s';
+function setView(v){
+  view=v;
+  document.getElementById('view-s').classList.toggle('hidden',v!=='s');
+  document.getElementById('view-p').classList.toggle('hidden',v!=='p');
+  document.getElementById('tab-s').setAttribute('aria-selected',v==='s');
+  document.getElementById('tab-p').setAttribute('aria-selected',v==='p');
+  if(v==='p')pdraw();else draw();
+}
+document.getElementById('tab-s').onclick=()=>setView('s');
+document.getElementById('tab-p').onclick=()=>setView('p');
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){if(view==='p')pgo(pi+1)}
+  if(e.key==='ArrowLeft'){if(view==='p')pgo(pi-1)}
+});
+draw();pdraw();setView('s');
+
+</script>
+<script>
+if(/[?&]embed\b/.test(location.search)) document.body.classList.add('embed');
+/* nobar: the deck supplies one shared control row for both steppers, so
+   this page's own Back/Next comes off. */
+if(/[?&]nobar\b/.test(location.search)) document.body.classList.add('nobar');
+/* Driven from the deck when embedded beside the multifrontal stepper. The
+   parent sends a FRACTION, not a step index: the two steppers are
+   different lengths (16 serial, 9 parallel, 24 multifrontal) and the slide
+   wants them to start and finish together. Resolving the fraction here
+   also means the parallel tab keeps working when it is the active view.
+   postMessage rather than direct contentWindow access because two file://
+   documents are cross-origin to each other in Chrome. */
+addEventListener('message',function(e){
+  var m=e.data; if(!m||m.type!=='sx-go')return;
+  /* The deck sends an explicit state index: the two steppers cut the same
+     factorization into different numbers of states (16 here, 24 there) and
+     a proportional mapping lands them on different supernodes. The parallel
+     tab has no counterpart over there, so it still takes the fraction. */
+  if(view==='p'){ pgo(Math.round(m.p*(Pd.steps.length-1))); return; }
+  go(m.i!==undefined ? m.i : Math.round(m.p*(D.steps.length-1)));
+});</script>
+</body>
+</html>
