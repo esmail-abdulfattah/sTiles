@@ -1908,9 +1908,97 @@ tr.step,th.step,td.step{transform:none;}
 .swaylab.rev i{color:var(--orange-ink);}
 .swaylab span{display:block;margin-top:3px;font-size:13px;color:var(--ink-3);
   font-family:'JetBrains Mono',ui-monospace,monospace;}
+/* ---- the gate ---------------------------------------------------------
+   A SPEED BUMP, NOT SECURITY, and it must never be described as more. The
+   whole deck is still in this file: anyone who opens the source, or the
+   devtools, or simply deletes #gate from the DOM, is past it. What it
+   stops is a glance over the shoulder and a link opened by the wrong
+   person. The passphrase itself is not in the file; only its SHA-256 is,
+   so the file does not hand the phrase to a casual reader.
+
+   The stage is hidden by a rule in the HEAD, so the slides never paint
+   before the gate does. .no-advance keeps a click on the gate from
+   reaching the deck's click-to-advance handler underneath. */
+html:not(.unlocked) #stage-wrap,
+html:not(.unlocked) #bar{display:none;}
+#gate{position:fixed;inset:0;z-index:900;background:var(--paper);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:22px;font-family:'Inter',system-ui,sans-serif;}
+html.unlocked #gate{display:none;}
+#gate img{width:190px;height:auto;display:block;}
+#gate .gq{font-size:15px;color:var(--ink-3);letter-spacing:.02em;}
+#gate form{display:flex;gap:10px;align-items:center;}
+#gate input{font:inherit;font-size:17px;padding:10px 16px;width:290px;
+  border:1.5px solid var(--rule);border-radius:9px;background:#fff;
+  color:var(--ink);outline:none;transition:border-color .15s;}
+#gate input:focus{border-color:var(--teal);}
+#gate button{font:inherit;font-size:16px;font-weight:600;padding:10px 22px;
+  border:0;border-radius:9px;background:var(--teal);color:#fff;cursor:pointer;}
+#gate button:hover{background:var(--teal-ink);}
+#gate .gm{font-size:14px;color:var(--orange-ink);height:18px;opacity:0;
+  transition:opacity .15s;}
+#gate.bad .gm{opacity:1;}
+#gate.bad input{border-color:var(--orange-ink);}
 </style>
 </head>
 <body>
+
+<!-- the gate. Markup and script sit before the deck so nothing paints
+     behind it; the stage is hidden by the rule in the head. -->
+<div id="gate" class="no-advance">
+  <img src="assets/brand/stiles-logo.png" alt="sTiles">
+  <div class="gq">This talk is not public yet.</div>
+  <form id="gform" autocomplete="off">
+    <input id="gpw" type="password" placeholder="passphrase"
+           autocomplete="off" spellcheck="false" aria-label="passphrase">
+    <button type="submit">Open</button>
+  </form>
+  <div class="gm">Not that one.</div>
+</div>
+<script>
+(function(){
+  var KEY='aced1401a4fd0c78f98bdfac3d39f7cf771df8dd5cf78c7cb38588e6b1631681';
+  var SEEN='stiles-talk-open';
+  var gate=document.getElementById('gate'),
+      form=document.getElementById('gform'),
+      pw=document.getElementById('gpw');
+
+  function open_(){
+    document.documentElement.classList.add('unlocked');
+    try{ sessionStorage.setItem(SEEN,'1'); }catch(e){}
+    /* the deck sized itself while hidden; innerWidth has not changed, but
+       re-run fit() rather than rely on that, and give the keys a home. */
+    if(typeof fit==='function') fit();
+    if(pw) pw.blur();
+    window.focus();
+  }
+  /* already unlocked this session: no prompt on a reload mid-talk */
+  try{ if(sessionStorage.getItem(SEEN)==='1') open_(); }catch(e){}
+
+  async function check(v){
+    var b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+    return Array.from(new Uint8Array(b))
+                .map(function(x){return x.toString(16).padStart(2,'0');})
+                .join('')===KEY;
+  }
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var ok=false;
+    try{ ok=await check(pw.value); }catch(err){ ok=false; }
+    if(ok){ open_(); } else { gate.classList.add('bad'); pw.select(); }
+  });
+  pw.addEventListener('input', function(){ gate.classList.remove('bad'); });
+  /* the deck binds keys and clicks on window; keep both off the gate */
+  ['keydown','keyup','keypress'].forEach(function(t){
+    gate.addEventListener(t, function(e){ e.stopPropagation(); });
+  });
+  addEventListener('DOMContentLoaded', function(){
+    if(!document.documentElement.classList.contains('unlocked')) pw.focus();
+  });
+  if(document.readyState!=='loading' &&
+     !document.documentElement.classList.contains('unlocked')) pw.focus();
+})();
+</script>
 
 <div id="stage-wrap"><div id="stage">
 
