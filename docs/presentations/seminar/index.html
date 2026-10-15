@@ -848,7 +848,7 @@ svg{display:block;}
 .tm-foot2{margin-top:9px;text-align:center;font-size:15px;color:var(--ink-3);}
 
 /* ---- forcing one mode on everything ---------------------------------
-   Four bars on one scale, unlike slide 20's three panels: here the whole
+   Four bars on one scale, unlike slide 31's three panels: here the whole
    point IS the common total, so they share an axis. The selector is ink,
    each forced mode wears the regime it was forced into. */
 .fmwrap{width:820px;margin:34px auto 0;}
@@ -872,25 +872,31 @@ svg{display:block;}
 .fm.c-dn .rt{color:var(--orange-ink);font-weight:700;}
 
 /* ---- the analysis, and how fast it is repaid ------------------------- */
-.amz{width:760px;margin:26px auto 0;}
-.amz-h{font-size:12.5px;font-weight:600;letter-spacing:.13em;
-  text-transform:uppercase;color:var(--ink-3);
-  padding-bottom:8px;border-bottom:1px solid var(--rule);}
-.amz-row{display:grid;grid-template-columns:116px 196px 1fr;align-items:baseline;
-  column-gap:18px;margin-top:13px;}
-.amz-row .nm{font-size:16px;color:var(--ink-3);text-align:right;}
-.amz-row .vv{white-space:nowrap;font-size:27px;font-weight:700;color:var(--ink-2);
-  letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
-.amz-row .vv em{font-style:normal;font-size:.5em;font-weight:600;
-  color:var(--ink-3);margin-left:4px;}
-.amz-row .vv.me{color:var(--orange-ink);}
-.amz-row .nt{font-size:14.5px;color:var(--ink-3);}
-.brk{width:760px;margin:34px auto 0;}
-.brkrow{display:flex;justify-content:space-between;margin-top:16px;}
-.bk{display:flex;flex-direction:column;align-items:center;gap:3px;}
-.bk b{font-size:30px;font-weight:700;color:var(--teal-ink);letter-spacing:-.025em;}
-.bk span{font-size:12.5px;color:var(--ink-3);}
-.amz-end{margin-top:34px;text-align:center;font-size:21px;color:var(--ink-2);}
+/* Table 6 of the SISC submission, entire. The two cost columns are shown
+   rather than summarised because the breakeven is DERIVED from them,
+   n* = (a_sTiles - a) / (c - c_sTiles), and without them it is a number
+   the room has to take on trust. They also carry the honest reading: n*
+   is LARGE against the solvers whose factorization is closest to ours, so
+   the 10 and 11 against MUMPS and CHOLMOD are the hard numbers on this
+   slide and the <1 against symPACK is the easy one. Replaced the two-row
+   .amz block and the .brk strip on 2026-10-14. */
+.amztab{width:auto;margin:20px auto 0;font-size:20px;}
+.amztab th,.amztab td{padding:6px 32px;text-align:right;border-bottom:none;}
+.amztab thead th{font-size:12px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);padding-bottom:10px;
+  border-bottom:1.5px solid var(--ink-3);}
+.amztab thead th:first-child{border-bottom-color:transparent;}
+.amztab thead th span{display:block;margin-top:4px;font-size:10.5px;
+  font-weight:400;letter-spacing:.04em;text-transform:none;}
+.amztab tbody td{font-variant-numeric:tabular-nums;color:var(--ink-2);
+  border-bottom:1px solid var(--rule);}
+.amztab tbody td:first-child{text-align:left;color:var(--ink-3);}
+.amztab tbody tr:last-child td{border-bottom:none;}
+.amztab tbody tr.me td{font-weight:700;color:var(--ink);
+  background:rgba(20,22,26,.045);}
+.amztab .bx{font-weight:700;color:var(--teal-ink);}
+.amz-note{margin-top:15px;text-align:center;font-size:14.5px;color:var(--ink-3);}
+.amz-end{margin-top:26px;text-align:center;font-size:21px;color:var(--ink-2);}
 .amz-end b{font-weight:700;color:var(--teal-ink);}
 
 /* ---- a second architecture, and a GPU -------------------------------- */
@@ -1011,7 +1017,7 @@ svg{display:block;}
 .algo.solo .c{font-size:28px;}
 .algo.solo .n{font-size:17px;}
 .algo-n.solo{margin-top:24px;max-width:none;font-size:19px;}
-/* slide 10 - the algorithm holds the left, the beat-one explanation the
+/* slide 12 - the algorithm holds the left, the beat-one explanation the
    right. The left track is the wider one because line 4 is long and must
    not wrap; the right only has to hold a 4-box tile row. */
 .sparse-body{flex:1;display:grid;grid-template-columns:1.25fr .75fr;
@@ -1044,7 +1050,7 @@ svg{display:block;}
 /* Rings, in named groups. A slide lists them in data-rings as "a:1 b:2",
    meaning .ring-a is on from step 1 and .ring-b from step 2, and only the
    last group reached is shown -- so groups replace one another instead of
-   piling up. That is the point on slide 10: the entries of A and the index
+   piling up. That is the point on slide 12: the entries of A and the index
    sets are two questions asked of the same four lines, and if both are
    ringed at once neither gets looked at.
 
@@ -1106,11 +1112,11 @@ tr.step,th.step,td.step{transform:none;}
   letter-spacing:.07em;text-transform:uppercase;color:var(--orange-ink);
   background:rgba(221,133,69,.08);}
 
-/* ---- the five questions ----------------------------------------------
+/* ---- the six questions ----------------------------------------------
    Direct address: nothing on the slide but the questions, so the room
    answers them in their own heads while he waits. The numerals borrow
    .care .k so they read as an index rather than as emphasis, and each
-   question arrives on its own step — five at once would be scanned, one
+   question arrives on its own step — six at once would be scanned, one
    at a time gets answered.                                            */
 .qs{width:800px;margin:40px auto 0;display:flex;flex-direction:column;gap:21px;}
 .q{display:grid;grid-template-columns:46px 1fr;gap:24px;align-items:center;}
@@ -1347,7 +1353,7 @@ tr.step,th.step,td.step{transform:none;}
 
 
 /* ---- what the four kernels are --------------------------------------
-   They have been named since slide 6 and never defined. Shown in the
+   They have been named since slide 8 and never defined. Shown in the
    right column first, then stepped aside so the algorithm lands in the
    same place: the reader has just been told what each chip means, and
    the chips are still the same colour when the code arrives.          */
@@ -1507,7 +1513,7 @@ tr.step,th.step,td.step{transform:none;}
 .qr img{width:190px;height:190px;display:block;}
 .qr span{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;
   color:var(--ink-3);}
-/* ---- the wall, with the five questions beside it ---------------------
+/* ---- the wall, with the six questions beside it ---------------------
    Two tracks: the wall sizes to its own grid, the questions take what is
    left. The tiles drop from 190 to 170 so three of them plus the question
    column fit the 1144px of content width without either side wrapping. */
@@ -1562,7 +1568,7 @@ tr.step,th.step,td.step{transform:none;}
 /* ---- the same update at two granularities ----------------------------
    The two beats were a pair of equations with a sentence under each, which
    asked the room to read four operands off a subscript and hold them. They
-   are now drawn, in the .tilerow idiom slides 9 and 12 use: four operands,
+   are now drawn, as a row of sized operands: four operands,
    the same three operators, laid out so the picture spells the equation.
 
    Both rows are arranged identically on purpose. The ONLY thing that
@@ -1906,65 +1912,6 @@ tr.step,th.step,td.step{transform:none;}
 </head>
 <body>
 
-<!-- Passkey gate. The site is served from a public repo, so this stops a
-     casual visitor, not anyone reading the source. Hash, not the passkey. -->
-<style>
-  #gate{position:fixed;inset:0;z-index:2147483647;background:var(--paper,#fbfbf9);
-        display:flex;align-items:center;justify-content:center;padding:24px;
-        font-family:Inter,-apple-system,system-ui,sans-serif;color:var(--ink,#14161a)}
-  #gate form{width:min(360px,100%);text-align:center}
-  #gate img{height:40px;margin-bottom:26px}
-  #gate h1{font-size:1.2rem;font-weight:700;letter-spacing:-.01em;margin:0 0 10px}
-  #gate p{font-size:.88rem;line-height:1.55;margin:0 0 26px;color:var(--ink-3,#6b7280)}
-  #gate input{width:100%;padding:12px 16px;border-radius:8px;
-              border:1px solid var(--rule,#dfe1de);background:#fff;
-              color:inherit;font-size:.95rem;font-family:inherit;text-align:center}
-  #gate input:focus{outline:none;border-color:var(--teal,#3c8277);
-                    box-shadow:0 0 0 3px rgba(60,130,119,.14)}
-  #gate button{width:100%;margin-top:10px;padding:12px 16px;border:none;
-               border-radius:8px;background:var(--teal,#3c8277);color:#fff;
-               font-size:.92rem;font-weight:600;font-family:inherit;cursor:pointer}
-  #gate button:hover{background:var(--teal-ink,#2f6b61)}
-  #gate-msg{display:block;margin-top:16px;min-height:1.2em;font-size:.84rem;
-            color:var(--orange-ink,#ae5c20)}
-</style>
-<div id="gate">
-  <form id="gate-form">
-    <img src="assets/brand/stiles-logo.png" alt="sTiles">
-    <h1>Solvers That Don't Choose Sides</h1>
-    <p>This talk is not public yet. Enter the passkey to continue.</p>
-    <input id="gate-key" type="password" autocomplete="off" placeholder="Passkey" autofocus>
-    <button type="submit">Open the talk</button>
-    <span id="gate-msg"></span>
-  </form>
-</div>
-<script>
-(function(){
-  const HASH='aced1401a4fd0c78f98bdfac3d39f7cf771df8dd5cf78c7cb38588e6b1631681';
-  const SEEN='stiles_talk_auth';
-  const gate=document.getElementById('gate');
-  const open=()=>{ gate.remove(); document.documentElement.style.overflow=''; };
-  try{ if(sessionStorage.getItem(SEEN)===HASH){ open(); return; } }catch(e){}
-  document.documentElement.style.overflow='hidden';
-  const form=document.getElementById('gate-form');
-  const input=document.getElementById('gate-key');
-  const msg=document.getElementById('gate-msg');
-  /* the deck binds arrows and space on document, keep them out of the field */
-  input.addEventListener('keydown', e=>e.stopPropagation());
-  form.addEventListener('submit', async e=>{
-    e.preventDefault();
-    let hex;
-    try{
-      const buf=await crypto.subtle.digest('SHA-256',
-                   new TextEncoder().encode(input.value));
-      hex=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
-    }catch(err){ msg.textContent='This page needs https to check the passkey.'; return; }
-    if(hex===HASH){ try{ sessionStorage.setItem(SEEN,hex); }catch(e){} open(); }
-    else { msg.textContent='Not that one.'; input.value=''; input.focus(); }
-  });
-})();
-</script>
-
 <div id="stage-wrap"><div id="stage">
 
 <!-- ═══════════ 1 · TITLE ═══════════ -->
@@ -2098,7 +2045,7 @@ tr.step,th.step,td.step{transform:none;}
 </section>
 
 
-<!-- ═══════════ 5 · CHOLESKY, ENTIRE ═══════════ -->
+<!-- ═══════════ 5 · CHOLESKY, IN FOUR LINES ═══════════ -->
 <section class="slide no-mark" data-rings="x:2">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="fi-head" style="font-size:33px;">Cholesky, in four lines</div>
@@ -2322,7 +2269,7 @@ tr.step,th.step,td.step{transform:none;}
      operations. Node labels are the same four kernels the algorithm calls,
      which is why the graph does not need explaining.
      data-act="dense" rather than a hand-written eyebrow: the act mark is
-     injected from that one attribute, so slides 6 and 7 cannot drift
+     injected from that one attribute, so slides 7 and 8 cannot drift
      apart in wording or placement. -->
 <section class="slide no-mark" data-act="dense">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
@@ -2479,12 +2426,12 @@ tr.step,th.step,td.step{transform:none;}
       </div>
     </div>
   </div>
-  <div class="cite">Tile algorithms as in PLASMA: Agullo et al., <i>PLASMA Users Guide</i>, ICL, Univ. of Tennessee, 2009 &middot; YarKhan et al., <i>Int. J. Parallel Program.</i> 45(3), 2017</div>
+  <div class="cite">Tile algorithms: Buttari, Langou, Kurzak &amp; Dongarra, <i>Parallel Comput.</i> 35(1), 2009 &middot; PLASMA: Agullo et al., <i>PLASMA Users Guide</i>, ICL, Univ. of Tennessee, 2009; YarKhan et al., <i>Int. J. Parallel Program.</i> 45(3), 2017</div>
   <div class="slide-no"></div>
 </section>
 
 <!-- ═══════════ 10 · ONE CORE, THEN ALL OF THEM ═══════════
-     Slide 6's 158x is a LAYOUT result, won on a single core. This is the
+     Slide 7's 158x is a LAYOUT result, won on a single core. This is the
      parallel one, and the two are kept apart on purpose: tiles win twice,
      and a slide that multiplies the two wins together makes both of them
      unfalsifiable.
@@ -2492,7 +2439,7 @@ tr.step,th.step,td.step{transform:none;}
      The 3.2x IS MEASURED, but on a laptop, and it is the weakest number on
      the slide. bench/tiles_bench.c, interleaved 1-vs-10 threads inside one
      process, best of 7: 1 core 1.355 s, 10 cores 0.425 s, factors agreeing
-     to 1.4e-14. 0.26 s is that ratio applied to slide 6's measured 0.82 s,
+     to 1.4e-14. 0.26 s is that ratio applied to slide 7's measured 0.82 s,
      because the one-core time drifts with the clock between sessions while
      the ratio within one session does not.
 
@@ -2500,7 +2447,7 @@ tr.step,th.step,td.step{transform:none;}
      at FOUR cores (0.415 s, 3.22x) and gains nothing from the other six.
      3.2x is the laptop's ceiling, not the algorithm's. Re-measure on ibex
      and the number should move a long way; perfect scaling on 10 cores off
-     slide 6's 0.82 s would be 0.082 s, so treat anything near 10x with
+     slide 7's 0.82 s would be 0.082 s, so treat anything near 10x with
      suspicion and anything near 3x as the laptop talking.
 
      Do NOT taskset tiles_bench: OpenBLAS binds its own threads and a
@@ -2514,7 +2461,7 @@ tr.step,th.step,td.step{transform:none;}
     <div class="fi-head" style="font-size:33px;">One core, then all of them</div>
 
     <!-- Three stages, each one click. The first two are measured and come
-         straight off slide 6; the third is the one still to be filled in,
+         straight off slide 7; the third is the one still to be filled in,
          and it is the only placeholder on the row. -->
     <div class="vs three">
       <div class="vs-side">
@@ -2699,9 +2646,19 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 13 · CHOLESKY, AND WHAT IT COSTS ═══════════ -->
-<section class="slide no-mark">
-  <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-start;">
+<!-- ═══════════ 13 · CHOLESKY, AND WHAT IT COSTS ═══════════
+     The slide ran without a headline until 2026-10-14, the only titled-slide
+     archetype in the deck that had none: it is slide 5's two columns again,
+     one size on, and it read as the tail of slide 12 rather than as its own
+     beat. The title is the comment header's own words, so the jump box and
+     the slide now agree, and "Cholesky, in four lines" on 5 and "Cholesky,
+     and what it costs" here read as the pair they are.
+
+     data-act="sparse" was missing too, so the standing SPARSE tag blinked
+     out for one slide between 12 and 14. -->
+<section class="slide no-mark" data-act="sparse">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+    <div class="fi-head" style="font-size:33px;">Cholesky, and what it costs</div>
 
     <div class="split">
       <div class="half">
@@ -2765,7 +2722,7 @@ tr.step,th.step,td.step{transform:none;}
      An arrowhead is the sharpest case to show it on, because both answers
      are extreme: eliminate the hub first and every later unknown becomes
      connected to every other; eliminate it last and nothing ever is.
-     A is drawn symmetric, as on slide 11; the counts are of the stored
+     A is drawn symmetric, as on slide 13; the counts are of the stored
      (lower) triangle, which is what a solver actually holds. -->
 <section class="slide no-mark" data-act="sparse">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
@@ -2816,8 +2773,8 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 15 · WHO PICKS THE ORDER ═══════════
-     Slide 12 showed that the order decides the fill. This one shows who
+<!-- ═══════════ 15 · WHO PICKS THE ORDER? ═══════════
+     Slide 14 showed that the order decides the fill. This one shows who
      chooses it: A on top, then the same matrix factorized under no
      reordering, under RCM and under METIS. RCM is then rung to show what it
      has NOT fixed, and the last panel shows what nested dissection bought
@@ -2848,7 +2805,7 @@ tr.step,th.step,td.step{transform:none;}
      RCM has nothing left to do and the first two pictures come out
      identical. The tools see only the graph, so their own numbers do
      not depend on that choice: RCM gives 23,344 either way. Gold is fill-in,
-     the same convention as slides 12 and 14. PNG rather than data-spy
+     the same convention as slides 13 and 14. PNG rather than data-spy
      only because at n = 1024 the dot markup would be megabytes.
 
      THE LAST CLICK recolours the METIS panel in place rather than adding a
@@ -2899,7 +2856,7 @@ tr.step,th.step,td.step{transform:none;}
      median of five runs. -->
 <section class="slide no-mark" data-act="sparse">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-    <div class="fi-head" style="font-size:33px;">Who picks the order</div>
+    <div class="fi-head" style="font-size:33px;">Who picks the order?</div>
 
     <div class="ordtop">
       <div class="ordfig step" data-step="1">
@@ -2984,7 +2941,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 17 · THE SAME MATRIX, BOTH WAYS ═══════════
+<!-- ═══════════ 17 · SAME ARITHMETIC, DIFFERENT ROUTE ═══════════
      The supernodal and multifrontal steppers side by side on one
      timeline. Both pages take a FRACTION over postMessage (the bridge is
      at the foot of each file), not a step index, because they are
@@ -3166,17 +3123,22 @@ tr.step,th.step,td.step{transform:none;}
       </svg>
     </div>
   </div>
-  <div class="cite">PARDISO: Schenk et al., <i>Future Gener. Comput. Syst.</i> 18(1), 2001 &middot; MUMPS: Amestoy et al., <i>SIAM J. Matrix Anal. Appl.</i> 23(1), 2001</div>
+  <!-- NO CITE, deliberately. The plot names six libraries as a landscape,
+       not as measured competitors, and citing two of the six was arbitrary:
+       it put PARDISO and MUMPS on a footing the other four did not share,
+       and the PARDISO it cited (Schenk et al.) is not even the PARDISO this
+       deck measures. The comparison set is cited where it is actually
+       used, on the suite slide, and nothing on this plot is a measurement. -->
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 19 · SPARSE IN THEIR OWN WAY ═══════════
+<!-- ═══════════ 19 · EVERY APPLICATION, ITS OWN PATTERN ═══════════
      Real sparsity patterns from the benchmark suite, cycling on their own.
      No click drives the wall: it keeps changing while he talks, which is
      the point, that the supply of distinct structures does not run out.
      Six slots rather than ten, because the questions now share the slide
      and six still changes often enough to read as inexhaustible.
-     The five questions sit beside it on purpose: the wall says every one
+     The six questions sit beside it on purpose: the wall says every one
      of these is different, and the questions are what decides which of
      them you are, so they belong in the same frame. Built by the IIFE
      above from assets/suite. -->
@@ -3286,7 +3248,7 @@ tr.step,th.step,td.step{transform:none;}
      260px box. The older stiles-logo.png is 571x305 and was not. -->
 <section class="slide divider no-mark">
   <img class="stilesmark" src="assets/brand/stiles-logo-hi.png" alt="sTiles">
-  <div class="intro-tag">A High-Performance Framework for Sparse Matrices</div>
+  <div class="intro-tag">A high-performance framework for structured matrices</div>
 
   <div class="intro-body">
     <p class="step" data-step="1">sTiles targets the full
@@ -3299,13 +3261,13 @@ tr.step,th.step,td.step{transform:none;}
     <p class="step intro-road" data-step="3">Distributed-memory support is on
       the roadmap.</p>
   </div>
-  <div class="cite">Abdul-Fattah, Ltaief, Rue &amp; Keyes, ISC High Performance 2025</div>
+  <div class="cite">Abdul Fattah, Ltaief, Rue &amp; Keyes, ISC High Performance 2025</div>
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 22 · WHICH TILES DO YOU KEEP ═══════════
-     The first and cheapest tiling decision, before the harder one on the
-     next slide. Which tiles do you keep, then how much of each one. Same
+<!-- ═══════════ 22 · WHICH TILES DO YOU KEEP? ═══════════
+     The first and cheapest tiling decision, before the harder one on
+     slide 27. Which tiles do you keep, then how much of each one. Same
      N, same NB, same 666, so the two slides quote one number in common.
 
      An arrowhead because the room already met it on the ordering slide,
@@ -3327,7 +3289,7 @@ tr.step,th.step,td.step{transform:none;}
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="fi-head" style="font-size:31px;">Which tiles do you keep?</div>
     <div class="tm-key">
-      <span><i class="k-red"></i>stored, non-zero</span>
+      <span><i class="k-red"></i>stored, nonzero</span>
       <span><i class="k-grey"></i>stored, zero</span>
       <span class="dim">an arrowhead, 36 &times; 36, tiles of 6</span>
     </div>
@@ -3401,7 +3363,7 @@ tr.step,th.step,td.step{transform:none;}
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="fi-head" style="font-size:31px;">The tiles are not alike</div>
     <div class="tm-key">
-      <span><i class="k-red"></i>stored, non-zero</span>
+      <span><i class="k-red"></i>stored, nonzero</span>
       <span><i class="k-grey"></i>stored, zero</span>
       <span class="dim">another matrix, 36 &times; 36, tiles of 6</span>
     </div>
@@ -3434,6 +3396,7 @@ tr.step,th.step,td.step{transform:none;}
         <div class="nk-x">same size, same dense kernel</div>
       </div>
     </div>
+  </div>
 
   <div class="slide-no"></div>
 </section>
@@ -3464,7 +3427,7 @@ tr.step,th.step,td.step{transform:none;}
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="fi-head" style="font-size:31px;">Why store a column that is empty?</div>
     <div class="tm-key">
-      <span><i class="k-red"></i>stored, non-zero</span>
+      <span><i class="k-red"></i>stored, nonzero</span>
       <span><i class="k-grey"></i>stored, zero</span>
       <span class="dim">one tile of 6 &times; 6, from the matrix before</span>
     </div>
@@ -3518,7 +3481,7 @@ tr.step,th.step,td.step{transform:none;}
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="fi-head" style="font-size:31px;">The same rule, on every tile</div>
     <div class="tm-key">
-      <span><i class="k-red"></i>stored, non-zero</span>
+      <span><i class="k-red"></i>stored, nonzero</span>
       <span><i class="k-grey"></i>stored, zero</span>
       <span class="dim">the same matrix, 36 &times; 36, tiles of 6</span>
     </div>
@@ -3547,7 +3510,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 26 · WHEN IS IT STILL A GEMM ═══════════
+<!-- ═══════════ 26 · WHEN IS IT STILL A GEMM? ═══════════
      Storage is settled by now, so the next question is what actually runs
      on what is left. Asked here because the slide before it ends on "every
      piece left is still a rectangle", and the obvious follow-up is whether
@@ -3630,7 +3593,7 @@ tr.step,th.step,td.step{transform:none;}
 </section>
 
 <!-- ═══════════ 27 · HOW MUCH OF THE TILE DO YOU KEEP ═══════════
-     The mechanism behind the "?" two slides back and behind the router
+     The mechanism behind the "?" on slide 20 and behind the router
      table later: sTiles does not choose between sparse and dense, it
      chooses how much of each TILE to store.
 
@@ -3670,7 +3633,7 @@ tr.step,th.step,td.step{transform:none;}
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="fi-head" style="font-size:31px;">How much of the tile do you keep?</div>
     <div class="tm-key">
-      <span><i class="k-red"></i>stored, non-zero</span>
+      <span><i class="k-red"></i>stored, nonzero</span>
       <span><i class="k-grey"></i>stored, zero</span>
       <span class="dim">a scattered matrix, 36 &times; 36, tiles of 6</span>
     </div>
@@ -3713,7 +3676,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 28 · WE MEASURE THE MATRIX ═══════════
+<!-- ═══════════ 28 · MEASURED, NOT LABELLED ═══════════
      The answer to the "?" from slide 20 and to the foot line of the slide
      before this one: the route is not a label anyone picks, it is measured.
      All four signals the router measures, one glyph and one line each. What
@@ -3891,8 +3854,7 @@ tr.step,th.step,td.step{transform:none;}
       <div class="su-card step" data-step="0">
         <div class="su-n">26</div>
         <div class="su-t">INLA precision graphs</div>
-        <div class="su-x">latent Gaussian models, Bayesian inference<br>
-          <b>the workload sTiles is built for</b></div>
+        <div class="su-x">latent Gaussian models, Bayesian inference</div>
       </div>
       <div class="su-card step" data-step="1">
         <div class="su-n">34</div>
@@ -3905,7 +3867,7 @@ tr.step,th.step,td.step{transform:none;}
     <div class="suspan step" data-step="2">
       <div><span class="susk">order</span>
         <span class="susv">3.9 k &rarr; 1.6 M</span></div>
-      <div><span class="susk">non-zeros per row</span>
+      <div><span class="susk">nonzeros per row</span>
         <span class="susv">3.6 &rarr; 10,031</span></div>
       <div><span class="susk">fill</span>
         <span class="susv">1.0&times; &rarr; 78&times;</span></div>
@@ -3915,6 +3877,11 @@ tr.step,th.step,td.step{transform:none;}
       all symmetric positive definite &middot; KAUST Ibex, two 20-core Intel Xeon Gold (40 cores)
       &middot; against <b>MUMPS, CHOLMOD, PaStiX, PARDISO, symPACK</b>
     </div>
+  <div class="cite">MUMPS: Amestoy et al., <i>SIAM J. Matrix Anal. Appl.</i> 23(1), 2001 &middot;
+    CHOLMOD: Chen et al., <i>ACM Trans. Math. Softw.</i> 35(3), 2008 &middot;
+    PaStiX: H&eacute;non et al., <i>Parallel Comput.</i> 28(2), 2002 &middot;
+    PARDISO: <b>Intel oneMKL PARDISO</b> 2025.3, Intel Corporation &middot;
+    symPACK: Jacquelin et al., arXiv:1608.00044, 2016</div>
   <div class="slide-no"></div>
 </section>
 
@@ -3942,7 +3909,7 @@ tr.step,th.step,td.step{transform:none;}
      88 matrices, where the per-matrix contest against PARDISO comes out
      54 losses / 34 wins at a geometric mean of 1.03x. The current figures
      are the 60-matrix set: 15 losses / 45 wins, geometric mean 1.50x,
-     which is what slide 20 quotes. Mixing the two would put a plot on
+     which is what slide 50 quotes. Mixing the two would put a plot on
      screen that contradicts the number beside it. -->
 <section class="slide no-mark">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
@@ -3957,7 +3924,7 @@ tr.step,th.step,td.step{transform:none;}
       sparse Cholesky, 60 matrices &middot; KAUST Ibex, two 20-core Intel Xeon Gold (40 cores) &middot;
       each solver at <b>its own best core count</b>
     </div>
-  <div class="cite">PARDISO: Schenk et al. 2001 &middot; MUMPS: Amestoy et al. 2001 &middot; sTiles: Abdul-Fattah et al., ISC High Performance 2025</div>
+  <div class="cite">PARDISO throughout is <b>Intel oneMKL PARDISO</b> 2025.3 &middot; the other four solvers are cited on the suite slide &middot; sTiles: Abdul Fattah et al., ISC High Performance 2025</div>
   <div class="slide-no"></div>
 </section>
 
@@ -4011,7 +3978,7 @@ tr.step,th.step,td.step{transform:none;}
       </div>
 
       <div class="rp c-sm step" data-step="1">
-        <div class="rp-h">semisparse<em>7 matrices</em></div>
+        <div class="rp-h">semi-sparse<em>7 matrices</em></div>
           <div class="rb me">
             <span class="nm">sTiles</span>
             <span class="tr"><i style="width:4.0%"></i></span>
@@ -4126,7 +4093,7 @@ tr.step,th.step,td.step{transform:none;}
           <span class="rt">1.58&times;</span>
         </div>
         <div class="fm c-sm" style="--w:79.2%">
-          <span class="nm">all semisparse</span>
+          <span class="nm">all semi-sparse</span>
           <span class="tr"><i></i></span>
           <span class="vl">151.5<em>s</em></span>
           <span class="rt">2.07&times;</span>
@@ -4166,61 +4133,54 @@ tr.step,th.step,td.step{transform:none;}
       sparse Cholesky, 60 matrices &middot; KAUST Ibex, two 20-core Intel Xeon Gold (40 cores) &middot;
       both solvers at <b>their own best core count</b>
     </div>
-  <div class="cite">PARDISO: Schenk et al., <i>Future Gener. Comput. Syst.</i> 18(1), 2001</div>
+  <div class="cite">PARDISO: <b>Intel oneMKL PARDISO</b> 2025.3, Intel Corporation, <i>oneMKL Developer Reference</i></div>
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 34 · THE SAME MATRICES, ON MORE CORES ═══════════
-     Strong scaling to 40 cores on the three largest matrices, sTiles
-     solid against PARDISO dashed, with the ideal line for reference. -->
-<section class="slide no-mark">
-  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-    <div class="fi-head" style="font-size:31px;">The same matrices, on more cores</div>
-    <div class="resfig tall">
-      <img src="assets/results/scaling.png"
-           alt="strong scaling to 40 cores, sTiles against PARDISO">
-    </div>
-  </div>
-    <div class="runfoot">
-      sparse Cholesky, three large finite-element matrices &middot; KAUST Ibex, two 20-core Intel Xeon Gold (40 cores) &middot;
-      one factorization at <b>each core count</b>
-    </div>
-  <div class="slide-no"></div>
-</section>
-
-<!-- ═══════════ 35 · PAYING FOR THE ANALYSIS ONCE ═══════════
+<!-- ═══════════ 34 · PAYING FOR THE ANALYSIS ONCE ═══════════
      Table 6. sTiles carries the heaviest preprocessing of any solver
      compared, which is a real liability and is stated as one; the slide
      then shows how few factorizations it takes to erase. The deck has
-     been building to this since slide 3, where one model fit factorizes
-     the same pattern two thousand times. -->
+     and the INLA act pays it off, where one latent-Gaussian fit
+     factorizes the same pattern thousands of times. -->
 <section class="slide no-mark">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
     <div class="fi-head" style="font-size:31px;">Paying for the analysis once</div>
 
-    <div class="amz">
-      <div class="amz-h">symbolic analysis, 60 matrices at 40 cores</div>
-      <div class="amz-row">
-        <span class="nm">sTiles</span><span class="vv me">787<em>s</em></span>
-        <span class="nt">the heaviest of any solver here</span>
-      </div>
-      <div class="amz-row">
-        <span class="nm">the others</span><span class="vv">154 &ndash; 206<em>s</em></span>
-        <span class="nt"></span>
-      </div>
-    </div>
+    <div class="rp-sub">60 matrices at 40 cores, summed over the suite</div>
 
-    <div class="brk step" data-step="1">
-      <div class="amz-h">factorizations before it has paid for itself</div>
-      <div class="brkrow">
-        <div class="bk"><b>&lt;1</b><span>symPACK</span></div>
-        <div class="bk"><b>1.5</b><span>PaStiX</span></div>
-        <div class="bk"><b>2</b><span>PARDISO</span></div>
-        <div class="bk"><b>10</b><span>MUMPS, CHOLMOD</span></div>
-      </div>
-    </div>
+    <table class="amztab">
+      <thead>
+        <tr><th></th>
+          <th>analysis<span>once</span></th>
+          <th class="step" data-step="1">factorization<span>every time</span></th>
+          <th class="step" data-step="2">pays for itself<span>factorizations</span></th></tr>
+      </thead>
+      <tbody>
+        <tr class="me"><td>sTiles</td><td>787 s</td>
+          <td class="step" data-step="1">73 s</td>
+          <td class="step" data-step="2">&ndash;</td></tr>
+        <tr><td>symPACK</td><td>160 s</td>
+          <td class="step" data-step="1">905 s</td>
+          <td class="step" data-step="2"><span class="bx">&lt;1</span></td></tr>
+        <tr><td>PaStiX</td><td>206 s</td>
+          <td class="step" data-step="1">497 s</td>
+          <td class="step" data-step="2"><span class="bx">1.5</span></td></tr>
+        <tr><td>PARDISO</td><td>195 s</td>
+          <td class="step" data-step="1">338 s</td>
+          <td class="step" data-step="2"><span class="bx">2</span></td></tr>
+        <tr><td>MUMPS</td><td>154 s</td>
+          <td class="step" data-step="1">136 s</td>
+          <td class="step" data-step="2"><span class="bx">10</span></td></tr>
+        <tr><td>CHOLMOD</td><td>158 s</td>
+          <td class="step" data-step="1">131 s</td>
+          <td class="step" data-step="2"><span class="bx">11</span></td></tr>
+      </tbody>
+    </table>
 
-    <div class="amz-end step" data-step="2">
+    <div class="amz-note">the heaviest analysis of any solver here</div>
+
+    <div class="amz-end step" data-step="3">
       one latent-Gaussian fit factorizes the same pattern
       <b>thousands</b> of times
     </div>
@@ -4228,7 +4188,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 36 · THE SAME ANSWER ON OTHER HARDWARE ═══════════
+<!-- ═══════════ 35 · THE SAME ANSWER ON OTHER HARDWARE ═══════════
      Table 3's lower panel and Table 7. The deck asks "does it need to be
      fast on all of them?" among the six questions, and ends the compute
      ladder at "multiple GPUs"; both go unanswered without this. The
@@ -4256,88 +4216,36 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 37 · WHEN YOU TAKE A SIDE (1 OF 2) ═══════════
-     The close, and the answer to the deck's own title. Eight places where
-     picking a side in advance costs you something, each with the number
-     that shows it and the saying it is an instance of. The proverb is the
-     handle: nobody remembers a ratio, everybody remembers the sledgehammer.
+<!-- ═══════════ 36 · ACT · THE MOTIVATION ═══════════
+     The deck's third act break and its fifth divider: dense solvers at 6,
+     sparse solvers at 11, an application at 42, selected inversion at 53.
+     Added 2026-10-14.
 
-     No rival solver is named on this slide and none should be added. The
-     numbers that remain are sTiles against its own fixed modes, which is
-     a statement about structure. A head-to-head second count against a
-     named product turns the closing argument into a scoreboard.
-     Four to a slide rather than eight, so the type can be read from the
-     back; the numbering runs 1-4 here and 5-8 on the next. -->
-<section class="slide no-mark">
-  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-    <div class="fi-head" style="font-size:30px;">When you take a side:
-      dense vs. sparse</div>
+     The sharpest subject change in the talk was 36 to 38, straight from AMD
+     and A100 timings into "Our motivation is INLA", with nothing to say the
+     talk had stopped being about the solver and started being about where it
+     came from. That is the same flow problem the application divider was
+     added to fix, and it is fixed the same way. The results act now closes
+     on slide 36 and the room gets a beat before the subject turns.
 
-    <div class="lessons">
-      <div class="ls step" data-step="1">
-        <span class="n">1</span>
-        <div><p>Sparse matrix, one solve, on a Mac: use Accelerate's native sparse solver. A one-off solve never repays a heavy analysis.</p>
-          <span class="pv">&ldquo;Don't use a sledgehammer to crack a nut.&rdquo;</span></div>
-      </div>
-      <div class="ls step" data-step="2">
-        <span class="n">2</span>
-        <div><p>Don't use a sparse solver on a dense matrix. Once the pattern is nearly full, the indexing costs more than the sparsity saves.</p>
-          <span class="pv">&ldquo;You can't get blood from a stone.&rdquo;</span></div>
-      </div>
-      <div class="ls step" data-step="3">
-        <span class="n">3</span>
-        <div><p>Small sparse matrix: a dense solver is fine. Memory will be happy either way.</p>
-          <span class="pv">&ldquo;Don't sweat the small stuff.&rdquo;</span></div>
-      </div>
-      <div class="ls step" data-step="4">
-        <span class="n">4</span>
-        <div><p>Know your sparsity pattern. Every fixed mode loses by <b>1.6 to 2.6&times;</b>, and which mode wins changes with the regime.</p>
-          <span class="pv">&ldquo;Dense matrices are all alike; every sparse matrix is sparse in its own way.&rdquo;</span></div>
-      </div>
-    </div>
-  </div>
+     The sub is the act's premise, the way the other three dividers work
+     rather than a summary: one method, and what it asks for is never a
+     single solve. Slides 40 to 42 are that sentence unpacked, so the break
+     promises exactly what the act then delivers.
+
+     NOTE THE ECHO with the slide right after it, "Our motivation is INLA,
+     and people use it everywhere": divider and headline both say motivation,
+     two beats apart. Left alone because that headline is the map slide's own
+     h2 and carries the coloured INLA and everywhere, which is the half worth
+     keeping. If it grates in rehearsal, change the headline, not the
+     divider. -->
+<section class="slide divider no-mark">
+  <div class="ttl">The motivation</div>
+  <div class="sub">One method, and never one solve</div>
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 38 · WHEN YOU TAKE A SIDE (2 OF 2) ═══════════
-     Same heading, continuing the numbering, ending on the title of the
-     talk finally answered. -->
-<section class="slide no-mark">
-  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-    <div class="fi-head" style="font-size:30px;">When you take a side:
-      dense vs. sparse</div>
-
-    <div class="lessons">
-      <div class="ls step" data-step="1">
-        <span class="n">5</span>
-        <div><p>Order matters. The wrong ordering turns a sparse matrix into a dense factor.</p>
-          <span class="pv">&ldquo;Don't put the cart before the horse.&rdquo;</span></div>
-      </div>
-      <div class="ls step" data-step="2">
-        <span class="n">6</span>
-        <div><p>Speed is satisfying, but efficiency is what scales. The 15 losses to PARDISO total <b>0.20 s</b>; the 45 wins total <b>265 s</b>.</p>
-          <span class="pv">&ldquo;Lose the battle, win the war.&rdquo;</span></div>
-      </div>
-      <div class="ls step" data-step="3">
-        <span class="n">7</span>
-        <div><p>Invest once, reuse a thousand times. The analysis is the heaviest of any solver (<b>787 s</b> vs. 154 to 206 s) but pays for itself within about <b>11 factorizations</b>, and INLA does thousands.</p>
-          <span class="pv">&ldquo;Measure twice, cut once.&rdquo;</span></div>
-      </div>
-      <div class="ls step" data-step="4">
-        <span class="n">8</span>
-        <div><p>Not every matrix belongs on a GPU. The A100 is at parity on the two smallest dense matrices and <b>6.3&times;</b> faster on the largest.</p>
-          <span class="pv">&ldquo;Horses for courses.&rdquo;</span></div>
-      </div>
-    </div>
-
-    <div class="verdict step" data-step="5">
-      The best side is not to take one. <b>Let the matrix decide.</b>
-    </div>
-  </div>
-  <div class="slide-no"></div>
-</section>
-
-<!-- ═══════════ 39 · THE MOTIVATION IS INLA ═══════════
+<!-- ═══════════ 37 · THE MOTIVATION IS INLA ═══════════
      Where the solver came from, handed back at the end. The map is drawn
      from assets/inla/inla-map.js, rebuilt by tools/build_inla_map.py out of
      the OpenAlex pull in Extra_for_inla_site; the four numbers are filled in
@@ -4362,7 +4270,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 40 · SAME METHOD, DIFFERENT STRUCTURE ═══════════
+<!-- ═══════════ 38 · SAME METHODOLOGY, A DIFFERENT STRUCTURE EVERY TIME ═══════════
      Five precisions, each read off a real inla() run (assets/inla-engine,
      built by tools/build_deck_data.py). One method produced all five, and
      no two of them want the same representation. -->
@@ -4409,15 +4317,14 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 41 · INLA IS NOT ONE SOLVE ═══════════
+<!-- ═══════════ 39 · INLA IS NOT ONE SOLVE ═══════════
      What one hyperparameter configuration actually asks of the solver. The
      selected inverse is the item people leave off the list, and it is the
      expensive one: about 2x the factorization (2.1x serial on the 688k bern
      graph, and nearer 3x at 6 cores, 9.2 s against 3.3 s). -->
 <section class="slide no-mark">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-    <div class="fi-head" style="font-size:31px;margin-bottom:28px;">And INLA is not
-      one solve</div>
+    <div class="fi-head" style="font-size:31px;margin-bottom:28px;">INLA is not one solve</div>
 
     <div class="cfgrow">
       <div class="cfgbox step" data-step="1">
@@ -4445,11 +4352,11 @@ tr.step,th.step,td.step{transform:none;}
       </div>
     </div>
   </div>
-  <div class="cite">Selected inversion: Takahashi, <i>Proc. PICA</i> 1973 &middot; Lin et al., <i>ACM Trans. Math. Softw.</i> 37(4), 2011</div>
+  <div class="cite">Selected inversion: Takahashi, Fagan &amp; Chin, <i>Proc. 8th PICA Conf.</i>, 1973 &middot; Lin et al., <i>ACM Trans. Math. Softw.</i> 37(4), 2011</div>
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 42 · AND NEVER JUST ONE ═══════════
+<!-- ═══════════ 40 · AND NEVER JUST ONE OF THEM ═══════════
      The shape of the workload, before any solver talk: one AX = B, the size
      range it has to cover, and then the fact that there are thousands of
      them because the hyperparameters are integrated over. -->
@@ -4508,64 +4415,1550 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 43 · AND A SELECTED INVERSE WITH EVERY ONE ═══════════
-     The second multiplicity, and the one people leave out: the
-     configurations arrive in groups, INLA runs eight at once, and every
-     member of the group wants its own selected inverse. -->
+<!-- ═══════════════════════════════════════════════════════════════════════
+     FIVE SLIDES: an act divider, the model, the mesh and the network it is
+     fitted on, where its six hyperparameters are, and what the engine does
+     with them. They are written to be pasted together, in this order.
+
+     Where they are: straight after the INLA act, slides 38 to 41, and
+     before the closing "WHEN YOU TAKE A SIDE" pair. They are numbered 42 to
+     46.
+
+     MOVED 2026-10-13. The act used to sit after "WHERE IT RUNS" so the talk
+     closed on a worked application rather than on the papers. It now sits
+     before it, so the running order is: INLA is the motivation, here is a
+     real fit of it, and here is where the solver already ships. The papers
+     slide is the last thing before the bookend again, which is where it was
+     originally.
+
+     Added 2026-10-13: slide 45, the hyperparameters, before which the act
+     showed the predictor and never the likelihood or the theta above it; and
+     slide 46, the phases, which turns six numbers into a loop with a measured
+     cost.
+
+     REMOVED 2026-10-13, both on request, and they were the last two slides of
+     the act: "the term that decides the matrix", the four DEMF variants with
+     93 to 143 nonzeros per row and 0.79 to 1.94 billion in the factor; and
+     "what that cost, in hours", the paper's 7.12, 21.09, 8.58 and 31.45 hours
+     for the same four. The act therefore no longer compares the four
+     structures at all, and no longer reaches a cost. It now ends on slide 46,
+     one model, one fit, with its phases measured. Both are recoverable from
+     talk.html.bak-20261013-155*.
+
+     THE MESH MOVED the same day, from the end of the act to directly after
+     the model, which is where it belongs: 43 ends on 460,008 unknowns from
+     4,234,989 observations and 44 is what those observations look like. The
+     cost of that move is that 45 no longer runs straight on from 43's
+     equation, so 45 got a headline back. Do not take it away again without
+     moving the mesh too.
+
+     A fourth slide was written and removed the same day: eta = A x with the
+     assembly Q = Q_x + A' Q_eps A. Its one durable fact is kept in 46's
+     comment.
+
+     The alternative placement, which this file previously argued for, is
+     inside the INLA act between slides 39 and 40: slide 39 ends on five
+     precisions and the line that no single representation suits them all,
+     and 48's closing line hands straight to 40's "INLA is not one
+     solve". Either reading works; this one trades that hand-off for a
+     stronger close.
+
+     They assume nothing from the earlier acts except the word factorization.
+
+     All three carry their own <style>, so nothing goes in the deck's head,
+     and they use the deck's classes where they exist: .fi-head, .punch,
+     .step/data-step, data-tex for KaTeX, and the trailing .slide-no.
+
+     Numbers are measured here or taken from the paper, never from memory,
+     and which is which is marked below on each slide.
+
+     Source: Lindgren, Bakka, Bolin, Krainski and Rue, "A diffusion-based
+     spatio-temporal extension of Gaussian Matern fields", SORT. The fit is
+     reproduced in pyinla at src/site/apps/globaltemp.
+     ═══════════════════════════════════════════════════════════════════ -->
+<style>
+/* the one line that says what is being modelled. It sits under the headline
+   rather than beside the equation so the equation stays the only thing on
+   its own line, and it is set recessive so it reads as the setup and not as
+   a fifth caption. The eta inside it is full ink, because a grey symbol in a
+   grey sentence is not a symbol the room will match to the equation below. */
+.gtm-lead{text-align:center;font-size:16px;line-height:1.45;
+  color:var(--ink-3);margin:-14px 0 16px;}
+.gtm-lead .katex{color:var(--ink);font-size:1.06em;}
+
+/* the equation is built, not shown. Each term is its own span on the same
+   step as the column that explains it, so pressing forward adds a term up
+   here and the column that says what it is down there, in one motion. The
+   spans keep their width while hidden, which is the point: the equation
+   never reflows, the terms just arrive in the gaps left for them, and the
+   slide opens on "eta(s,t) =" with the room still to fill. */
+.gtm-eq{margin:2px 0 18px;text-align:center;}
+.gtm-eq>span{display:inline-block;}
+.gtm-eq .katex{font-size:1.30em;}
+.gtm-row{display:flex;justify-content:center;align-items:stretch;gap:0;}
+.gtm-term{flex:1;text-align:center;padding:0 16px;}
+.gtm-term+.gtm-term{border-left:1px solid var(--rule);}
+.gtm-sym{font-size:19px;color:var(--ink);min-height:30px;}
+.gtm-what{margin-top:7px;font-size:14px;font-weight:600;color:var(--teal-ink);
+  line-height:1.4;}
+.gtm-n{margin-top:9px;font-size:21px;font-weight:700;color:var(--ink);}
+.gtm-n span{display:block;font-size:12px;font-weight:400;color:var(--ink-3);
+  margin-top:2px;}
+
+/* The detail and the reading occupy the SAME cell, one grid area shared by
+   both, so when the columns step aside the two groups arrive in the space
+   they vacated. .gone only zeroes opacity, it does not take the space back,
+   so without this the slide ended with a column-shaped hole under the
+   equation and the reading stranded at the foot. */
+.gtm-stack{display:grid;}
+.gtm-stack>*{grid-area:1/1;}
+.gtm-stack>.gtm-two{align-self:center;}
+
+/* The same equation, read a second way. Two groups rather than four
+   columns: everything that says what a place is normally like, and the one
+   term that says what a particular day did. The maths is repeated inside
+   each group on purpose, so the reader maps the words back onto the line
+   above rather than being asked to remember which symbol was which. */
+.gtm-two{display:flex;justify-content:center;gap:0;max-width:1140px;margin:0 auto;}
+.gtm-half{flex:1;text-align:center;padding:0 22px;}
+.gtm-half+.gtm-half{border-left:1px solid var(--rule);}
+.gtm-k{font-size:13px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--teal-ink);}
+.gtm-m{margin-top:10px;color:var(--ink);white-space:nowrap;}
+.gtm-m .katex{font-size:1.12em;}
+.gtm-d{margin-top:10px;font-size:16px;color:var(--ink-2);line-height:1.45;}
+
+/* The four captions are the sentence this slide is actually making, and at
+   14px --ink-2 they sat below the numbers in the reading order instead of
+   above them. They are set in teal-ink at 600 instead, so the row reads
+   symbol, then what it is, then how big it is.
+
+   Teal-ink is already the deck's emphasis colour in running prose (h1 em,
+   .takeaway b, .statement .big b), so it makes no structural claim here:
+   this is not the sparse route, and nothing on this slide is a route. It
+   clears contrast on paper at 5.97:1, which 14px needs.
+
+   The symbols stay plain ink. They are the equation repeated, and tinting
+   them would claim a correspondence the row does not have, since mu and
+   alpha E(s) share the first column while every other column holds one
+   term. */
+
+</style>
+
+<!-- ═══════════ 41 · ACT · AN APPLICATION ═══════════
+     The deck's own .divider archetype, the fifth one: dense solvers at 6,
+     sparse solvers at 11, the motivation at 37, selected inversion at 53. Without it these four
+     slides arrive straight off the papers slide with no signal that the talk
+     has changed subject, which is exactly the flow problem they had.
+
+     The sub is the aim, not a summary, which is how the other three dividers
+     work. It read "Does a non-separable space-time model earn its cost?"
+     until 2026-10-13. That question was answered by the two slides at the end
+     of the act, and with those removed, and with only model 102 fitted here,
+     the act no longer compares the four at all. Promising a comparison in the
+     sub and never making one is worse than not promising it. The sub is now
+     flat description, and everything below about what the paper found is kept
+     for the speaking only. The paper's own framing of the case study is thin, "this section
+     presents some results analysing daily temperature data", so the aim here
+     is taken from what it actually does: it fits the four DEMF structures of
+     Table 2 to one year of global data and asks whether the non-separable
+     ones are worth having.
+
+     THE ANSWER, for the speaking, because the sub asks a question the slides
+     do not answer on screen. Both halves are in section 5.2:
+
+       On fit, no. The four are "nearly indistinguishable with respect to
+       direct and leave-one-out prediction distributions". Model B is slightly
+       ahead on R2, LPO, MSE, MAE, CRPS and SCRPS, model C on DIC, WAIC and
+       LCPO, and the predictor captures 97.18% of the variability either way.
+
+       On forecasting, yes. "Since the space-time non-separability effect is
+       unclear in the leave-one-out setting", the paper forecasts 1 to 7 days
+       ahead over 12 scenarios. There model D, the twice-iterated diffusion
+       and the most expensive of the four, has the lowest 1-day scores and is
+       the most stable at longer horizons, while model B is the worst at long
+       horizons.
+
+     So the cost is the point, which is what makes this an sTiles slide: the
+     structure that wins is the one with 29 times fill and 1.94 billion
+     nonzeros in its factor. The slide that landed that was removed on
+     2026-10-13, so the act now poses the question in this sub and answers it
+     only in the speaking. If that is wrong, the slide to bring back is "the
+     term that decides the matrix" from talk.html.bak-20261013-155*. -->
+<section class="slide divider no-mark">
+  <div class="ttl">An application</div>
+  <div class="sub">Modelling global temperature data for one year</div>
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 42 · THE MODEL, AND WHAT IS CLIMATE, WHAT IS WEATHER ═══
+     The predictor exactly as the paper writes it in equation (26), built one
+     term at a time, and then read a second way: which terms say what a place
+     is normally like, and which one says what a particular day did.
+
+     CHANGED 2026-10-13. The slide gained a sixth beat. Steps 1 to 5 are
+     unchanged: the equation builds a term at a time, each with the column
+     that sizes it, and step 5 closes on 460,008 unknowns from 4,234,989
+     observations. Step 6 is new. The columns and that closing line step
+     aside via [data-until="5"], and the same equation is read a second way
+     in the space they leave.
+
+     They STEP ASIDE, they are not deleted. The sizes are still said, and 45
+     still has 4,234,989 observations handed to it from the beat before. An
+     earlier version of this edit removed them outright and broke both; if
+     the columns ever stop appearing, that is the regression.
+
+     WHY THE SPLIT EARNS ITS PLACE. It is not new material, it is the same
+     equation grouped, and it is what keeps a map captioned u(s,t) from
+     being read as degrees on a thermometer. The slide that carried those
+     maps left the act on 2026-10-13, so this split now stands on its own
+     rather than setting one up. Said plainly:
+     take away the altitude, the season and the local character of a place,
+     and what is left is whether that day happened to be warm or cold.
+
+     The grouping is exact, not a gloss. b and v are each built from only a
+     constant, one cosine and one sine over the year, so between them they
+     are a single annual wave per location. Anything faster than that annual
+     wave has nowhere to go except u, which is why u changes every day.
+
+     Worth saying out loud and not printing: "normal" here is fitted from
+     2022 alone, not a 30-year meteorological normal, so an unusual year is
+     baked into the baseline rather than showing up as weather.
+
+     The maths is repeated inside each group deliberately, so the reader maps
+     the words onto the line above instead of recalling which symbol was
+     which. .gtm-m is nowrap: without it the climate group broke after the
+     "+" and read as two unrelated expressions.
+
+     MEASURED HERE, from the exported model:
+       8          mu, the lapse rate, and the six seasonal basis columns
+       3,750      3 replicates x 1,250 mesh nodes
+       456,250    1,250 mesh nodes x 365 daily knots
+       460,008    the three above, summed
+       4,234,989  non-missing observations out of 13,579 x 365 = 4,956,335
+
+     The paper's own run used 1,251 nodes, so its u is 456,615 and its total
+     460,373. Ours is 1,250 and the counts above are ours, which is the set
+     every later number in these slides was measured on. Do not mix the two.
+
+     b(s,t) is six columns and NOT a random field: two quadratic basis
+     functions in sin(latitude) times the three time functions 1, cos and sin.
+     It is the hemisphere-wide seasonal cycle, which is why v(s,t) beside it
+     is only the local departure from it. That distinction is worth saying out
+     loud, because a figure of v alone looks like a temperature map and is
+     not one.
+
+     THE LEAD LINE was added on 2026-10-13. Until then the slide decomposed
+     eta(s,t) into five terms without once saying what eta is, so the room was
+     being shown the parts of a thing it had not been given. It is the only
+     line on the slide that names the quantity being modelled, and it names
+     the data at the same time: y is the mean of TMIN and TMAX, not the TAVG
+     variable in the raw files, which is the one thing about this dataset that
+     catches people out.
+
+     "should read" is doing work. eta is the noise-free predictor and the
+     station's actual reading is eta plus Gaussian noise, so "is" would have
+     been wrong and spelling the noise out would have cost a line and raised
+     sigma_e, which this slide does not count. Leave the word alone.
+
+     THE SLIDE IS A BUILD, also 2026-10-13. It used to open with the finished
+     equation and then light up four columns under it, which is a glossary,
+     not an argument: the room had already read all five terms before being
+     told what any of them was. Now each term of the equation shares a step
+     with the column that explains it, so one press adds the term and its
+     explanation together, and the slide opens on "eta(s,t) =" with nothing
+     after it. The spoken line per step, roughly:
+
+       0  this is what we want to model, one station, one day
+       1  start with a level and a lapse rate, two numbers for the planet
+       2  add the season, which depends on how far north you are
+       3  add how one place departs from that, a field per time basis
+       4  add the weather, space and time coupled, and there is the size
+       5  460,008 unknowns against 4.2 million observations
+
+     The terms keep their width while hidden, so nothing reflows as they
+     arrive and the equation never moves. That is deliberate: a reflowing
+     equation redraws the room's attention on every press and the build stops
+     reading as one sentence.
+
+     THE CAPTIONS WERE REWRITTEN on 2026-10-13, the first two because they
+     were saying the thing to a reader who already knew it:
+
+       "overall level, and a lapse rate per km" is two pieces of jargon in six
+       words, and "per km" never says per km of what. It now reads: one
+       average for the globe, and how much colder per km of height.
+
+       "the seasonal cycle, shared by latitude" dropped half the term. b is a
+       latitude basis times a time basis, so it carries both the pole to
+       equator gradient and the swing through the year, and "shared by
+       latitude" also reads as though latitude were doing the sharing. It now
+       reads: how it varies with latitude, and through the year.
+
+       v's caption had to follow. It said "from that cycle" and the word cycle
+       no longer appears beside it, so it now says "from that pattern". Keep
+       those two in step if either is reworded again.
+
+     Every caption is two lines on purpose. A third line pushes that column's
+     number down and breaks the row of four, and the longest line here, "how
+     much colder per km of height", already runs to within 14px of the rule. -->
 <section class="slide no-mark">
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-    <div class="fi-head" style="font-size:31px;margin-bottom:26px;">And a selected
-      inverse with every one of them</div>
+  <div class="fi-head">A global temperature model</div>
 
-    <div class="waves">
-      <div class="wrow step" data-step="1">
-        <div class="wk">running now</div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell now"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
+  <div class="gtm-lead"><span data-itex="\eta(s,t)"></span> is what one station
+    <span class="math">s</span> should read on one day <span class="math">t</span>:
+    the average of that day&rsquo;s low and high</div>
+
+  <div class="gtm-eq">
+    <span data-itex="\eta(s,t)\;="></span><span
+      class="step" data-step="1" data-itex="\;\mu\;+\;\alpha E(s)"></span><span
+      class="step" data-step="2" data-itex="\;+\;b(s,t)"></span><span
+      class="step" data-step="3" data-itex="\;+\;v(s,t)"></span><span
+      class="step" data-step="4" data-itex="\;+\;u(s,t)"></span>
+  </div>
+
+  <div class="gtm-stack">
+    <div class="gtm-row" data-until="5">
+      <div class="gtm-term step" data-step="1">
+        <div class="gtm-sym" data-itex="\mu + \alpha E(s)"></div>
+        <div class="gtm-what">one average for the globe, and<br>how much colder per km of height</div>
+        <div class="gtm-n">2<span>numbers</span></div>
       </div>
-      <div class="wrow step" data-step="2">
-        <div class="wk">then</div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
+      <div class="gtm-term step" data-step="2">
+        <div class="gtm-sym" data-itex="b(s,t)"></div>
+        <div class="gtm-what">how it varies with latitude,<br>and through the year</div>
+        <div class="gtm-n">6<span>basis columns</span></div>
       </div>
-      <div class="wrow step" data-step="3">
-        <div class="wk">then</div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
-        <div class="cell"><span class="c1">AX = B</span><span class="c2" data-itex="Q^{-1}"></span></div>
+      <div class="gtm-term step" data-step="3">
+        <div class="gtm-sym" data-itex="v(s,t)"></div>
+        <div class="gtm-what">how one place departs<br>from that pattern</div>
+        <div class="gtm-n">3,750<span>3 fields on the mesh</span></div>
+      </div>
+      <div class="gtm-term step" data-step="4">
+        <div class="gtm-sym" data-itex="u(s,t)"></div>
+        <div class="gtm-what">the weather:<br>space and time, coupled</div>
+        <div class="gtm-n">456,250<span>1,250 nodes &times; 365 days</span></div>
       </div>
     </div>
-    <div class="wtail step" data-step="3">&hellip; until <b>every</b> configuration is done</div>
+    <div class="gtm-two step" data-step="6">
+      <div class="gtm-half">
+        <div class="gtm-k">climate</div>
+        <div class="gtm-m" data-itex="\mu + \alpha E(s) + b(s,t) + v(s,t)"></div>
+        <div class="gtm-d">what a place is normally like<br>at this time of year</div>
+      </div>
+      <div class="gtm-half">
+        <div class="gtm-k">weather</div>
+        <div class="gtm-m" data-itex="u(s,t)"></div>
+        <div class="gtm-d">how one particular day<br>differed from that</div>
+      </div>
+    </div>
+  </div>
 
-    <div class="qnote step" data-step="4">
-      Eight at a time, each wanting a factorization, a log determinant and a
-      <b>selected inverse</b>. The selected inverse costs <b>about 2&times;</b> the
-      factorization, so that is where the machine's time goes.
+  <div class="punch step" data-step="5" data-until="5">
+    <b>460,008</b> unknowns, from <b>4,234,989</b> daily observations
+  </div>
+  </div>
+
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 43 · THE SPATIAL MESH, AND WHERE THE DATA ACTUALLY IS ═══════════
+     Paste this whole block into talk.html between two existing <section>
+     slides. It carries its own <style>, so it needs nothing added to the
+     head, and it uses the deck's own classes where they exist: .fi-head for
+     the headline, .punch for the closing line, .step/data-step for the
+     reveals and the trailing .slide-no, exactly as the neighbouring slides do.
+
+     One asset to place: wmesh_slide.png -> assets/globaltemp/wmesh_slide.png
+     (already copied there). It is 4480 x 2268, which is 4x the 1120 px the
+     slide gives it, so it stays sharp when the 1280 x 720 stage is scaled up
+     to a projector. It is drawn on the deck's paper colour rather than white,
+     so it sits on the slide instead of on a card.
+
+     The figure is the upstream mesh plot reproduced in Python, element by
+     element: Mollweide in km on the WGS84 equatorial radius, ocean
+     rgb(.3,.7,1) and land grey 0.7 at half opacity, green station dots, mesh
+     last, and the upstream rule for dropping triangles at the dateline. It is
+     produced by fit_runs/mesh_figure.py --slide.
+
+     Every number here was measured rather than quoted:
+       1,250 nodes, 2,496 triangles   from the exported mesh, and V-E+F = 2,
+                                      so it is a closed triangulation
+       median edge 584 km             great-circle, over 3,744 edges, range
+                                      319 to 1,600
+       13,579 stations                the stations the fit uses
+       4,234,989 observations         non-missing values out of 4,956,335
+       77.5%                          10,526 stations between 30N and 60N
+       0.2%                           30 stations south of 60S. 27 of those
+                                      carry any usable value after QC, so 3
+                                      contribute nothing to the likelihood.
+                                      ", 27 with data" was on the slide until
+                                      2026-10-14 and came off: every other
+                                      figure in this row is a station count,
+                                      13,579 and 10,526 and 7,585, so a second
+                                      count in one cell broke the row's one
+                                      unit for a caveat that changes nothing.
+                                      Say it if asked.
+       55.9%                          7,585 stations in the United States,
+                                      by point-in-polygon against the 110m
+                                      country layer
+
+     The order is deliberate: the mesh is uniform, the network is not, and the
+     room should see the map before it is told what is wrong with it. The
+     United States number is held back to the punch line because it is the one
+     that changes how the rest of the talk's results should be read. It names
+     the country rather than saying "one country", because a slide gets read
+     without the speaker attached to it.
+
+     The image is 408px tall so that the headline, the map, the four counts
+     and the punch line all land inside the slide's 604px of content: the
+     stage is 720px and .slide takes 52px off the top and 64px off the foot.
+
+     Green is used for the station counts only, and only because it is the
+     colour of the dots on the map. It is not one of the deck's structural
+     colours and carries no role meaning here. -->
+<style>
+.gt-fig{display:flex;justify-content:center;margin:2px 0 14px;}
+.gt-fig img{height:408px;width:auto;display:block;}
+.gt-stats{display:flex;justify-content:center;align-items:stretch;gap:0;}
+.gt-stat{flex:1;text-align:center;padding:0 18px;}
+.gt-stat+.gt-stat{border-left:1px solid var(--rule);}
+.gt-stat b{display:block;font-size:23px;font-weight:700;color:var(--ink);
+  line-height:1.15;}
+.gt-stat b.net{color:#2e7d32;}
+.gt-stat span{display:block;margin-top:5px;font-size:13px;color:var(--ink-3);
+  line-height:1.35;}
+</style>
+
+<section class="slide no-mark">
+  <div class="fi-head">The spatial mesh, and where the data actually is</div>
+
+  <div class="gt-fig">
+    <img src="assets/globaltemp/wmesh_slide.png"
+         alt="Mollweide map of the 1,250 node spherical mesh with the 13,579
+              station locations in green">
+  </div>
+
+  <div class="gt-stats">
+    <div class="gt-stat step" data-step="1">
+      <b>1,250</b>
+      <span>mesh nodes, 2,496 triangles<br>median edge 584 km</span>
+    </div>
+    <div class="gt-stat step" data-step="2">
+      <b class="net">13,579</b>
+      <span>stations, 2022<br>4,234,989 daily observations</span>
+    </div>
+    <div class="gt-stat step" data-step="3">
+      <b class="net">77.5%</b>
+      <span>of stations lie<br>between 30&deg;N and 60&deg;N</span>
+    </div>
+    <div class="gt-stat step" data-step="4">
+      <b class="net">0.2%</b>
+      <span>lie south of 60&deg;S<br>30 stations</span>
+    </div>
+  </div>
+
+  <div class="punch step" data-step="5">
+    <b>55.9%</b> of the whole global network is in <b>the United States</b>
+  </div>
+
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 44 · SIX NUMBERS THE FIT HAS TO FIND ═══════════
+     THE HEADLINE WAS REWRITTEN on 2026-10-13. It read "And where the six
+     numbers are", written when this slide ran straight on from the model
+     slide: the "And" continued a sentence and the six had just been counted.
+     With the mesh slide now in between, the "And" continues nothing and "the
+     six" has no antecedent, because this is the slide that establishes there
+     are six at all. "Six numbers the fit has to find" introduces them instead
+     of pointing back, and hands to the next headline, "What the engine does
+     with those six".
+
+     THE CITE IS p. 32, NOT p. 45. The bibliography starts around p. 44, and
+     p. 45 is the H to J entries. Section 5.2.2 is where the priors and the
+     count live, and the paper states the number itself: "In total, we have
+     six variance/range parameters to estimate." It also fixes each prior,
+     which this slide does not show: PC priors throughout, with
+     Pr(sigma_e >= 5) = 0.01 and the same for sigma_v and sigma, and
+     Pr(r_v <= 1000km) = 0.01, Pr(r_s <= 600km) = 0.01. Have those ready for a
+     question rather than on the slide.
+
+     Written as the second half of slide 43, the model, with no headline and no lead
+     line, so that the equation the room had just watched being built carried
+     straight over. The mesh slide moved in between the two on 2026-10-13 and
+     that hand-off is gone, so the headline is back: without one the slide
+     reads as having lost its title rather than as a continuation. It still
+     opens on 43's equation, and that is still worth keeping, but the equation
+     is now a callback rather than the same breath. Restore the headline-free
+     version only if the mesh moves back out.
+
+     What it adds is the rest of the model. 43 stopped at the predictor, which
+     is only the middle layer: the data sees eta through a likelihood, and the
+     two random fields carry parameters that are not part of the 460,008. So
+     the annotations grow in both directions from the equation, up to the
+     likelihood and down to the hyperparameters, and the arrow the room needs
+     is the one that says eta is the mean.
+
+     THE SIX, read off the fitted model rather than the paper. These are the
+     engine's own hyperparameter tags from
+     DB2/globtmp/models/results/102/results.files-0000000003:
+
+       Precision for the Gaussian observations      the likelihood      1
+       Range for seasonal_field                     v(s,t)              2
+       Stdev for seasonal_field                       "
+       Theta1 for weather_field                     u(s,t)              3
+       Theta2 for weather_field                       "
+       Theta3 for weather_field                       "
+
+     seasonal_field is v and weather_field is u, which is what the fit calls
+     them. The engine labels u's three Theta1/2/3 rather than naming them, so
+     the slide uses the paper's own names for them instead, section 3.2.2:
+     a spatial range r_s, a temporal range r_t and a marginal sd sigma. Do
+     not relabel those from the Theta numbering without checking the
+     parameterisation, the order is not self-evident from the tags.
+
+     WHY TWO TERMS SAY "none". mu, the lapse rate and the six b columns are
+     fixed effects with fixed Gaussian priors, so they contribute unknowns to
+     the 460,008 and nothing to theta. Saying so is half the answer to "where
+     are the hyperparameters", because it rules out three of the five terms.
+
+     THE PUNCH is the hand-off to the solver acts and should not be reworded
+     casually. 460,008 against 6 is the shape of every latent Gaussian model:
+     the big layer is Gaussian and conditionally cheap, the small layer is not
+     Gaussian and is integrated over, and that integration is what turns one
+     model into the hundreds to thousands of factorizations on slide 46. The
+     room has already been told this in the abstract on slides 40 and 41. This
+     is the same sentence with one real model's numbers in it. -->
+<style>
+.hp-lik{text-align:center;}
+.hp-likrow{display:flex;justify-content:center;align-items:center;gap:30px;}
+.hp-pad{width:152px;flex:none;}
+.hp-tag{margin-top:9px;font-size:13.5px;color:var(--ink-3);}
+
+/* the arrow the slide exists for: eta appears in both lines and nothing else
+   says they are the same eta. It is centred rather than drawn from one eta to
+   the other, because both lines are centred and a true connector would have
+   to be measured after KaTeX lays the maths out. */
+.hp-up{text-align:center;margin:10px 0 12px;line-height:1.1;}
+.hp-up i{display:block;font-style:normal;font-size:26px;color:var(--ink-3);}
+.hp-up span{display:block;margin-top:3px;font-size:13.5px;color:var(--ink-3);}
+
+/* the equation is a flex row now, one cell per term, so a chip can hang
+   under the term it belongs to instead of in a legend the reader has to
+   match by name. The cells size to their contents, so the equation spreads
+   wider than it was on 43. That is the annotated-equation look and it is
+   wanted: it says same equation, now opened up. */
+.hp-row{display:flex;justify-content:center;align-items:flex-start;}
+.hp-cell{padding:0 7px;text-align:center;}
+.hp-t .katex{font-size:1.22em;}
+.hp-drop{width:1px;height:17px;margin:11px auto 0;background:var(--ink-3);}
+.hp-none{margin-top:11px;font-size:12.5px;color:var(--ink-3);}
+
+.hp-chip{margin-top:9px;width:152px;box-sizing:border-box;padding:9px 12px 10px;
+  background:var(--panel);border:1px solid var(--rule);border-radius:9px;}
+.hp-chip b{display:block;font-size:21px;font-weight:700;color:var(--ink);
+  line-height:1.1;}
+.hp-chip .katex{font-size:.96em;}
+.hp-chip u{display:block;margin-top:6px;text-decoration:none;font-size:12.5px;
+  font-weight:600;color:var(--teal-ink);line-height:1.45;}
+
+/* the last beat collects the three chips into one vector. The underbraces
+   are the whole reason this is a line of maths and not a sentence: they say
+   which of the six came from where without repeating the three chips. */
+.hp-theta{margin-top:26px;text-align:center;}
+.hp-theta .katex{font-size:1.18em;}
+</style>
+
+<section class="slide no-mark">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+  <div class="fi-head" style="margin-bottom:26px;">Six numbers the fit has to
+    find</div>
+
+  <div class="hp-lik">
+    <div class="hp-likrow">
+      <div class="hp-pad"></div>
+      <span class="hp-t step" data-step="1"
+        data-itex="y(s,t)\;\sim\;\mathcal{N}\!\left(\eta(s,t),\;\sigma_e^2\right)"></span>
+      <div class="hp-chip step" data-step="2">
+        <b>1</b>
+        <span data-itex="\sigma_e"></span>
+        <u>the noise sd</u>
+      </div>
+    </div>
+    <div class="hp-tag step" data-step="1">a station&rsquo;s actual reading,
+      the predictor plus noise</div>
+  </div>
+
+  <div class="hp-up step" data-step="1">
+    <i>&uarr;</i>
+    <span>the linear predictor is its mean</span>
+  </div>
+
+  <div class="hp-row">
+    <div class="hp-cell">
+      <div class="hp-t" data-itex="\eta(s,t)\;="></div>
+    </div>
+    <div class="hp-cell">
+      <div class="hp-t" data-itex="\mu+\alpha E(s)"></div>
+      <div class="hp-none step" data-step="3">none</div>
+    </div>
+    <div class="hp-cell">
+      <div class="hp-t" data-itex="+\;b(s,t)"></div>
+      <div class="hp-none step" data-step="3">none</div>
+    </div>
+    <div class="hp-cell">
+      <div class="hp-t" data-itex="+\;v(s,t)"></div>
+      <div class="step" data-step="4">
+        <div class="hp-drop"></div>
+        <div class="hp-chip">
+          <b>2</b>
+          <span data-itex="r_v,\;\sigma_v"></span>
+          <u>a range<br>and an sd</u>
+        </div>
+      </div>
+    </div>
+    <div class="hp-cell">
+      <div class="hp-t" data-itex="+\;u(s,t)"></div>
+      <div class="step" data-step="5">
+        <div class="hp-drop"></div>
+        <div class="hp-chip">
+          <b>3</b>
+          <span data-itex="r_s,\;r_t,\;\sigma_u"></span>
+          <u>a range in space,<br>one in time,<br>and an sd</u>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hp-theta step" data-step="6"
+    data-tex="\theta\;=\;\big(\,\underbrace{\sigma_e}_{\text{the noise}},\;\;\underbrace{r_v,\;\sigma_v}_{v(s,t)},\;\;\underbrace{r_s,\;r_t,\;\sigma_u}_{u(s,t)}\,\big)"></div>
+  </div>
+
+  <div class="cite">Priors and the count of six: Lindgren, Bakka, Bolin, Krainski &amp; Rue, <i>A diffusion-based spatio-temporal extension of Gaussian Mat&eacute;rn fields</i>, SORT, &sect;5.2.2, p.&thinsp;32</div>
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 45 · WHAT THE ENGINE DOES WITH THOSE SIX ═══════════
+     45 ends on theta, six numbers. This is what is done with them, and it is
+     the slide that turns the application into a solver problem: a gradient
+     search, a Hessian, an integration, and a function-evaluation count that
+     makes the whole thing a loop rather than a solve.
+
+     It replaced an earlier slide that wrote eta = A x and assembled
+     Q = Q_x + A' Q_eps A. That slide was correct and is gone on purpose: the
+     room does not need the assembly to understand that the same matrix is
+     factorized hundreds of times, and the act was running long. If it ever
+     comes back, the one fact worth carrying over is that the 8 fixed effects'
+     dense border (mean degree 106k to 369k) comes from A' Q_eps A and not
+     from the model, so any structure measured off these matrices is the
+     posterior precision and not the prior.
+
+     EVERY NUMBER IS MEASURED HERE, from one run of model 102:
+     DB2/globtmp/models/results/102/run3.log and .../results.files-0000000003/
+     cpu-intern, 2026-10-13, 64 threads, 4,731.51 s end to end.
+
+       Building model    115.79 s   2.4%
+       Optimising      4,156.94 s  87.9%   690 evaluations, 27 iterations
+       Hessian           338.75 s   7.2%    86 evaluations
+       Integration       111.10 s   2.3%     1 configuration, 51.71 s of it
+       Total             776 function evaluations at 6.0865 s each
+
+     The 27 iterations are two passes, 12 then 15: the optimiser restarts once
+     the first pass converges, which is why the Iter counter resets in the
+     log. 690 + 86 = 776, and the log states both ends of that: "Optim: Number
+     of function evaluations = 690", then the Hessian section runs fn=697 to
+     fn=776.
+
+     THE PER-PHASE COUNTS CAME OFF on 2026-10-13: 690 evaluations, 86 more,
+     and 1 configuration, each under its own column. Three numbers on a second
+     scale under three already on a common one asked the room to hold two
+     comparisons at once, and only the share is worth comparing across the
+     columns. The total survives in the punch, 776 at 6.09 s each, and 690 +
+     86 = 776 is still worth saying out loud. Everything removed is still
+     true and still in this comment.
+
+     THE INTEGRATION WAS EMPIRICAL BAYES, and the slide still says so in the
+     third column's own words, which is why "1 configuration, not a CCD grid"
+     could go without losing the point. It matters because
+     "why is integration only 2.3%?" is the first question the number invites.
+     The evidence is the log, not the settings file:
+
+       config  0/1=[ 0.000 0.000 0.000 0.000 0.000 0.000 ] ldens= 16.540,
+                    [0] accept, compute, 51.71s
+       Combine the densities with relative weights:
+       config  0/ 1=[ 0.000 0.000 0.000 0.000 0.000 0.000 ] weight= 1.000
+
+     One configuration, at theta = 0 in the standardised coordinates, which is
+     the mode, carrying all the weight. That is int.strategy = "eb". A CCD
+     over six hyperparameters would produce tens of configurations with
+     varying weights, every one of them a full evaluation, and would move the
+     2.3% up sharply while leaving optimise and curvature where they are.
+
+     So this slide's split is the shape of an EB run and should not be
+     presented as the shape of every INLA run. If the deck ever shows a CCD
+     fit of the same model, these three percentages all change.
+
+     THERE IS NO SOLVE COUNT IN THE LOG, and the slide must not invent one.
+     A first draft of this slide read "2,340 calls into the sparse solver:
+     three per evaluation", from summing the [sparse-interface.c:271] counters
+     in run3.log. That is wrong twice over and is worth recording so it does
+     not come back:
+
+       those counters are GMRFLib_adapt_nt, the adaptive thread-count tuner.
+       n is how many times that code block ran in one (level, thread) slot,
+       not how many solver calls happened.
+
+       the block at sparse-interface.c:271 sits inside GMRFLib_Q2csr, and its
+       body is a loop calling Qfunc to fill M->a. It is matrix ASSEMBLY. No
+       factorization, no solve, no selected inverse happens there.
+
+     What the counters do support, and it is a real number: 2,340 assemblies
+     against 776 evaluations, so Q is built about three times per evaluation.
+     That is defensible and surprising, and it is left off the slide only
+     because it invites "why three?", which the log does not answer. The sum
+     across slots is legitimate: adapt_nt_update is called once per execution
+     with that thread's own tnum and level.
+
+     Selected inversion has NO counter here at all. The slide that spelled
+     out "a selected inverse with every one of them", eight configurations
+     at a time, was REMOVED on 2026-10-14; what survives of that claim is
+     the selected-inverse box on slide 40 and its "about 2x" cost. This
+     slide does not restate it and must not attach a number to it.
+
+     "assembled and factorized every single time" in the punch is the honest
+     floor: assembly is proved by the Q2csr counter, and a factorization is
+     what an evaluation of the posterior for one theta requires, which is
+     slide 40's own list.
+
+     THE 6.09 s IS STILES' NUMBER and the cite line says so, which is the
+     only place in the act that names the solver under these timings. It
+     matters: the punch quotes 6.09 s per evaluation, and in an sTiles talk an
+     unattributed per-evaluation cost is the one number the room will want
+     attributed.
+
+     CAVEAT ON THAT ATTRIBUTION. It comes from the author, not from the kept
+     artefacts. run3.log and cpu-intern record the timings and the thread
+     counts but name no backend, and the only binary named anywhere in that
+     tree is "inla.mkl", in the top-level run.log of a failed invocation. The
+     DB2 volume was unmounted when this line was written, so Model.ini could
+     not be checked. Verify the smtp setting before this slide is shown and
+     correct the line if it was a different backend.
+
+     THE COMPARISON IS PER EVALUATION, NEVER PER FIT, and that choice is the
+     whole reason the line is defensible. The cite carried 479 evaluations in
+     7.12 h for a while, which pairs badly: the paper's run did 479 evaluations
+     and this one did 776, so the two totals are not the same job and 7.12 h
+     against 1 h 19 m flatters this run for doing more work in less time.
+     Dividing that out leaves 52.94 s against 6.09 s, both from Appendix F and
+     cpu-intern respectively, and that pair is like for like.
+
+     IT IS STILL NOT A CLEAN SOLVER COMPARISON and must not be spoken as one.
+     Three things are not divided out:
+
+       threads. The paper ran 4 parallel evaluations of 8 threads each, so 32,
+       on a 52-core node. This ran 64. Normalising as best the records allow,
+       this run's 61.61% efficiency on 64 threads is 39.43 effective threads,
+       so about 240 thread-seconds per evaluation, against at best 32 x 52.94
+       = 1,694 for the paper, whose own efficiency is not reported and so can
+       only be worse. About 7x after normalising rather than 8.7x before.
+
+       the mesh. The paper used 1,251 nodes and 13,567 stations, this run 1,250
+       and 13,579. Close, not identical.
+
+       starting values, which the paper itself names as worth a large factor.
+
+     So: context, not a speedup claim. The clean same-machine backend swap in
+     the deck's reach is the 30-day run in the elias tree, taucs 1,028 s
+     against sTiles 134 s, and that one is not on a slide.
+
+     NOT ON THE SLIDE, for questions: peak memory was 258.4 GB real, against
+     the paper's 114.75 GB for the same model. Different run, and the deck has
+     not chased the difference, so do not volunteer it as a comparison. -->
+<style>
+.ph-row{display:flex;justify-content:center;align-items:stretch;gap:0;}
+.ph-cell{flex:1;max-width:300px;padding:0 20px;text-align:center;}
+.ph-cell+.ph-cell{border-left:1px solid var(--rule);}
+.ph-k{font-size:21px;font-weight:700;color:var(--ink);}
+.ph-w{margin-top:7px;font-size:13.5px;font-weight:600;color:var(--teal-ink);
+  line-height:1.45;min-height:58px;}
+
+/* one bar per phase, all three on the same scale, so 87.9 against 7.2 and 2.3
+   is seen before it is read. The share is the only number on this slide that
+   is worth comparing across the columns; the evaluation counts are not on a
+   common scale with anything. */
+.ph-bar{margin-top:4px;height:9px;background:var(--rule);border-radius:4.5px;}
+.ph-bar i{display:block;height:100%;background:var(--ink);border-radius:4.5px;}
+.ph-pct{margin-top:9px;font-size:22px;font-weight:700;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.1;}
+.ph-pct span{display:block;margin-top:3px;font-size:11.5px;font-weight:400;
+  color:var(--ink-3);}
+</style>
+
+<section class="slide no-mark">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+  <div class="fi-head">What the engine does with those six</div>
+
+  <div class="ph-row">
+    <div class="ph-cell step" data-step="1">
+      <div class="ph-k">optimize</div>
+      <div class="ph-w">a gradient search for the mode of &theta;,
+        27 iterations in two passes</div>
+      <div class="ph-bar"><i style="width:87.9%"></i></div>
+      <div class="ph-pct">87.9%<span>of the run, 4,157 s</span></div>
+    </div>
+    <div class="ph-cell step" data-step="2">
+      <div class="ph-k">curvature</div>
+      <div class="ph-w">a dense 6 &times; 6 Hessian by central differences,
+        then a corrected sd per &theta;</div>
+      <div class="ph-bar"><i style="width:7.2%"></i></div>
+      <div class="ph-pct">7.2%<span>of the run, 339 s</span></div>
+    </div>
+    <div class="ph-cell step" data-step="3">
+      <div class="ph-k">integrate</div>
+      <div class="ph-w">combine the densities over
+        <span data-itex="\theta"></span>. This run was empirical Bayes,
+        so that is the mode alone</div>
+      <div class="ph-bar"><i style="width:2.3%"></i></div>
+      <div class="ph-pct">2.3%<span>of the run, 111 s</span></div>
+    </div>
+  </div>
+
+  <div class="punch step" data-step="4">
+    <b>776</b> evaluations at <b>6.09 s</b> each. The same matrix, assembled
+    and factorized every single time.
+  </div>
+  </div>
+
+  <div class="cite">Model <b>102</b> as run here, 64 threads: <b>6.09 s</b> per evaluation with <b>sTiles</b>, <b>1&thinsp;h&thinsp;19&thinsp;m</b> end to end. The paper&rsquo;s own run of this model: <b>52.94 s</b> per evaluation, on a 52-core node with R-INLA&rsquo;s PARDISO.</div>
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 46 · CLIMATE ═══════════
+     This comment covers 47 and 48 together.
+
+     The two halves of slide 43's split, drawn. 43 said what climate and
+     weather mean in this model; these show them, on the same two days, with
+     the same projection, grid and coverage mask as slide 44's mesh map.
+
+     Why two slides and not one figure: the quantities do not share a scale.
+     Climate runs -70 to +45 C, weather +/-10. Put on one colour bar the
+     weather vanishes; put side by side with two bars the room reads them as
+     comparable magnitudes, which they are not. Two slides, two scales, and
+     the second one says "on top of that" out loud.
+
+     THE DAYS are 46 and 228, the February and August entries of the upstream
+     quarter list round(((1:4-1)+0.5)/4*365). They are the pair that shows the
+     hemispheres swapping, which is the whole point of the climate slide.
+
+     PROVENANCE, and it is not tidy. The fit the weather comes from lived
+     under DB2/globtmp and no longer exists; only its u survives, cached. The
+     surviving kept run has v and the fixed effects but no u. So climate is
+     built entirely from the kept run and weather entirely from the cached
+     one. Both are model 102 on the same data and the same mesh, and their
+     modes differ by 64 log-units, inside the run-to-run spread. That is fine
+     for two maps shown one after the other. It would NOT be fine for a
+     figure claiming climate + weather = the fitted temperature, and no such
+     figure is drawn. If the runs are ever reunited, say so and the claim can
+     be made; until then do not add it.
+
+     THE MASK IS LAND, WHICH IS WHAT UPSTREAM DOES. results_tables_plots.R
+     draws each field twice, once intersected with the projected world box
+     (the whole globe) and once with the country polygons (land). It never
+     masks by distance to a station.
+
+     Two earlier versions of these slides did mask by distance, at 300 km.
+     That was an addition here, not upstream, and it was wrong twice over: it
+     greyed out 21.7% of land, and it made the continents unreadable as
+     continents, which is the first thing a room looks for on a world map.
+
+     Dropping the sea is what keeps the values honest, and it does so without
+     touching anything the model was fitted on. The climate map's unphysical
+     warm extreme, +65 C, is in the mid Atlantic 781 km from the nearest
+     station. On land the range over these two days is -43.6 to +45.5: the
+     Antarctic plateau in August, and the deserts in August.
+
+       whole globe   -43.6 to +48.3 (Feb)   -69.2 to +45.5 (Aug)
+       land only     -43.6 to +38.9 (Feb)   -69.2 to +45.5 (Aug)
+
+     STILL WORTH SAYING OUT LOUD, because the map does not show it: land far
+     from a station is extrapolation too. Interior Antarctica, the Sahara and
+     Greenland are drawn in full colour and lean almost entirely on the
+     model. Slide 44's station map is the place that evidence lives.
+
+     EVERY NUMBER ON THESE TWO SLIDES IS MEASURED, from the fits above:
+       -4.90 C/km     the fitted lapse rate, fixed effect 2
+       38%            30,063 of 79,898 ocean-and-land pixels within 300 km
+       68% / 75%      share of the covered globe within 2 C of normal on
+                      15 Feb and 16 Aug
+       -12 C / +9 C   the extremes of 15 Feb over covered ground. The cold
+                      end is 66.6N 168.5W, the Bering Strait, with the
+                      coldest LAND pixels just west of it on the Chukotka
+                      Peninsula at -11.8. The warm end is two places at once,
+                      63N 52E in north-west Russia and 35N 98W in Oklahoma,
+                      both +8.7, which is the point: weather is regional, and
+                      one day is warm in one place and cold in another.
+
+                      An earlier version said "off Chukotka". Accurate, and
+                      unreadable from the back of a room. Name the strait.
+     Figures: pyinla src/site/apps/globaltemp/fit_runs/slide_maps.py -->
+<style>
+.gtw-fig{display:flex;justify-content:center;margin:0 0 10px;}
+.gtw-fig img{width:100%;max-width:1144px;height:auto;display:block;}
+/* width:100% matters. This row is a flex item of the slide's column, and
+   `margin:0 auto` on a column flex item overrides align-items:stretch, so
+   without an explicit width the row shrank to fit-content, about 770px,
+   and the three captions wrapped inside their own <br>s. */
+.gtw-row{display:flex;justify-content:center;gap:0;width:100%;
+  max-width:1120px;margin:0 auto;}
+/* 10px, not 24: at 24 the column is about 242px of text and the longest
+   intended line, "But not everywhere. The same day," needs about 248, so it
+   wrapped and left "day," alone on a line of its own. Column 1 broke the same
+   way, dropping "the" to the end of its third line. The <br>s in the markup
+   are the intended breaks; nothing here should wrap on its own. */
+.gtw-i{flex:1;text-align:center;padding:0 10px;font-size:15px;
+  color:var(--ink-2);line-height:1.45;}
+.gtw-i+.gtw-i{border-left:1px solid var(--rule);}
+.gtw-i b{color:var(--ink);font-weight:700;}
+</style>
+
+<section class="slide no-mark">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+  <div class="fi-head">Climate: what a place is normally like</div>
+
+  <div class="gtw-fig">
+    <img src="assets/globaltemp/slide_climate_102.png"
+         alt="Fitted climate on 15 February and 16 August, Mollweide maps">
+  </div>
+
+  <div class="gtw-row">
+    <div class="gtw-i step" data-step="1">
+      The <b>normal</b> temperature for that date,<br>with the weather
+      averaged out.<br>North and south swap: winter in one<br>is summer in
+      the other
+    </div>
+    <div class="gtw-i step" data-step="2">
+      Warm at the equator, cold at the poles,<br>and colder the higher you
+      go:<br>the model loses <b>4.9 &deg;C</b><br>per kilometre of altitude
+    </div>
+    <div class="gtw-i step" data-step="3">
+      <b>Land only</b>, as the published figures<br>draw it. The grey is sea:
+      a network<br>of land stations never sees it
+    </div>
+  </div>
+  </div>
+
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 47 · WEATHER ═══════════
+     see the comment on 47 -->
+<section class="slide no-mark">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+  <div class="fi-head">Weather: how one day differed from that</div>
+
+  <div class="gtw-fig">
+    <img src="assets/globaltemp/slide_weather_102.png"
+         alt="Fitted weather anomaly on 15 February and 16 August">
+  </div>
+
+  <div class="gtw-row">
+    <div class="gtw-i step" data-step="1">
+      The same two days, now as the<br><b>difference from those normals</b>.
+      <br>Red was warmer than usual for the<br>date, blue was colder
+    </div>
+    <div class="gtw-i step" data-step="2">
+      Most places are close to normal:<br>on 15 February <b>68%</b> of the
+      land<br>was within 2 &deg;C of it. The colour<br>is mostly in the far north
+    </div>
+    <div class="gtw-i step" data-step="3">
+      But not everywhere. The same day,<br>parts of Russia ran nearly
+      <b>9 &deg;C above</b><br>normal and others nearly <b>12 &deg;C below</b>.
+      <br>Weather is local; climate is not
+    </div>
+  </div>
+  </div>
+
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 48 · THE SAME FIT, TWO WAYS ═══════════
+     The act has just shown the fit and its answer. This is what the answer
+     cost, set against what the two covariance routes would have cost for
+     the same 776 evaluations. It is the first slide in the deck whose
+     numbers are not all measured or quoted, and the split is exact:
+
+     MEASURED HERE, and already on slides 43 and 46:
+       460,008      the latent vector
+       4,234,989    the observations
+       776          function evaluations, run3.log 2026-10-13
+       4,731.51 s   end to end, 64 threads
+
+     THIS MODEL'S OWN FACTOR, and not a range across the four. The fit is
+     variant 102, which is DEMF(1,0,2), and the removed slide "One term
+     decides the matrix" measured all four. Recoverable in full from
+     talk.html.bak-20261013-140732:
+
+       102  DEMF(1,0,2)  separable order 1   93 nnz/row  0.79 B  18x fill
+       121  DEMF(1,2,1)  critical diffusion  88 nnz/row  1.10 B  27x fill
+       202  DEMF(2,0,2)  separable order 2  132 nnz/row  1.21 B  20x fill
+       220  DEMF(2,2,0)  iterated diffusion 143 nnz/row  1.94 B  29x fill
+
+     So 102 is the CHEAPEST of the four, at 0.79 billion nonzeros in the
+     factor. At 8 bytes an entry that is 6.3 GB, which is the memory cell.
+     Values only: a real sparse factor also stores indices, so what the
+     machine needs is nearer 9.5 GB, and the cell is a floor like the dense
+     one beside it, which is also n^2 x 8 and also values only.
+
+     An earlier draft of this slide carried "6 to 16 GB", the range across
+     all four. That was wrong for a slide about one fit, and it understated
+     its own case by a factor of two and a half.
+
+     Q itself, for the record and not for the slide: 93 x 460,008 = 42.8
+     million nonzeros, about 0.34 GB. The factor is 18 times that, which is
+     the fill number, and it is why the memory cell quotes L and not Q.
+
+     ARITHMETIC, not measurement, and the slide must never be spoken as
+     though it were:
+       1.7 TB       460,008^2 x 8 bytes
+       143.5 TB     4,234,989^2 x 8 bytes
+       95 kWh       776 x (460,008^3 / 3) flops at 73.28 GFLOPS/W
+       74,500 kWh   776 x (4,234,989^3 / 3) flops at the same rate
+
+     73.28 GFLOPS/W is KAIROS, No. 1 on the June 2026 Green500, which is
+     the most energy-efficient machine in the world. So the dense energy
+     figure is a FLOOR and should be said that way. The same arithmetic on
+     LineShine, the June 2026 TOP500 leader, gives 134 kWh for the latent
+     route and 104,800 kWh for the observation route that is no longer on
+     this slide but is still the whole of slide 50.
+
+     THE 0.63 kWh CELL IS THE WEAKEST ON THE SLIDE and is the one to
+     defend first. It is 4,731.51 s at 0.481 kW, and 0.481 kW is a
+     published wall measurement of a dual Xeon Gold 6148 at full load, not
+     of the machine that ran this. The deck never names that machine: slide
+     47 records 64 threads and nothing else, and 64 threads is not the
+     40-core Ibex node the results act uses. If anyone asks for the node,
+     the honest answer is that it is not in the record. Measuring it would
+     fix this cell: sacct -j <id> -o JobID,Elapsed,NNodes,ConsumedEnergy.
+
+     WHY THE DENSE COLUMN IS THE LATENT FIELD AND NOT THE OBSERVATIONS.
+     It concedes the first objection a statistician will raise, which is
+     that nobody would pose the covariance over 4.2 million observations
+     when the latent field is only 460,008. Granting them the better of the
+     two dense routes still costs 95 kWh against 0.63, so the slide wins
+     the comparison on the opponent's own best ground rather than on its
+     worst. That is why this is the column worth keeping of the two.
+
+     THE STRONG OBJECTION, AND THE ONLY ANSWER THAT WORKS. Someone will
+     say a Kronecker product never pays either dense price: C_space tensor
+     C_time factors as 1,250 and 365 apart, which is 13.6 MB and about a
+     hundredth of a joule.
+
+     DO NOT ANSWER THIS WITH NON-SEPARABILITY. An earlier version of this
+     comment told you to reply that the structure which forecasts best is
+     non-separable, citing model D. That answer loses, because the model on
+     THIS slide is 102, DEMF(1,0,2), and the removed slide labels it
+     "separable order 1, separable". Say "you need non-separability" and
+     the room has you: the fit you just showed them is separable.
+
+     The answer is the POSTERIOR, not the prior. Separability is a property
+     of the prior covariance. What gets factorized 776 times is
+     Q + A'Q_eps A, and A carries 4,234,989 irregularly placed, partly
+     missing station observations onto the mesh. That sum has no Kronecker
+     structure, whatever the prior had: 13,579 stations do not sit on a
+     1,250 by 365 grid, and 721,346 of the 4,956,335 slots are empty. The
+     density never came from the model. It comes from scattered data
+     meeting the basis, which is this deck's thesis in one line.
+
+     Worth having ready as the second half, from slide 42's comment: of the
+     four, the one that forecasts best at 1 to 7 days is 220, the iterated
+     diffusion, which is non-separable AND the most expensive at 1.94 B.
+     So the separable fit on this slide is the cheap case, not the dear one.
+
+     THE TOP TWO ROWS ARE DELIBERATELY CONSTANT. Same 460,008 unknowns,
+     same 776 evaluations, and then the whole difference lands in the two
+     rows underneath. Everything is identical except what it costs, which
+     is the argument, and two repeated rows say it without a word.
+
+     THE SQUARE CAME OFF the matrix row on 2026-10-14, on request. It read
+     460,008^2 for the dense column, which is true, the dense matrix holds
+     every pair and that is 211,607,360,064 entries against the sparse
+     42.8 million, a ratio of 4,946. But the notation made the row a thing
+     to decode rather than a thing to read, and the fact it carried is
+     already carried better by the memory row: 6.3 GB against 1.7 TB IS
+     the squaring, in a unit nobody has to translate. Both columns now say
+     460,008, which is the honest statement that this is one model.
+
+     For the speaking, if anyone asks why one is full and the other is not:
+     the precision matrix is sparse because the zeros are EXACT, two nodes
+     that are not neighbours being conditionally independent; the
+     covariance matrix is full because a Matern covariance decays with
+     distance and never actually reaches zero. You do not choose sparse or
+     dense, you choose which matrix you work with and that decides it.
+
+     TRANSPOSED on request, 2026-10-14, and it suits two routes better than
+     it suited three: the eye compares down a short column instead of
+     across a wide row, and the metric names read as a list of questions.
+     If a third route ever comes back, reconsider the orientation.
+
+     THE DENSE-OVER-OBSERVATIONS ROUTE WAS REMOVED from this slide the same
+     day, also on request. It was 4,234,989^2, 143.5 TB and 74,500 kWh.
+     NOTE WHAT THAT COSTS: slide 50 is built entirely on that figure, so
+     the 74,500 kWh on the next slide now arrives without having been
+     introduced here, and its label "dense, over the observations" names a
+     route this slide no longer shows. That is defensible as a reveal, the
+     table being the sober comparison and 51 the punch, but it is a
+     deliberate choice and not an oversight. If 51 ever starts to feel
+     unmoored, the row above is what to put back.
+
+     THE CLASS IS .cmp, NOT .rt. The deck already uses .rt inside .fm, and
+     .fm is display:grid, so a bare .rt rule with a margin moves those grid
+     items. An earlier draft of this slide did exactly that. Do not name a
+     new table class without grepping for it first. -->
+<style>
+.cmp{margin:30px auto 0;border-collapse:collapse;font-size:21px;}
+.cmp th,.cmp td{padding:13px 40px;text-align:right;white-space:nowrap;}
+/* the metric names: a list of questions down the left, set recessive so
+   the two answer columns carry the weight */
+.cmp tbody th{text-align:left;padding-left:0;font-size:12.5px;
+  font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);}
+.cmp td:last-child,.cmp thead th:last-child{padding-right:0;}
+/* the route names, each in its own structural colour, so the room reads
+   which column is which before it reads a number. Same tokens as every
+   other sparse/dense pairing in the talk. */
+.cmp thead th{font-size:19px;font-weight:700;padding-bottom:11px;
+  border-bottom:1.5px solid var(--ink-3);}
+.cmp thead th.sp{color:var(--role-sparse-ink);}
+.cmp thead th.dn{color:var(--role-dense-ink);}
+.cmp tbody td{font-variant-numeric:tabular-nums;color:var(--ink-2);
+  border-bottom:1px solid var(--rule);}
+.cmp tbody tr:last-child td,.cmp tbody tr:last-child th{border-bottom:none;}
+/* the energy row is the one the next slide is about */
+.cmp tr.en td{font-weight:700;font-size:25px;color:var(--ink);}
+.cmp tr.en td.d{color:var(--orange-ink);}
+.cmp sup{font-size:.62em;}
+</style>
+<section class="slide no-mark">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+    <div class="fi-head">The same fit, two ways</div>
+
+    <table class="cmp">
+      <thead>
+        <tr><th></th>
+          <th class="sp">SPDE, sparse</th>
+          <th class="dn step" data-step="1">dense, latent field</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>matrix</th>
+          <td>460,008</td>
+          <td class="step" data-step="2">460,008</td></tr>
+        <tr><th>evaluations</th>
+          <td>776</td>
+          <td class="step" data-step="3">776</td></tr>
+        <tr><th>memory</th>
+          <td>6.3 GB</td>
+          <td class="step" data-step="4">1.7 TB</td></tr>
+        <tr class="en"><th>energy</th>
+          <td>0.63 kWh</td>
+          <td class="d step" data-step="5">95 kWh</td></tr>
+      </tbody>
+    </table>
+
+  </div>
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 49 · WHAT THAT WOULD HAVE COST ═══════════
+     The bottom row of 50, in the one unit nobody needs converting.
+
+     HALF A DAY, AND WHY NOT A WHOLE ONE. The marker was "one day" until
+     2026-10-14 and that was too strong. The arithmetic, in five steps:
+
+       1  783 kWh/person/year      Lebanon 2023, IEA. GRID ONLY.
+       2  783 / 0.485 = 1,614      all sources. Diesel generators were
+                                   51.5% of Lebanon's supply in 2023
+                                   (LCEC, 2025), so the grid was the
+                                   other 48.5%, and 783 is that 48.5%.
+       3  1,614 x 23,000 = 37,131,959 kWh   the village, one year
+       4  / 365          =    101,731 kWh   the village, one day
+       5  / 2            =     50,866 kWh   the village, HALF a day
+
+     and 74,475 / 50,866 = 1.46, so the bar overshoots the marker by 46%.
+     The marker sits at 50,866 / 74,475 = 68.3%.
+
+     WHAT WAS WRONG BEFORE. Step 2 did not exist, so the village-day was
+     49,340 kWh and the claim was 1.51 days. That used Lebanon's GRID
+     figure as though it were the village's whole consumption, when more
+     than half of Lebanon's electricity in 2023 came from private diesel
+     generators that the national grid statistic does not count. It made
+     the comparison look about twice as dramatic as it is. The tell was
+     the implied household: 8.2 kWh a day, which is not a plausible
+     household anywhere. After step 2 it is 16.8 kWh a day, which is.
+
+     STEP 2 IS THE ONLY JUDGEMENT CALL and it is deliberately conservative.
+     It assumes grid + generators = all supply, which leaves out rooftop
+     solar, 1,000 to 1,300 MW by end-2023. Counting solar would raise the
+     village-day and SHRINK this slide's claim, so the omission errs the
+     safe way, as every other number on these two slides does.
+
+     THE RATE IS NATIONAL, NOT THIS VILLAGE'S, and nobody measured Majdal
+     Anjar. Two effects pull opposite ways: EDL served Beirut better than
+     the periphery, so rural Bekaa probably sits below the average, while
+     27 January in a Bekaa winter sits above a yearly mean. Do not say
+     "Majdal Anjar uses". Say "at Lebanon's average rate, a town of 23,000
+     uses". The village is the picture, not the measurement.
+
+     FOR SCALE IF CHALLENGED: 23,000 / 3.8 persons per household (LFHLCS
+     2018-19) is about 6,050 houses, so 74,475 kWh is 9,136 house-days, or
+     one house for 25 years. That line lands better in a room than
+     village-days do, and it is the same number.
+
+     THE PLATE IS THE TOWN ITSELF, filmed on 27 January 2022, which is one
+     of the fit's own 365 daily knots. That is why the footage earns its
+     place over any stock aerial: the room is looking at one (s,t) cell of
+     the thing that was just fitted, under snow, on a day the model has an
+     estimate for.
+
+     THE NIGHT IS A RENDERING AND MUST BE OWNED IF ASKED. The footage is an
+     overcast winter morning with no light source anywhere in frame, so
+     there were no lights to switch off and none were faked into the video.
+     The plate is graded down and tinted cold, and 560 lights are drawn
+     over it as elements. Their positions are not decorative: they are
+     sampled from the anchor frame in proportion to local texture at a
+     coarse scale, which over a snow aerial is where roofs and streets are,
+     so the lit pattern is the town's own footprint. Sky, open slope and
+     bare field get none. tools/build_village_lights.py regenerates them.
+     They are NOT a count of households and must not be called one.
+
+     THE PLATE FREEZES at ANCHOR_T on the second beat. Lights authored for
+     one frame only sit on their buildings in that frame, and this is a
+     drone shot. Freezing costs nothing because the room is reading a
+     number while it happens.
+
+     CHANGE THE PLATE AND THE LIGHTS COME OFF THEIR BUILDINGS. Re-run the
+     builder against the new anchor frame. Three other cuts of the same
+     source are in assets/video/ and the preview file's header says what
+     each one is.
+
+     THE CLIP IS SOMEONE ELSE'S FOOTAGE unless the author shot it. It came
+     off a download, and it needs a credit line before this is shown. That
+     is the one open item on this slide.
+
+     Slow out over 3.4 s, back in 0.3. The town empties at the rate the
+     energy is spent and returns at once, because 0.63 kWh did not cost it
+     anything. The asymmetry is the argument and is worth saying. -->
+<style>
+#vgslide{padding:0;}
+.vg-plate{position:absolute;inset:0;overflow:hidden;background:#0a0b0d;}
+.vg-plate video{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;filter:brightness(.52) saturate(.82) contrast(1.06);
+  transition:filter 1.5s ease;}
+/* dusk falls on the plate itself, so the snow goes blue-grey the way it
+   would rather than simply getting dimmer */
+.vg-plate video.night{filter:brightness(.34) saturate(.3) contrast(1.22);}
+.vg-tint{position:absolute;inset:0;background:rgba(12,24,54,.46);opacity:0;
+  transition:opacity 1.5s ease;}
+.vg-tint.on{opacity:1;}
+.vg-lights{position:absolute;inset:0;opacity:0;transition:opacity 1.2s ease;}
+.vg-lights.on{opacity:1;}
+.vg-lights i{position:absolute;border-radius:50%;opacity:1;
+  transform:translate(-50%,-50%);aspect-ratio:1;
+  background:radial-gradient(circle,rgba(255,206,122,.95) 0%,
+    rgba(255,176,74,.55) 42%,rgba(255,160,60,0) 72%);
+  transition:opacity .35s ease;}
+/* each light carries its own delay inline, so the town empties gradually */
+.vg-lights.out i{opacity:0;}
+/* and comes back all at once, delays overridden */
+.vg-lights.back i{opacity:1!important;transition-delay:0s!important;
+  transition-duration:.3s!important;}
+.vg-vig{position:absolute;inset:0;background:linear-gradient(90deg,
+  rgba(10,11,13,.86) 0%,rgba(10,11,13,.62) 42%,rgba(10,11,13,.28) 100%);}
+.vg-lay{position:absolute;inset:0;padding:52px 68px 64px;display:flex;
+  flex-direction:column;justify-content:space-between;color:var(--paper);}
+.vg-head{font-size:31px;font-weight:700;letter-spacing:-.01em;max-width:62%;
+  text-shadow:0 1px 18px rgba(0,0,0,.6);}
+.vg-where{margin-top:10px;font-size:14px;font-weight:500;color:#c8ccc6;
+  font-family:'JetBrains Mono',ui-monospace,monospace;}
+.vg-body{display:flex;flex-direction:column;gap:26px;max-width:74%;}
+/* the track is nearly opaque: once the village is lit, a translucent one
+   lets 560 lights shine through the element that has to stay readable */
+.vg-bar{position:relative;height:54px;background:rgba(9,11,15,.82);
+  border:1px solid rgba(255,255,255,.1);border-radius:6px;}
+.vg-fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;width:0;
+  background:var(--role-dense);transition:width 3.4s cubic-bezier(.22,.7,.3,1);}
+/* 0.63 against 74,500 is 0.00085% of the track. It is a hairline because
+   that IS the point. Do not give it a visible fraction. */
+.vg-hair{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:6px;
+  background:var(--role-sparse);box-shadow:0 0 14px 3px rgba(76,164,150,.85);}
+.vg-mark{position:absolute;top:-13px;bottom:-13px;width:2px;
+  background:var(--paper);opacity:.92;}
+.vg-mark span{position:absolute;left:11px;top:-23px;white-space:nowrap;
+  font-size:12.5px;font-weight:600;color:var(--paper);
+  font-family:'JetBrains Mono',ui-monospace,monospace;}
+.vg-rows{display:flex;gap:46px;}
+.vg-row{display:flex;flex-direction:column;gap:5px;}
+.vg-k{font-size:12.5px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;}
+.vg-k.d{color:var(--role-dense);}
+.vg-k.s{color:var(--teal-lift);}
+.vg-v{font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1;
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;}
+.vg-u{font-size:13.5px;font-weight:500;color:#c8ccc6;}
+/* the ratio and the sources share the bottom line: the ratio left, where
+   the eye already is after the two figures, the sources hard right and
+   recessive. The references carry no .step, so they are on from the first
+   beat: a source line that arrives late reads as an afterthought. */
+/* the sixth beat's carrier: counted by the engine, never seen */
+.vg-run{position:absolute;width:0;height:0;overflow:hidden;}
+.vg-bot{display:flex;align-items:flex-end;justify-content:space-between;gap:34px;}
+.vg-ref{font-size:10.5px;line-height:1.5;color:#7f858c;text-align:right;
+  max-width:52%;font-family:'JetBrains Mono',ui-monospace,monospace;}
+.vg-foot{font-size:12.5px;color:#9aa0a6;
+  font-family:'JetBrains Mono',ui-monospace,monospace;}
+/* this slide is dark, so its number box has to be too */
+#vgslide .slide-no{color:#6b7280;}
+</style>
+<section class="slide no-mark" id="vgslide">
+  <div class="vg-plate">
+    <video id="vgv" src="assets/video/majdal-anjar-1-45-to-2-09-loop.mp4"
+           autoplay muted loop playsinline></video>
+    <div class="vg-tint" id="vgtint"></div>
+    <div class="vg-lights" id="vglights"></div>
+    <div class="vg-vig"></div>
+  </div>
+
+  <div class="vg-lay">
+    <div>
+      <div class="vg-head">What that would have cost</div>
+      <div class="vg-where">Majdal Anjar &middot; 27 January 2022 &middot;
+        one of 4,234,989</div>
+    </div>
+
+    <div class="vg-body">
+      <div class="vg-bar">
+        <div class="vg-fill" id="vgfill"></div>
+        <div class="vg-hair step" data-step="4" id="vghair"></div>
+        <!-- 50,866 / 74,475 = 68.3%. See the HALF A DAY note in this
+             slide's comment: the marker is half a day and not a whole one
+             because the whole-day version rested on a grid-only rate that
+             left out the generators supplying most of Lebanon. -->
+        <div class="vg-mark step" data-step="1" style="left:68.3%">
+          <span>the whole village, half a day</span>
+        </div>
+      </div>
+
+      <div class="vg-rows">
+        <div class="vg-row step" data-step="3">
+          <div class="vg-k d">dense, over the observations</div>
+          <div class="vg-v" id="vgnum">0</div>
+          <div class="vg-u">kWh, one fit of 776 factorizations</div>
+        </div>
+        <div class="vg-row step" data-step="4">
+          <div class="vg-k s">SPDE, sparse, with sTiles</div>
+          <div class="vg-v">0.63</div>
+          <div class="vg-u">kWh, 1 h 19 m on one node</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The sixth beat carries nothing visible: it exists so maxStep()
+         counts to 6 and the plate gets a press of its own before the talk
+         leaves the slide. The engine sizes a build from .step elements, so
+         a beat that only changes the video needs an element to be counted
+         at all. Remove this and the last press skips to slide 51 with the
+         village still frozen. -->
+    <i class="step vg-run" data-step="6" aria-hidden="true"></i>
+
+    <div class="vg-bot">
+      <div class="vg-foot step" data-step="5">117,806&times;</div>
+      <!-- Every external number on this slide, in the order it is used.
+           The two that are ours (4,731.51 s and 776) are not here: they
+           are the deck's own measurements and slide 47 carries them. -->
+      <div class="vg-ref">Green500, June 2026 &middot; node power at the
+        PDU, ServeTheHome &middot; Lebanon per capita 2023, IEA &middot;
+        generator share 2023, LCEC &middot; Majdal Anjar population,
+        2006 census</div>
     </div>
   </div>
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 44 · WHERE IT RUNS, AND WHAT IS IN FLIGHT ═══════════
-     The last slide: where the solver already sits, how to call it, and the
-     papers.
+<script src="assets/video/lights.js"></script>
+<script>
+/* ══════ 51 · the village, and the lights ══════
+   Driven off the deck's own onStep hook rather than its own key handler,
+   so the build steps with the rest of the talk and reverses properly when
+   the room goes backwards. Chained, never assigned: several other blocks
+   above hold this hook too. */
+(function(){
+  const sl=document.getElementById('vgslide');
+  if(!sl||typeof L==='undefined') return;
+  const idx=[...document.querySelectorAll('.slide')].indexOf(sl);
+  const v=document.getElementById('vgv'),
+        tint=document.getElementById('vgtint'),
+        lg=document.getElementById('vglights'),
+        fill=document.getElementById('vgfill'),
+        num=document.getElementById('vgnum');
+
+  /* 74,500 = 776 x 95.97 kWh. 95.97 = (4,234,989^3/3) flops at 73.28
+     GFLOPS/W, the June 2026 Green500 leader, so it is a floor. */
+  const DENSE=74500, ANCHOR_T=2.0, OUT_MS=3400;
+
+  /* L is [x%, y%, size, extinction order] from assets/video/lights.js,
+     sampled from the anchor frame by tools/build_village_lights.py */
+  const N=L.length;
+  L.forEach(([x,y,s,o])=>{
+    const d=document.createElement('i');
+    d.style.cssText='left:'+x+'%;top:'+y+'%;width:'+(0.58*s)+'%;'
+      +'transition-delay:'+Math.round(o/N*OUT_MS)+'ms;';
+    lg.appendChild(d);
+  });
+
+  let raf=0;
+  function counter(on){
+    cancelAnimationFrame(raf);
+    if(!on){ num.textContent='0'; return; }
+    const t0=performance.now();
+    (function tick(now){
+      const p=Math.min((now-t0)/OUT_MS,1);
+      num.textContent=Math.round(DENSE*(1-Math.pow(1-p,3))).toLocaleString('en-GB');
+      if(p<1) raf=requestAnimationFrame(tick);
+    })(performance.now());
+  }
+
+  let was=-1;
+  const prev=window.onStep;
+  window.onStep=function(i,st){
+    if(prev) prev(i,st);
+    if(i!==idx){
+      if(was!==-1){            /* left the slide: put everything back */
+        cancelAnimationFrame(raf);
+        v.classList.remove('night'); tint.classList.remove('on');
+        lg.className='vg-lights'; fill.style.width='0'; num.textContent='0';
+        v.play().catch(()=>{});
+        was=-1;
+      }
+      return;
+    }
+    /* 2: night falls and the village lights up. The plate freezes on the
+       frame the lights were authored for.
+       6: and it is handed back. The grade lifts, the lights fade and the
+       drone moves again, so the slide ends on the real village in daylight
+       with the numbers still up, and the last press leaves for slide 51.
+
+       THE LIGHTS MUST GO WHEN THE PLATE MOVES. They are authored for one
+       frame of a moving shot, so the moment it plays they slide off their
+       buildings. Night and motion are mutually exclusive on this slide and
+       the single `night` flag below is what enforces it. Do not be tempted
+       to keep them lit over the moving plate. */
+    const night=st>=2&&st<6;
+    v.classList.toggle('night',night);
+    tint.classList.toggle('on',night);
+    lg.classList.toggle('on',night);
+    if(night && !v.paused){ v.pause(); try{v.currentTime=ANCHOR_T;}catch(e){} }
+    if(!night && v.paused) v.play().catch(()=>{});
+
+    /* 3: the counter climbs and the lights go out underneath it */
+    lg.classList.toggle('out',st>=3);
+    fill.style.width=st>=3?'100%':'0';
+    if(st===3&&was!==3) counter(true); else if(st<3) counter(false);
+
+    /* 4: 0.63 kWh, and the whole village comes back at once */
+    lg.classList.toggle('back',st>=4);
+    if(st>=3&&st!==3) num.textContent=DENSE.toLocaleString('en-GB');
+    was=st;
+  };
+})();
+</script>
+
+<!-- ═══════════ 50 · WHEN YOU TAKE A SIDE (1 OF 2) ═══════════
+     The close, and the answer to the deck's own title. Eight places where
+     picking a side in advance costs you something, each with the number
+     that shows it and the saying it is an instance of. The proverb is the
+     handle: nobody remembers a ratio, everybody remembers the sledgehammer.
+
+     No rival solver is named on this slide and none should be added. The
+     numbers that remain are sTiles against its own fixed modes, which is
+     a statement about structure. A head-to-head second count against a
+     named product turns the closing argument into a scoreboard.
+     Four to a slide rather than eight, so the type can be read from the
+     back; the numbering runs 1-4 here and 5-8 on the next. -->
+<section class="slide no-mark">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+    <div class="fi-head" style="font-size:30px;">When you take a side:
+      dense vs. sparse</div>
+
+    <div class="lessons">
+      <div class="ls step" data-step="1">
+        <span class="n">1</span>
+        <div><p>Sparse matrix, one solve: use the native sparse solver your platform already ships. A one-off solve never repays a heavy analysis.</p>
+          <span class="pv">&ldquo;Don't use a sledgehammer to crack a nut.&rdquo;</span></div>
+      </div>
+      <div class="ls step" data-step="2">
+        <span class="n">2</span>
+        <div><p>Don't use a sparse solver on a dense matrix. Once the pattern is nearly full, the indexing costs more than the sparsity saves.</p>
+          <span class="pv">&ldquo;You can't get blood from a stone.&rdquo;</span></div>
+      </div>
+      <div class="ls step" data-step="3">
+        <span class="n">3</span>
+        <div><p>Small sparse matrix: a dense solver is fine. Memory will be happy either way.</p>
+          <span class="pv">&ldquo;Don't sweat the small stuff.&rdquo;</span></div>
+      </div>
+      <div class="ls step" data-step="4">
+        <span class="n">4</span>
+        <div><p>Know your sparsity pattern. No fixed mode wins everywhere, and which one is right changes with the regime.</p>
+          <span class="pv">&ldquo;Dense matrices are all alike; every sparse matrix is sparse in its own way.&rdquo;</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 51 · WHEN YOU TAKE A SIDE (2 OF 2) ═══════════
+     Same heading, continuing the numbering, ending on the title of the
+     talk finally answered. -->
+<section class="slide no-mark">
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+    <div class="fi-head" style="font-size:30px;">When you take a side:
+      dense vs. sparse</div>
+
+    <div class="lessons">
+      <div class="ls step" data-step="1">
+        <span class="n">5</span>
+        <div><p>Order matters. The wrong ordering turns a sparse matrix into a dense factor.</p>
+          <span class="pv">&ldquo;Don't put the cart before the horse.&rdquo;</span></div>
+      </div>
+      <div class="ls step" data-step="2">
+        <span class="n">6</span>
+        <div><p>Speed is satisfying, but efficiency is what scales. We can be slower on the small matrices and faster on the ones that cost real time.</p>
+          <span class="pv">&ldquo;Lose the battle, win the war.&rdquo;</span></div>
+      </div>
+      <div class="ls step" data-step="3">
+        <span class="n">7</span>
+        <div><p>Invest once, reuse a thousand times. The analysis is the heaviest of any solver, but it pays for itself in a handful of factorizations, and the same pattern is factorized again and again.</p>
+          <span class="pv">&ldquo;Measure twice, cut once.&rdquo;</span></div>
+      </div>
+      <div class="ls step" data-step="4">
+        <span class="n">8</span>
+        <div><p>Not every matrix belongs on a GPU. The A100 is at parity on the two smallest dense matrices and <b>6.3&times;</b> faster on the largest.</p>
+          <span class="pv">&ldquo;Horses for courses.&rdquo;</span></div>
+      </div>
+    </div>
+
+    <div class="verdict step" data-step="5">
+      The best side is not to take one. <b>Let the matrix decide.</b>
+    </div>
+  </div>
+  <div class="slide-no"></div>
+</section>
+
+<!-- ═══════════ 52 · WHERE IT RUNS, AND WHAT IS IN FLIGHT ═══════════
+     The last slide before the bookend: where the solver already sits, how to
+     call it, and the papers. It sat ahead of the application act until 2026-10-13; it now follows
+     the act, so the room sees a real fit before being told where the
+     solver ships.
 
      THE PAPERS COLUMN, AND WHERE EVERY WORD OF IT COMES FROM. Checked
      2026-10-11. Titles are verbatim from the sources below, not paraphrased,
@@ -4688,7 +6081,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 45 · THANK YOU ═══════════
+<!-- ═══════════ 53 · THANK YOU ═══════════
      The bookend. Deliberately the title slide's furniture and nothing
      else: the same logo in the same corner, the same four-s eyebrow, the
      same hero size and tilebar, the same name block. The deck opens and
@@ -4724,7 +6117,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 46 · BACKUP · SELECTED INVERSION ═══════════
+<!-- ═══════════ 54 · BACKUP · SELECTED INVERSION ═══════════
      Everything after the bookend is backup, shown only if the questions go
      that way. The act-break furniture is deliberate: it tells the room the
      talk is over and this is an appendix, not a fifth act. -->
@@ -4734,7 +6127,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 47 · A SELECTED INVERSE, NOT THE INVERSE ═══════════
+<!-- ═══════════ 55 · A SELECTED INVERSE, NOT THE INVERSE ═══════════
      The 12x12 from slide 4, so the room is reading a matrix it has already
      met. All three patterns are computed, not drawn: the middle panel is
      every one of the 144 entries, the right panel is the symbolic factor of
@@ -4777,7 +6170,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 48 · THE SAME FOUR LINES, BACKWARDS ═══════════
+<!-- ═══════════ 56 · THE SAME FOUR LINES, BACKWARDS ═══════════
      The deck's spine applied once more. Left is slide 5's sparse column,
      unchanged. Right is the Takahashi recursion in the same four-line
      shape, with the same N(j): off-diagonals first, then the diagonal,
@@ -4835,7 +6228,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 49 · THE SAME TILES, THE SAME ROUTES ═══════════
+<!-- ═══════════ 57 · THE SAME TILES, THE SAME ROUTES ═══════════
      The answer to "does any of the first half still hold". It does: the
      tiles, the skip, the task graph and the router are shared, and the
      second phase runs the same grid in reverse. Tile lines every 4 cells
@@ -4871,7 +6264,7 @@ tr.step,th.step,td.step{transform:none;}
   <div class="slide-no"></div>
 </section>
 
-<!-- ═══════════ 50 · WHAT IT COSTS, WHAT IT BUYS ═══════════
+<!-- ═══════════ 58 · WHAT IT COSTS, WHAT IT BUYS ═══════════
      Cost from the bern replay (chol 13.95 s, selinv 29.78 s serial on the
      688k graph). Speedups verbatim from the paper's abstract: up to 13x
      over PARDISO on a dual-socket 26-core Xeon, and the A100 adding up to
@@ -4900,6 +6293,9 @@ tr.step,th.step,td.step{transform:none;}
       </div>
     </div>
   </div>
+  <div class="cite">PARDISO on this slide is <b>Panua-PARDISO 8.2</b>: Schenk, G&auml;rtner, Fichtner &amp; Stricker,
+    <i>Future Gener. Comput. Syst.</i> 18(1), 2001 &middot; the selected-inversion baseline, a different library
+    from the oneMKL PARDISO the Cholesky results use</div>
   <div class="slide-no"></div>
 </section>
 
@@ -5039,7 +6435,7 @@ const P = {
 
 
 
-/* ═════════ slide 7 · the tiled algorithm as a task graph ═════════
+/* ═════════ slide 8 · the tiled algorithm as a task graph ═════════
    Generated from the loop nest, so the picture cannot drift from the four
    lines printed beside it. Banded by J: each band is one turn of the outer
    loop, and every band has the same three rows (one POTRF, a row of TRSMs,
@@ -5170,7 +6566,7 @@ const P = {
 
   const tasks = n => n + 2*(n*(n-1)/2) + (n*(n-1)*(n-2)/6);
   const cap = document.getElementById('dag-cap');
-  /* the second figure has to stand on its own: slide 6 states the matrix
+  /* the second figure has to stand on its own: slide 7 states the matrix
      size but no longer states a tile size, so name both here rather than
      pointing at a slide for a number it does not carry. */
   if (cap) cap.innerHTML =
@@ -5708,13 +7104,29 @@ function go(d){
    puts the real number back. */
 
 /* a human label per slide. The deck already names every section in the comment
-   above it ("<!-- ══ 3 · THREE EQUATIONS ══ -->"), so read that; fall back to a
+   above it ("<!-- ══ 5 · CHOLESKY, IN FOUR LINES ══ -->"), so read that; fall back to a
    heading for any slide written without one. */
 const slideLabel=sl=>{
   for(let n=sl.previousSibling;n;n=n.previousSibling){
-    if(n.nodeType===1) break;                       /* an element, not our comment */
+    /* Several slides carry their own <style> between their comment and
+       themselves. Those render nothing, so walk past them; breaking here
+       left four slides in the application act with a blank peek, falling
+       through to a heading they do not have. Any OTHER element means the
+       previous slide, and there is no comment of ours left to find. */
+    if(n.nodeType===1){
+      if(n.tagName==='STYLE'||n.tagName==='SCRIPT') continue;
+      break;
+    }
     if(n.nodeType===8){
-      const t=n.textContent.replace(/[═\s]+/g,' ').replace(/^\s*\d+\s*·\s*/,'').trim();
+      /* the FIRST LINE only. Most of these comments carry an essay under
+         the header, and taking the whole node meant the peek read
+         "DENSE SOLVERS An act break, on the deck's own .divi…" on every
+         annotated slide: a title, then prose, then an ellipsis. The header
+         line is the label; everything under it is for the reader of the
+         file. */
+      const t=n.textContent.split('\n')[0]
+               .replace(/═+/g,' ').replace(/^\s*\d+\s*·\s*/,'')
+               .replace(/\s+/g,' ').trim();
       if(t) return t;
       break;
     }
@@ -5891,7 +7303,7 @@ addEventListener('resize',()=>{fit();drawWires();});
   document.querySelectorAll('[data-itex]').forEach(el=>{
     katex.render(el.dataset.itex, el, {displayMode:false, throwOnError:false});
   });
-  /* the two granularities on slide 6, through the same matrix() every other
+  /* the two granularities on slide 7, through the same matrix() every other
      figure in the deck goes through. data-cells="one" lights a single cell
      and leaves the other 63 at a tenth of the hue, so the box still reads as
      a tile that is barely touched; "all" lights every one of them. The lit
