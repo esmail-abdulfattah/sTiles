@@ -1,7 +1,7 @@
 name = "sTiles"
 uuid = "21d9f770-0d51-43c8-be75-c9a27496c115"
 authors = ["Esmail Abdul Fattah <esmail.abdulfattah@kaust.edu.sa>"]
-version = "2026.9.24"
+version = "2026.10.19"
 
 [deps]
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
