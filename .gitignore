@@ -6,6 +6,16 @@
 # OS / editor cruft
 .DS_Store
 *.swp
+# Backups and editor leftovers never ship with the site. deck.js.bak rode
+# into docs/presentations on 2026-10-20 because a publish script copied a
+# directory whole; these patterns stop the next one.
+*.bak
+*.bak-*
+*.bak_*
+.bak*
+*.orig
+*.rej
+*~
 
 # Markdown docs are kept internal; the site (docs/) is the documentation.
 # (.gitkeep files are preserved below so binary-drop dirs still exist.)
