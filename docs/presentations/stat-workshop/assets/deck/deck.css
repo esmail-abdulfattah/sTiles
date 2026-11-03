@@ -1,0 +1,340 @@
+/* ══════════════════════════════════════════════════════════════════════
+   The deck design system, lifted verbatim out of talk.html so a second
+   deck can share it instead of forking 300 lines of CSS. Everything here
+   is slide-independent: palette, stage, archetypes, chrome. Per-slide CSS
+   stays in the deck that needs it.
+
+   Source of truth for the reasoning behind every choice: design/DESIGN.md.
+   ══════════════════════════════════════════════════════════════════════ */
+* { margin:0; padding:0; box-sizing:border-box; }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root{
+  /* ---- brand: sampled from the sTiles logo, not approximated ----
+     assets/brand/stiles-logo.png, the four tiles read left to right.
+     Earlier drafts carried lightened siblings of these three; the logo's
+     own values are more saturated and every one of them reads better on
+     paper than the sibling it replaced.                                */
+  --lime:#bdcd51;      --lime-ink:#6d7822;
+  --orange:#dd8545;    --orange-ink:#ae5c20;
+  --teal:#3c8277;      --teal-ink:#2f6b61;
+  --tile-4:#14161a;                 /* the logo's fourth tile: fully dense */
+
+  /* lifted siblings, for the same hue on a dark slide (>=6:1 on --ink) */
+  --teal-lift:#4ca496;
+
+  /* ---- neutrals ---- */
+  --ink:#14161a;       --ink-2:#3d434c;    --ink-3:#6b7280;
+  --rule:#dfe1de;      --paper:#fbfbf9;    --panel:#f2f2ee;
+
+  /* ---- SEMANTIC: structural role. constant for the whole talk ---- */
+  --role-sparse:var(--teal);      --role-sparse-ink:var(--teal-ink);
+  --role-semi:var(--lime);        --role-semi-ink:var(--lime-ink);
+  --role-dense:var(--orange);     --role-dense-ink:var(--orange-ink);
+  --role-fill:#c9a227;            /* fill-in: distinct from all three routes */
+
+  /* ---- SEMANTIC: solver identity in results ---- */
+  --stiles:var(--ink);
+  --rival:#9aa0a6;
+
+  /* ---- the accent used for chrome that carries no structural meaning:
+     progress bar, arrows, the title rule. Teal, because it is the only
+     brand colour legible as a hairline on paper.                       */
+  --accent:var(--teal);
+}
+
+html,body{height:100%;background:#22242a;overflow:hidden;
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;}
+
+/* ============ STAGE ============ */
+#stage-wrap{position:fixed;inset:0;display:grid;place-items:center;}
+#stage{width:1280px;height:720px;background:var(--paper);color:var(--ink);
+  position:relative;overflow:hidden;transform-origin:center center;
+  box-shadow:0 24px 80px rgba(0,0,0,.5);}
+
+.slide{position:absolute;inset:0;padding:52px 68px 64px;display:none;
+  flex-direction:column;animation:in .30s linear;}
+.slide.on{display:flex;z-index:2;}
+/* The slide being left stays painted for one beat so the two cross-fade
+   instead of cutting. draw() adds .out and removes it again when the
+   animation ends, so only ever two slides are rendered at once.
+
+   Opacity ONLY, deliberately. fit() scales #stage by a fractional factor,
+   so a translate inside it moves text by fractional device pixels every
+   frame and the glyphs re-rasterize: with two slides overlapping and
+   sliding opposite ways that reads as shake. Nothing moves now, it just
+   dissolves. Linear on both halves so the two opacities sum to 1 and the
+   cross-fade holds a constant brightness instead of dipping through the
+   middle. will-change promotes only the two slides actually on screen, so
+   the fade is composited rather than repainted. */
+.slide.out{display:flex;z-index:1;pointer-events:none;
+  animation:out .30s linear forwards;}
+.slide.on,.slide.out{will-change:opacity;}
+/* While a slide is arriving, its already-revealed steps must simply BE
+   there. Without this they each run their own translateY on entry, which
+   on a backward move (st resets to the slide's last step) means a dozen
+   elements sliding at once underneath the cross-fade. draw() drops the
+   class a frame later, so clicking through builds still animates. */
+.slide.no-anim .step,
+.slide.no-anim .gone,
+.slide.no-anim [data-until]{transition:none!important;}
+/* While a slide is arriving, its already-revealed steps must simply BE
+   there. Without this they each run their own translateY on entry, which
+   on a backward move (st resets to the slide's last step) means a dozen
+   elements sliding at once underneath the cross-fade. draw() drops the
+   class a frame later, so clicking through builds still animates. */
+.slide.no-anim .step,
+.slide.no-anim .gone,
+.slide.no-anim [data-until]{transition:none!important;}
+@keyframes in{from{opacity:0}to{opacity:1}}
+@keyframes out{from{opacity:1}to{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .slide{animation:none;}
+  .slide.out{animation:none;display:none;}
+}
+
+/* ============ TYPE SCALE ============ */
+.eyebrow{font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:14px;}
+h1{font-size:42px;font-weight:700;letter-spacing:-.022em;line-height:1.1;}
+h1 em{font-style:normal;color:var(--teal-ink);}
+h2{font-size:21px;font-weight:600;letter-spacing:-.01em;color:var(--ink);margin-bottom:12px;}
+.lead{font-size:24px;line-height:1.45;color:var(--ink-2);font-weight:400;}
+p,li{font-size:20px;line-height:1.55;color:var(--ink-2);}
+.sm{font-size:16px;line-height:1.5;color:var(--ink-3);}
+.xs{font-size:13px;color:var(--ink-3);}
+strong{font-weight:600;color:var(--ink);}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+.math{font-family:'KaTeX_Math','STIX Two Text',Palatino,Georgia,serif;font-style:italic;}
+.math .up{font-style:normal;}
+
+/* ============ THE MARK, AND THE DEVICE IT GIVES US ============
+   The logo is a wordmark sitting on a row of four tiles whose densities
+   climb left to right: lime almost empty, orange scattered, teal crowded,
+   the fourth solid. That row is the deck's signature device.
+
+   Rule for using it: the four colours TOGETHER, in logo order, at logo
+   proportions, read as the brand and carry no structural claim. A colour
+   used ALONE always keeps its role from :root. So .tilebar can sit under
+   every heading without competing with the legend the talk teaches.      */
+.tilebar{display:flex;gap:3px;margin-top:16px;}
+.tilebar i{display:block;width:14px;height:5px;border-radius:1.5px;}
+.tilebar i:nth-child(1){background:var(--lime);}
+.tilebar i:nth-child(2){background:var(--orange);}
+.tilebar i:nth-child(3){background:var(--teal);}
+.tilebar i:nth-child(4){background:var(--tile-4);}
+/* hero scale, for the title slide */
+.tilebar.lg{gap:5px;margin-top:26px;}
+.tilebar.lg i{width:24px;height:7px;border-radius:2px;}
+/* on a dark slide the fourth tile has to invert or it disappears */
+.divider .tilebar i:nth-child(4){background:var(--paper);}
+
+/* title rule under h1 */
+.head{margin-bottom:30px;}
+.head .bar{width:52px;height:4px;background:var(--accent);margin-top:16px;border-radius:2px;}
+
+/* ============ ARCHETYPE A · statement ============ */
+.slide.statement{justify-content:center;padding:52px 128px;}
+.statement .big{font-size:52px;font-weight:700;line-height:1.22;letter-spacing:-.025em;color:var(--ink);}
+.statement .big b{font-weight:700;color:var(--teal-ink);}
+.statement .attrib{margin-top:28px;font-size:18px;color:var(--ink-3);}
+
+/* ============ ARCHETYPE · act divider (dark) ============
+   The only place the logo appears at size other than the title and the close.
+   It uses the dark artwork: the wordmark and the fourth tile invert, the three
+   coloured tiles keep their own colour and their dark cells.                */
+/* centred both ways: an act break carries one phrase and nothing else, so
+   there is no left edge for it to line up with */
+/* An act divider is a pause, not a blackout. It used to invert to --ink,
+   which on a projector is a hard flash between two light slides; it now
+   sits on --panel, a shade off the paper, so the break still registers
+   without the room going dark. */
+.slide.divider{background:var(--panel);justify-content:center;align-items:center;
+  text-align:center;padding:52px 96px;}
+.divider .num{font-size:15px;font-weight:600;letter-spacing:.2em;color:var(--lime-ink);
+  text-transform:uppercase;margin-bottom:18px;}
+.divider .ttl{font-size:56px;font-weight:700;color:var(--ink);letter-spacing:-.025em;line-height:1.12;}
+.divider .sub{margin-top:20px;font-size:21px;color:var(--ink-3);max-width:760px;line-height:1.5;}
+.divider .logo{position:absolute;top:52px;right:96px;width:184px;opacity:.92;}
+
+/* ============ ARCHETYPE B · split ============ */
+.body{flex:1;display:grid;gap:52px;min-height:0;}
+.body.split{grid-template-columns:1fr 1fr;}
+.body.split-wide{grid-template-columns:1.15fr .85fr;}
+.body.thirds{grid-template-columns:repeat(3,1fr);gap:28px;}
+.col{min-width:0;display:flex;flex-direction:column;}
+.center{align-items:center;justify-content:center;}
+
+/* ============ takeaway strip ============ */
+.takeaway{position:absolute;left:0;right:0;bottom:0;padding:20px 68px 22px;
+  background:var(--panel);border-top:1px solid var(--rule);
+  font-size:25px;font-weight:600;color:var(--ink);letter-spacing:-.015em;line-height:1.35;}
+.takeaway b{color:var(--teal-ink);}
+.slide.has-takeaway{padding-bottom:104px;}
+
+/* ============ panels (used sparingly, no shadows) ============ */
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:20px 22px;}
+.panel.tint-sparse{background:rgba(60,130,119,.07);border-color:rgba(60,130,119,.28);}
+.panel.tint-semi{background:rgba(189,205,81,.16);border-color:rgba(109,120,34,.32);}
+.panel.tint-dense{background:rgba(221,133,69,.10);border-color:rgba(221,133,69,.32);}
+.panel h3{font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
+.tint-sparse h3{color:var(--role-sparse-ink);}
+.tint-semi h3{color:var(--role-semi-ink);}
+.tint-dense h3{color:var(--role-dense-ink);}
+
+/* ============ list ============ */
+ul{list-style:none;}
+ul li{padding-left:26px;position:relative;margin-bottom:12px;}
+ul li::before{content:'';position:absolute;left:0;top:.62em;width:9px;height:9px;
+  background:var(--teal);border-radius:2px;}
+ul.semi li::before{background:var(--lime-ink);}
+ul.dense li::before{background:var(--orange);}
+
+/* ============ figure ============ */
+/* figbox gives every figure in a row the same optical box, so a row of
+   differently-sized matrices shares one baseline and one caption line. */
+.figrow{display:flex;align-items:flex-start;justify-content:center;gap:26px;width:100%;}
+.figbox{display:grid;place-items:center;}
+figure{display:flex;flex-direction:column;align-items:center;}
+figcaption{font-size:15px;color:var(--ink-3);margin-top:12px;text-align:center;line-height:1.4;}
+.arrow{font-size:30px;color:var(--ink-3);align-self:center;font-weight:300;}
+.role-key{display:flex;gap:22px;align-items:center;font-size:14px;color:var(--ink-3);}
+.role-key i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:7px;
+  vertical-align:-1px;font-style:normal;}
+
+/* ============ table ============ */
+table{width:100%;border-collapse:collapse;font-size:17px;}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--rule);}
+th:first-child,td:first-child{text-align:left;}
+thead th{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);border-bottom:1.5px solid var(--ink-3);}
+tbody tr.me td{font-weight:700;color:var(--ink);background:rgba(20,22,26,.045);}
+td .ratio{color:var(--ink-3);font-size:14px;}
+th.c-sparse{color:var(--role-sparse-ink);}
+th.c-semi{color:var(--role-semi-ink);}
+th.c-dense{color:var(--role-dense-ink);}
+col.c-sparse{background:rgba(60,130,119,.055);}
+col.c-semi{background:rgba(189,205,81,.14);}
+col.c-dense{background:rgba(221,133,69,.075);}
+
+/* ============ steps ============ */
+.step{opacity:0;transition:opacity .4s ease,transform .4s ease;transform:translateY(6px);}
+/* inside an SVG that 6px is six grid cells, not six screen pixels */
+circle.step{transform:none;}
+.step.vis{opacity:1;transform:none;}
+.gone{opacity:0;transform:translateY(-14px);pointer-events:none;
+  transition:opacity .35s ease,transform .35s ease;}
+/* a state that arrives on one click and steps aside on the next. .gone is
+   no more specific than .step.vis, so it cannot win on its own: this rule
+   is equally specific and comes later, which is what settles it. */
+.step.gone{opacity:0;transform:translateY(-14px);}
+[data-until]{transition:opacity .35s ease,transform .35s ease;}
+
+/* ============ chrome ============ */
+/* the standing corner mark: the logo's four tiles, nothing else. At 11px
+   the wordmark would be mush, and the tiles are the memorable half anyway.
+   Injected into every slide by script, so no slide has to remember it.   */
+/* aligned to the content margin, not floated in the corner, so it pairs with
+   the eyebrow across the top line instead of reading as a stray sticker */
+.brandmark{position:absolute;top:56px;right:68px;display:flex;gap:3px;
+  align-items:center;z-index:4;opacity:.9;}
+.divider .brandmark{right:96px;}          /* dividers run a wider margin */
+.brandmark i{width:11px;height:11px;border-radius:2px;display:block;}
+.brandmark i:nth-child(1){background:var(--lime);}
+.brandmark i:nth-child(2){background:var(--orange);}
+.brandmark i:nth-child(3){background:var(--teal);}
+.brandmark i:nth-child(4){background:var(--tile-4);}
+.divider .brandmark i:nth-child(4){background:var(--paper);}
+/* the title slide carries the full logo, so it does not also want the mark */
+.slide.no-mark .brandmark{display:none;}
+
+/* ---- the act mark: which solver the room is looking at ----------------
+   A standing tag, not a per-slide eyebrow, so that an act reads as one
+   stretch of the talk rather than as a run of slides that each happen to
+   say the same thing. It sits on the top content margin opposite the
+   brandmark's corner, and it is injected from data-act, so tagging a slide
+   is one attribute and the wording can never drift between slides.
+
+   The colour is not decoration: it is the role palette the deck has used
+   since slide 3, so "orange" here already means dense to the room. The
+   saturated swatch earns its 9px because the tinted ground alone is too
+   pale to name a hue: the square is the one that matches the legend.    */
+.actmark{position:absolute;top:46px;left:68px;z-index:4;
+  display:inline-flex;align-items:center;gap:9px;padding:7px 15px 7px 13px;
+  border-radius:999px;font-size:12.5px;font-weight:700;letter-spacing:.13em;
+  text-transform:uppercase;}
+.actmark i{width:9px;height:9px;border-radius:2px;display:block;flex:none;}
+.divider .actmark{left:96px;}             /* dividers run a wider margin */
+.actmark.dense{background:rgba(221,133,69,.14);color:var(--orange-ink);
+  border:1px solid rgba(221,133,69,.42);}
+.actmark.dense i{background:var(--orange);}
+.actmark.sparse{background:rgba(60,130,119,.10);color:var(--teal-ink);
+  border:1px solid rgba(60,130,119,.38);}
+.actmark.sparse i{background:var(--teal);}
+.actmark.semi{background:rgba(189,205,81,.22);color:var(--lime-ink);
+  border:1px solid rgba(109,120,34,.40);}
+.actmark.semi i{background:var(--lime);}
+
+/* ---- the institutional mark -------------------------------------------
+   Bottom-left, mirroring the slide number's corner inset rather than the
+   content margin, so it sits outside the figure on every layout and never
+   has to be designed around. Injected like the other marks, so a new slide
+   cannot be added without it.
+
+   Kept to 30px deliberately. The KAUST seed is four striped seeds in lime,
+   gold, orange and teal, which is very nearly the deck's own role palette:
+   at any larger size those hues start competing with the legend the talk
+   teaches, where teal means sparse and orange means dense. Small and in a
+   corner it reads as a credit, which is what it is.                     */
+.kaust{position:absolute;bottom:14px;left:24px;height:30px;width:auto;
+  z-index:5;opacity:.9;}
+
+/* the logo itself, used only where it can be read: title and close */
+.logo{display:block;height:auto;}
+.logo.hero{width:250px;}
+
+/* The number is reached for, not read. It sits at zero opacity until the
+   pointer comes near it, which keeps the corner clean during the talk and
+   still leaves the jump box one gesture away. Revealed by proximity rather
+   than by :hover on a pad in the corner: the deck advances on click, so a
+   hover target there would be a dead zone exactly where people click. */
+.slide-no{position:absolute;bottom:18px;right:24px;font-size:12px;color:var(--ink-3);
+  font-family:'JetBrains Mono',monospace;z-index:5;
+  display:flex;align-items:baseline;gap:8px;
+  opacity:0;transition:opacity .22s ease;}
+html.near-no .slide-no,
+.slide-no:focus-within,
+.slide-no.editing{opacity:1;}
+@media print{.slide-no{opacity:1;}}
+.slide.divider .slide-no{color:var(--ink-3);}
+.slide.has-takeaway .slide-no{color:var(--ink-3);}
+
+/* The counter is also the way in: click the number and type, or just start
+   typing a digit anywhere. The field borrows every value from .slide-no, so
+   it stays invisible until it is being used — no input chrome on a slide. */
+.slide-no .num{font:inherit;color:inherit;background:transparent;padding:0 1px;
+  border:0;border-bottom:1px solid transparent;border-radius:0;outline:none;
+  text-align:right;width:1.2ch;cursor:text;transition:border-color .15s;}
+.slide-no .num::-webkit-outer-spin-button,
+.slide-no .num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.slide-no:hover .num{border-bottom-color:currentColor;}
+.slide-no.editing .num{color:var(--teal-ink);border-bottom-color:var(--teal-ink);}
+.slide-no.bad .num{color:var(--orange-ink);border-bottom-color:var(--orange-ink);}
+/* on a dark slide the same two hues, lifted to stay legible */
+.slide.divider .slide-no.editing .num{color:var(--teal-lift);border-bottom-color:var(--teal-lift);}
+.slide.divider .slide-no.bad .num{color:var(--orange);border-bottom-color:var(--orange);}
+/* the target's name, so a blind jump can be confirmed before committing */
+.slide-no .peek{font-family:'Inter',system-ui,sans-serif;font-size:12px;
+  max-width:360px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  opacity:0;transition:opacity .15s;}
+.slide-no.editing .peek,.slide-no.bad .peek{opacity:1;}
+.slide-no.bad .peek{color:var(--orange-ink);}
+.slide.divider .slide-no.bad .peek{color:var(--orange);}
+#bar{position:fixed;left:0;bottom:0;height:3px;background:var(--accent);z-index:50;transition:width .3s;}
+#hint{position:fixed;left:14px;bottom:12px;font-size:11px;color:#6b7280;z-index:50;
+  font-family:'JetBrains Mono',monospace;}
+
+
+svg{display:block;}
