@@ -146,6 +146,19 @@ typedef void (*sTiles_user_func_t)(int rank, int nthreads, void* user_data);
 //==============================================================================
 const char* sTiles_get_version(void);
 void sTiles_print_version(void);
+
+/**
+ * Set how much the library prints. This is the only control; nothing is
+ * filtered at build time, so every level works in any build of libstiles.
+ *   -2  warnings and errors only (stderr; nothing on stdout)
+ *   -1  errors only
+ *    0  + [TIME] rows (default)
+ *    1  + [INFO] progress
+ *    2  + [DEBUG]
+ *    3  + [TRACE]
+ * The same integers may be exported as STILES_LOG_LEVEL before the run; a call
+ * to this function overrides the environment.
+ */
 void sTiles_set_log_level(int);
 void sTiles_set_tile_size(int);
 int  sTiles_return_tile_size(void);
@@ -201,6 +214,36 @@ void sTiles_reset_all_params(void);
  *  4=ASCOTCH 5=FSCOTCH 6=AMD 7=CAMD 8=COLAMD). A single digit pins one
  *  ordering, e.g. sTiles_set_ordering_mode(STILES_ORD_AMD). */
 void sTiles_set_ordering_mode(int value);
+
+/** Compute a fill-reducing ordering on its own, with no solver handle and no
+ *  group: pass a symmetric COO graph, get back a permutation.
+ *
+ *  rows/cols/n/nnz  the graph, LOWER triangle only (row >= col, diagonal
+ *                   included), as for sTiles_assign_graph_one_call. Both
+ *                   triangles still produce a valid permutation but double the
+ *                   mean degree, which is what picks the candidate set and the
+ *                   ranking metric.
+ *  tile_size        > 0 ranks candidates by the occupied tile count of L,
+ *                   0 ranks them by exact nnz(L)
+ *  num_cores        candidates are evaluated concurrently
+ *  ordering_mode    0 = adaptive candidate set; otherwise a digit list in the
+ *                   STILES_ORD_* numbering, exactly as sTiles_set_ordering_mode
+ *  move_dense_last  1 moves vertices of degree > sqrt(nnz) to the end first
+ *  perm             [n] out, old -> new (required)
+ *  iperm            [n] out, new -> old (may be NULL)
+ *  range, parent    [n+1] and [n] out, the separator tree of a nested winner:
+ *                   block k spans permuted positions [range[k], range[k+1]) and
+ *                   parent[k] is its parent block, -1 at a root. Both may be
+ *                   NULL. Minimum-degree orderings and RCM have no such
+ *                   structure and leave *nblocks at 0.
+ *  nblocks          out, number of blocks written, 0 when not nested
+ *
+ *  Returns the STILES_ORD_* id of the ordering that won, or -1 on failure. */
+int  sTiles_compute_ordering(const int* rows, const int* cols, int n, int nnz,
+                             int tile_size, int num_cores, int ordering_mode,
+                             int move_dense_last,
+                             int* perm, int* iperm,
+                             int* range, int* parent, int* nblocks);
 void sTiles_set_tile_ordering_mode(int value);
 /** DEPRECATED, no effect (slot 16 is never read). */
 void sTiles_set_tile_first_ordering_mode(int value);
@@ -288,6 +331,30 @@ int sTiles_get_num_gpus(void);
  */
 void sTiles_use_gpu(int enable);
 
+/** Per-group GPU switch (runtime, any build). enable=0 keeps group_index on
+ *  the CPU whatever the planner would decide; group_index=-1 sets the default
+ *  for every group (enable=1 restores "all allowed"). Env STILES_GPU_GROUPS
+ *  (comma-separated group indices) allows exactly those groups. Takes effect
+ *  at the next sTiles_init / sTiles_init_group. */
+void sTiles_use_gpu_for_group(int group_index, int enable);
+
+/** Dispatch case the group landed in at its last preprocess: 'A' one device,
+ *  'B' several devices, 'C' CPU (no fit), 'D' CPU by request, 'X' not
+ *  planned; 0 when the build has no GPU support or the group has no scheme. */
+int sTiles_get_gpu_group_strategy(int group_index, void** obj);
+
+/** Host<->device bytes moved and the time spent moving them, since the last
+ *  sTiles_gpu_xfer_reset(). Measured ONLY when STILES_GPU_XFER_TIMING is set in
+ *  the environment; *timed reports whether it was, so a caller never reads an
+ *  unmeasured zero as "free". Timing synchronizes, so a timed run gives the
+ *  isolated transfer cost and a slower factorization than an untimed one: read
+ *  transfer time from a timed run and factorization time from an untimed one.
+ *  Any pointer may be NULL. No-op without GPU support. */
+void sTiles_gpu_xfer_stats(double* h2d_seconds, double* d2h_seconds,
+                           unsigned long long* h2d_bytes,
+                           unsigned long long* d2h_bytes, int* timed);
+void sTiles_gpu_xfer_reset(void);
+
 /**
  * @brief Get the current GPU enable/disable setting.
  * @return 1 if GPU is enabled (default), 0 if disabled
@@ -321,7 +388,7 @@ int sTiles_is_using_gpu(int group_index, int call_index, void** stile);
 // Object Creation and Initialization
 //==============================================================================
 int sTiles_create(void**, int, const int*, const int*, const int*, const bool*);
-int sTiles_create_expert(void**, int, const int*, const int*, const int*, const bool*, const int*, const int*, const int*);
+int sTiles_create_expert(void**, int, const int*, const int*, const int*, const bool*, const int*, const int*);
 int sTiles_init(void**);
 int sTiles_init_group(int, void**);
 /* Ordering + symbolic only: populate scheme->element_perm for every group with
@@ -396,6 +463,7 @@ int sTiles_turn_off_rescale(int group_index, void** obj);
 
 double sTiles_get_selinv_elm(int, int, int, int, void**);
 double* sTiles_get_selinv_row(int, int, int, int*, int, void**);
+int     sTiles_get_selinv_diag(int, int, void**, int, double*);   // diag(Q^-1)[0..n) in one call; returns n or -1
 double sTiles_get_chol_elm(int, int, int, int, void**);
 int sTiles_clear_selinv(int, int, void**);
 

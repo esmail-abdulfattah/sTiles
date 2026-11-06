@@ -12,12 +12,14 @@ export(sTiles_analyze)      # preprocessing (symbolic) only
 export(sTiles_factorize)    # numeric Cholesky; reuse preprocessing
 export(sTiles_selinv)       # selected inverse; reuse factorization
 export(sTiles_close)
+export(sTiles_ordering)     # fill-reducing permutation only, no factorization
 
 # -- results --
 export(sTiles_logdet)
 export(sTiles_selinv_diag)  # marginal variances, diag(Q^-1)
 export(sTiles_selinv_elm)   # any (Q^-1)[i, j]
 export(sTiles_selinv_row)
+export(sTiles_selinv_matrix) # (Q^-1) on the pattern of Q, as a sparse matrix
 export(sTiles_solve)        # system = "A" (Qx=b) | "L" | "Lt"
 
 # -- the solver library (a separate component, never fetched implicitly) --
@@ -33,5 +35,6 @@ export(sTiles_clean_cache)  # delete every cached solver
 
 S3method(print, sTiles)
 S3method(print, sTiles_summary)
+S3method(print, sTiles_ordering)
 importFrom(methods, as)
 importFrom(Matrix, tril)

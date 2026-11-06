@@ -181,13 +181,26 @@ NULL
     }, error = function(e) NA_character_, warning = function(w) NA_character_)
 }
 
+# Release date of a cached solver as yyyymmdd, read from its tag directory, 0
+# when the path carries no tag. Tags have been spelled v2026.8.25 and
+# Version_2026.10.19, so comparing them as strings depends on the collation.
+.sTiles_release_date <- function(paths) {
+    m <- regmatches(basename(dirname(dirname(paths))),
+                    regexec("^(v|Version_)([0-9]{4})\\.([0-9]{1,2})\\.([0-9]{1,2})$",
+                            basename(dirname(dirname(paths)))))
+    vapply(m, function(x) if (length(x) == 5L)
+        sum(as.numeric(x[3:5]) * c(10000, 100, 1)) else 0, numeric(1))
+}
+
+.sTiles_newest_first <- function(paths) paths[order(-.sTiles_release_date(paths))]
+
 # Any solver already cached, newest release first. The offline fallback, and
 # what makes a failed API call harmless rather than fatal.
 .sTiles_cached_libs <- function(ci, fname) {
     root <- .sTiles_cache_dir()
     hits <- Sys.glob(file.path(root, "*", ci, fname))
     hits <- c(hits, file.path(root, ci, fname))   # pre-versioning layout
-    hits[file.exists(hits)]
+    .sTiles_newest_first(hits[file.exists(hits)])
 }
 
 # Fetch the best asset for this CPU, falling back to the portable default.
@@ -221,7 +234,7 @@ NULL
     } else {
         # Offline: use whatever is already cached rather than failing.
         have <- .sTiles_cached_libs(ci, fname)
-        if (length(have)) return(sort(have, decreasing = TRUE)[1])
+        if (length(have)) return(have[1])
         return(NA_character_)
     }
 
@@ -266,11 +279,11 @@ NULL
         # loads; drop them, including any pre-versioning copy.
         old <- setdiff(Sys.glob(file.path(.sTiles_cache_dir(), "*")),
                        file.path(.sTiles_cache_dir(), tag))
-        unlink(old[basename(old) == ci | grepl("^v?[0-9]", basename(old))], recursive = TRUE)
+        unlink(old[basename(old) == ci | grepl("^(v|Version_)?[0-9]", basename(old))], recursive = TRUE)
         return(lib)
     }
     have <- .sTiles_cached_libs(ci, fname)          # download failed: fall back
-    if (length(have)) sort(have, decreasing = TRUE)[1] else NA_character_
+    if (length(have)) have[1] else NA_character_
 }
 
 # Drop the loaded solver so a freshly downloaded one can replace it without
@@ -388,7 +401,7 @@ sTiles_clean_cache <- function() {
     # Reached by path alone, so an installed solver is found offline and
     # without asking the releases API which tag is current.
     for (cand in .sTiles_ci_candidates())
-        cands <- c(cands, sort(.sTiles_cached_libs(cand, fname), decreasing = TRUE))
+        cands <- c(cands, .sTiles_cached_libs(cand, fname))
 
     cands
 }
@@ -415,8 +428,9 @@ sTiles_available <- function()
 #'
 #' Downloads the prebuilt solver library that matches this platform from the
 #' sTiles project's releases and stores it in the package cache, under
-#' `tools::R_user_dir("sTiles", "cache")`. Run it once: every later session
-#' finds the cached copy without touching the network.
+#' `tools::R_user_dir("sTiles", "cache")`. Every later session finds the cached
+#' copy without touching the network, so run it again to pick up a newer
+#' release. A note says when the cached copy is older than this package.
 #'
 #' The solver is a separate component under its own license terms (see the
 #' NOTICE file in this package) and is deliberately not bundled. Nothing is
@@ -440,7 +454,7 @@ sTiles_available <- function()
 #'   \item the download cache, newest release first.
 #' }
 #'
-#' @param tag Release tag to install, for example "v2026.8.27". Defaults to the
+#' @param tag Release tag to install, for example "Version_2026.10.19". Defaults to the
 #'   latest release.
 #' @param variant Build variant to prefer, for example "armv82-armpl" or
 #'   "v3-mkl", or "none" for the portable default. Defaults to the best fit for
@@ -452,7 +466,7 @@ sTiles_available <- function()
 #' @examples
 #' \dontrun{
 #' sTiles_install_library()
-#' sTiles_install_library(tag = "v2026.8.27", variant = "none")
+#' sTiles_install_library(tag = "Version_2026.10.19", variant = "none")
 #' }
 #' @export
 sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
@@ -529,6 +543,19 @@ sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
     .sTiles$created <- 0L   # handles built here; gates .sTiles_unload()
 }
 
+# A cached solver is reused as it is, and loading never reaches the network, so
+# a user who updates the package keeps the old solver until told. The package
+# version is the release it was made for. Named copies (STILES_LIB) carry no
+# tag and are left alone.
+.sTiles_note_stale <- function(libpath) {
+    have <- .sTiles_release_date(libpath)
+    v <- unlist(utils::packageVersion(.sTiles$pkgname))
+    if (have > 0 && have < sum(v[1:3] * c(10000, 100, 1)))
+        message("sTiles: this solver (", basename(dirname(dirname(libpath))),
+                ") is older than the package; run sTiles_install_library() ",
+                "and restart R to update it.")
+}
+
 # Locate/download libstiles and load it + the glue DLL. Idempotent; called from
 # every native entry point via .sc().
 .sTiles_ensure_loaded <- function() {
@@ -540,6 +567,7 @@ sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
     # such mechanism; see the GetProcAddress bind step below instead.)
     dyn.load(libpath, local = FALSE, now = TRUE)
     .sTiles$libpath <- libpath
+    .sTiles_note_stale(libpath)
 
     gluepath <- file.path(.sTiles$libname, .sTiles$pkgname, "libs",
                           .Platform$r_arch,
@@ -830,8 +858,8 @@ sTiles_logdet <- function(x) {
 #'
 #' @param x A factorized "sTiles" object built with `inverse = TRUE`.
 #' @return The "sTiles" object, invisibly.
-#' @seealso [sTiles_selinv_diag()], [sTiles_selinv_elm()],
-#'   [sTiles_selinv_row()]
+#' @seealso [sTiles_selinv_matrix()], [sTiles_selinv_diag()],
+#'   [sTiles_selinv_elm()], [sTiles_selinv_row()]
 #' @examples
 #' if (sTiles_available()) {
 #' Q <- Matrix::bandSparse(50, k = c(0, 1),
@@ -923,6 +951,36 @@ sTiles_selinv_row <- function(x, node, neighbors) {
     .sTiles_ensure_loaded()
     .Call(.sc("sTiles_selinv_row_R"), x$ptr, as.integer(node),
           as.integer(neighbors))
+}
+
+#' Selected inverse on the pattern of Q, as a sparse matrix
+#'
+#' Returns the entries of `solve(Q)` at the non-zero positions of `Q`, as a
+#' symmetric sparse matrix in the original ordering. Positions outside the
+#' pattern of `Q` are not returned: they read as 0 here, which is not the value
+#' of the true inverse there. Triggers the selected-inverse computation on
+#' first use, and reflects the latest [sTiles_factorize()].
+#'
+#' @param x A factorized "sTiles" object built with `inverse = TRUE`.
+#' @return A symmetric [Matrix::dsCMatrix-class] with the pattern of `Q`.
+#' @seealso [sTiles_selinv()], [sTiles_selinv_diag()], [sTiles_selinv_elm()]
+#' @examples
+#' if (sTiles_available()) {
+#' Q <- Matrix::bandSparse(50, k = c(0, 1),
+#'                         diagonals = list(rep(4, 50), rep(-1, 49)),
+#'                         symmetric = TRUE)
+#'   s <- sTiles(Q, inverse = TRUE)
+#'   Q.inv <- sTiles_selinv_matrix(s)
+#'   Q.inv[1:3, 1:3]
+#'   sTiles_close(s)
+#' }
+#' @export
+sTiles_selinv_matrix <- function(x) {
+    .sTiles_ensure_loaded()
+    vals <- .Call(.sc("sTiles_selinv_pattern_R"), x$ptr)
+    ## The pattern is the lower triangle; symmetric = TRUE wants the upper.
+    Matrix::sparseMatrix(i = x$pattern$j, j = x$pattern$i, x = vals,
+                         dims = c(x$n, x$n), symmetric = TRUE, index1 = FALSE)
 }
 
 #' Solve a linear system with the factorization
@@ -1068,5 +1126,86 @@ print.sTiles_summary <- function(x, ...) {
         x$n, x$n, x$nnz, x$nnz_factor, x$mode, x$cores, x$inverse,
         if (x$factored) "factorized" else "analyzed (not factorized)",
         fmt_t(x$analyze_time), fmt_t(x$chol_time), fmt_t(x$selinv_time), x$library))
+    invisible(x)
+}
+
+
+# ---------------------------------------------------------------------------
+# Standalone ordering: the fill-reducing permutation without a factorization.
+# ---------------------------------------------------------------------------
+
+# STILES_ORD_* ids -> names, to report which ordering won.
+.sTiles_ordering_names <- c(rcm = 1L, metis = 2L, scotch = 3L, ascotch = 4L,
+                            fscotch = 5L, amd = 6L, camd = 7L, colamd = 8L)
+
+# Does the loaded solver export sTiles_compute_ordering? Releases up to
+# Version_2026.09.04 do not.
+.sTiles_has_ordering <- function() {
+    .sTiles_ensure_loaded()
+    isTRUE(.Call(.sc("sTiles_has_ordering_R")))
+}
+
+#' Fill-reducing ordering of a symmetric sparse matrix, on its own
+#'
+#' Runs the same candidate bake-off the solver runs before a factorization and
+#' returns the winning permutation, without building a solver handle. Which
+#' orderings are raced is decided from the size and density of the graph, as
+#' the solver decides it; there is no argument to pick one. Only the sparsity
+#' pattern of `Q` matters; its values are ignored.
+#'
+#' @param Q A symmetric matrix, either a `Matrix::sparseMatrix` or a base
+#'   matrix. Only the lower triangle is read.
+#' @param tile_size `> 0` ranks the candidates by the number of occupied
+#'   `tile_size` x `tile_size` blocks in the factor, the tiled solver's cost
+#'   model (default 40, as in [sTiles()]). `0` ranks them by exact nnz(L), which
+#'   needs a solver built with that ranking; the released builds do not have it
+#'   and report an error.
+#' @param cores Candidates are evaluated concurrently, one thread each.
+#' @details The preprocessing is the solver's own: nodes whose degree exceeds
+#'   five times the mean are pulled out of the graph, the rest is ordered, and
+#'   they are appended at the end, so one dense row cannot fill the whole
+#'   factor. It is applied exactly as [sTiles_analyze()] applies it, with no
+#'   switch, so the permutation returned is the one a factorization of `Q`
+#'   would use.
+#' @return A list of class `"sTiles_ordering"`, all indices 1-based:
+#'   \describe{
+#'     \item{`perm`}{`perm[old] = new`, the position of each original node.}
+#'     \item{`iperm`}{`iperm[new] = old`; `Q[iperm, iperm]` is the reordered
+#'       matrix.}
+#'     \item{`winner`}{Name of the ordering that won, e.g. `"camd"`.}
+#'     \item{`nblocks`, `range`, `parent`}{The separator tree when the winner is
+#'       a nested dissection (SCOTCH, METIS): block `k` spans permuted positions
+#'       `range[k]:(range[k + 1] - 1)` and `parent[k]` is its parent block, `0`
+#'       at a root. Minimum-degree orderings and RCM have no such structure and
+#'       return `nblocks = 0` with empty `range` and `parent`.}
+#'   }
+#' @seealso [sTiles_analyze()], which runs the same bake-off as the first step
+#'   of a factorization.
+#' @examples
+#' if (sTiles_available()) {
+#'   Q <- Matrix::bandSparse(200, k = c(0, 1),
+#'                           diagonals = list(rep(4, 200), rep(-1, 199)),
+#'                           symmetric = TRUE)
+#'   o <- sTiles_ordering(Q)
+#'   o$winner
+#'   head(o$perm)
+#'   Qp <- Q[o$iperm, o$iperm]     # the matrix as the solver would factor it
+#' }
+#' @export
+sTiles_ordering <- function(Q, tile_size = 40L, cores = 1L) {
+    .sTiles_ensure_loaded()
+    coo <- .sTiles_lower_coo(Q)
+    res <- .Call(.sc("sTiles_ordering_R"), coo$i, coo$j, coo$n,
+                 as.integer(tile_size), as.integer(cores))
+    res$winner <- names(.sTiles_ordering_names)[match(res$winner, .sTiles_ordering_names)]
+    class(res) <- "sTiles_ordering"
+    res
+}
+
+#' @export
+print.sTiles_ordering <- function(x, ...) {
+    cat("sTiles ordering: n =", x$n, " winner =", x$winner,
+        if (x$nblocks > 0) paste0(" (nested, ", x$nblocks, " blocks)") else "",
+        "\n")
     invisible(x)
 }

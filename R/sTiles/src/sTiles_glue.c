@@ -14,6 +14,9 @@
  * passing REAL(x) straight through is safe.
  */
 
+#if !defined(_WIN32) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE          /* RTLD_DEFAULT for the optional-symbol lookup below */
+#endif
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
@@ -26,6 +29,11 @@
 #endif
 
 #include "stiles.h"      /* vendored copy of tools/include/stiles.h */
+
+/* Set by sTiles_win_bind_R on Windows, by dlsym elsewhere; see below. */
+typedef int (*fn_compute_ordering_t)(const int*, const int*, int, int, int, int,
+                                     int, int, int*, int*, int*, int*, int*);
+static fn_compute_ordering_t p_compute_ordering = NULL;
 
 #ifdef _WIN32
 /*
@@ -168,10 +176,99 @@ SEXP sTiles_win_bind_R(SEXP path_) {
     STILES_BIND(sTiles_solve_LT);
     STILES_BIND(sTiles_unbind);
 
+    /* Optional: absent from releases up to Version_2026.09.04. Left NULL there,
+     * and sTiles_ordering() reports it instead of the whole package failing. */
+    p_compute_ordering = (fn_compute_ordering_t) GetProcAddress(h, "sTiles_compute_ordering");
+
     return R_NilValue;
 }
 #undef STILES_BIND
 #endif /* _WIN32 */
+
+/* ---- sTiles_compute_ordering: optional entry point ------------------------
+ * Newer than the releases most users have installed, so it is never referenced
+ * by name (an undefined symbol would stop this glue from loading against an
+ * older libstiles under RTLD_NOW). It is looked up as a string at first use:
+ * dlsym on the already-preloaded libstiles on Linux/macOS, GetProcAddress in
+ * sTiles_win_bind_R on Windows. NULL means "library too old". */
+#ifndef _WIN32
+#include <dlfcn.h>
+static fn_compute_ordering_t resolve_compute_ordering(void) {
+    if (!p_compute_ordering) {
+        void* sym = dlsym(RTLD_DEFAULT, "sTiles_compute_ordering");
+        /* memcpy, not a cast: ISO C has no object-to-function pointer cast */
+        if (sym) memcpy(&p_compute_ordering, &sym, sizeof sym);
+    }
+    return p_compute_ordering;
+}
+#else
+static fn_compute_ordering_t resolve_compute_ordering(void) { return p_compute_ordering; }
+#endif
+
+SEXP sTiles_has_ordering_R(void) {
+    return Rf_ScalarLogical(resolve_compute_ordering() != NULL);
+}
+
+/* i, j: 0-based lower-triangle COO from .sTiles_lower_coo (not retained by the
+ * library, so R's own vectors are passed straight through). Returns a list;
+ * every index in it is converted to 1-based here, root parents become 0. */
+SEXP sTiles_ordering_R(SEXP i_, SEXP j_, SEXP n_, SEXP tile_, SEXP cores_) {
+    fn_compute_ordering_t fn = resolve_compute_ordering();
+    if (!fn)
+        Rf_error("the loaded libstiles does not export sTiles_compute_ordering; "
+                 "it needs a library newer than Version_2026.09.04 "
+                 "(see sTiles_install_library)");
+    const int n   = Rf_asInteger(n_);
+    const int nnz = LENGTH(i_);
+    if (LENGTH(j_) != nnz) Rf_error("i and j differ in length");
+
+    SEXP perm   = PROTECT(Rf_allocVector(INTSXP, n));
+    SEXP iperm  = PROTECT(Rf_allocVector(INTSXP, n));
+    SEXP range  = PROTECT(Rf_allocVector(INTSXP, n + 1));
+    SEXP parent = PROTECT(Rf_allocVector(INTSXP, n));
+    int nb = 0;
+    const int win = fn(INTEGER(i_), INTEGER(j_), n, nnz,
+                       Rf_asInteger(tile_), Rf_asInteger(cores_),
+                       /* ordering_mode 0 and dense_last 1: the candidate set
+                        * and the dense-node preprocessing are the solver's own,
+                        * never a user choice */
+                       0, 1,
+                       INTEGER(perm), INTEGER(iperm),
+                       INTEGER(range), INTEGER(parent), &nb);
+    if (win < 0) {
+        UNPROTECT(4);
+        if (Rf_asInteger(tile_) <= 0)
+            Rf_error("sTiles_compute_ordering failed: tile_size <= 0 ranks by "
+                     "exact nnz(L), which this solver build may not have; use "
+                     "tile_size > 0");
+        Rf_error("sTiles_compute_ordering failed (the library's error output "
+                 "says why: check the input is the lower triangle with 0-based "
+                 "indices in range)");
+    }
+    int* p = INTEGER(perm);  int* ip = INTEGER(iperm);
+    for (int k = 0; k < n; ++k) { p[k] += 1; ip[k] += 1; }
+
+    SEXP rng = PROTECT(Rf_allocVector(INTSXP, nb > 0 ? nb + 1 : 0));
+    SEXP par = PROTECT(Rf_allocVector(INTSXP, nb > 0 ? nb : 0));
+    if (nb > 0) {
+        const int* r0 = INTEGER(range); const int* p0 = INTEGER(parent);
+        int* r1 = INTEGER(rng);         int* p1 = INTEGER(par);
+        for (int k = 0; k <= nb; ++k) r1[k] = r0[k] + 1;
+        for (int k = 0; k < nb; ++k)  p1[k] = (p0[k] < 0) ? 0 : p0[k] + 1;
+    }
+
+    const char* names[] = {"n", "perm", "iperm", "winner", "nblocks", "range", "parent", ""};
+    SEXP out = PROTECT(Rf_mkNamed(VECSXP, names));
+    SET_VECTOR_ELT(out, 0, Rf_ScalarInteger(n));
+    SET_VECTOR_ELT(out, 1, perm);
+    SET_VECTOR_ELT(out, 2, iperm);
+    SET_VECTOR_ELT(out, 3, Rf_ScalarInteger(win));
+    SET_VECTOR_ELT(out, 4, Rf_ScalarInteger(nb));
+    SET_VECTOR_ELT(out, 5, rng);
+    SET_VECTOR_ELT(out, 6, par);
+    UNPROTECT(7);
+    return out;
+}
 
 typedef struct {
     void*     handle;
@@ -421,6 +518,19 @@ SEXP sTiles_selinv_row_R(SEXP ext, SEXP node_, SEXP neighbors_) {
     return out;
 }
 
+/* Z at every stored entry of Q's lower triangle, in row/col order. */
+SEXP sTiles_selinv_pattern_R(SEXP ext) {
+    sTiles_ctx* c = ctx_from(ext);
+    ensure_selinv(c);
+    SEXP out = PROTECT(Rf_allocVector(REALSXP, c->nnz));
+    double* z = REAL(out);
+    for (long long k = 0; k < c->nnz; ++k)
+        z[k] = sTiles_get_selinv_elm(c->group, 0, c->row[k], c->col[k],
+                                     &c->handle);
+    UNPROTECT(1);
+    return out;
+}
+
 /* Solve Q X = B.  B is a column-major (n x nrhs) numeric matrix. */
 SEXP sTiles_solve_R(SEXP ext, SEXP B_, SEXP which_) {
     sTiles_ctx* c = ctx_from(ext);
@@ -491,10 +601,13 @@ static const R_CallMethodDef CallEntries[] = {
     {"sTiles_selinv_elm_R",    (DL_FUNC) &sTiles_selinv_elm_R,      3},
     {"sTiles_chol_elm_R",      (DL_FUNC) &sTiles_chol_elm_R,        3},
     {"sTiles_selinv_row_R",    (DL_FUNC) &sTiles_selinv_row_R,      3},
+    {"sTiles_selinv_pattern_R", (DL_FUNC) &sTiles_selinv_pattern_R, 1},
     {"sTiles_solve_R",         (DL_FUNC) &sTiles_solve_R,           3},
     {"sTiles_perm_R",          (DL_FUNC) &sTiles_perm_R,            1},
     {"sTiles_free_R",          (DL_FUNC) &sTiles_free_R,            1},
     {"sTiles_version_R",       (DL_FUNC) &sTiles_version_R,         0},
+    {"sTiles_has_ordering_R",  (DL_FUNC) &sTiles_has_ordering_R,    0},
+    {"sTiles_ordering_R",      (DL_FUNC) &sTiles_ordering_R,        5},
 #ifdef _WIN32
     {"sTiles_win_bind_R",      (DL_FUNC) &sTiles_win_bind_R,        1},
 #endif

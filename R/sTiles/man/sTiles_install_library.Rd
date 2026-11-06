@@ -7,7 +7,7 @@
 sTiles_install_library(tag = NULL, variant = NULL, force = FALSE)
 }
 \arguments{
-\item{tag}{Release tag to install, for example "v2026.8.27". Defaults to the
+\item{tag}{Release tag to install, for example "Version_2026.10.19". Defaults to the
 latest release.}
 
 \item{variant}{Build variant to prefer, for example "armv82-armpl" or
@@ -23,8 +23,9 @@ The path of the installed shared library, invisibly.
 \description{
 Downloads the prebuilt solver library that matches this platform from the
 sTiles project's releases and stores it in the package cache, under
-`tools::R_user_dir("sTiles", "cache")`. Run it once: every later session
-finds the cached copy without touching the network.
+`tools::R_user_dir("sTiles", "cache")`. Every later session finds the cached
+copy without touching the network, so run it again to pick up a newer
+release. A note says when the cached copy is older than this package.
 }
 \details{
 The solver is a separate component under its own license terms (see the
@@ -54,7 +55,7 @@ the first solver it finds among:
 \examples{
 \dontrun{
 sTiles_install_library()
-sTiles_install_library(tag = "v2026.8.27", variant = "none")
+sTiles_install_library(tag = "Version_2026.10.19", variant = "none")
 }
 }
 \seealso{

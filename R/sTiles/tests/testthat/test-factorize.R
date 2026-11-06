@@ -45,6 +45,44 @@ test_that("selected inverse matches the true inverse on the factor pattern", {
                  tolerance = 1e-8)
 })
 
+test_that("selinv matrix matches the true inverse on the pattern of Q", {
+    skip_no_solver()
+    set.seed(1)
+    n <- 120
+    B <- Matrix::rsparsematrix(n, n, density = 0.02)
+    Q <- Matrix::forceSymmetric(Matrix::crossprod(B) + Matrix::Diagonal(n) * 5)
+    full <- as.matrix(Matrix::solve(Q))
+    on_q <- as.matrix(Q) != 0
+
+    for (mode in c("auto", "dense", "semisparse", "sparse")) {
+        s <- sTiles(Q, inverse = TRUE, mode = mode, cores = 2L)
+        Z <- sTiles_selinv_matrix(s)
+        sTiles_close(s)
+        expect_s4_class(Z, "dsCMatrix")
+        expect_equal(as.matrix(Z) != 0, on_q, ignore_attr = TRUE)
+        expect_equal(as.matrix(Z)[on_q], full[on_q], tolerance = 1e-8)
+    }
+})
+
+test_that("selinv matrix follows new values", {
+    skip_no_solver()
+    Q <- spd_band(60)
+    s <- sTiles_analyze(Q, inverse = TRUE)
+    on.exit(sTiles_close(s))
+    sTiles_factorize(s)
+    Z1 <- sTiles_selinv_matrix(s)
+    sTiles_update(s, 2 * Q)
+    expect_equal(as.matrix(sTiles_selinv_matrix(s)), as.matrix(Z1) / 2,
+                 tolerance = 1e-8, ignore_attr = TRUE)
+})
+
+test_that("selinv matrix refuses a handle built without inverse", {
+    skip_no_solver()
+    s <- sTiles(spd_band(60))
+    on.exit(sTiles_close(s))
+    expect_error(sTiles_selinv_matrix(s), "inverse=TRUE")
+})
+
 test_that("preprocessing is reused across value updates", {
     skip_no_solver()
     Q <- spd_band(60)

@@ -32,6 +32,6 @@ Q <- Matrix::bandSparse(50, k = c(0, 1),
 }
 }
 \seealso{
-[sTiles_selinv_diag()], [sTiles_selinv_elm()],
-  [sTiles_selinv_row()]
+[sTiles_selinv_matrix()], [sTiles_selinv_diag()],
+  [sTiles_selinv_elm()], [sTiles_selinv_row()]
 }

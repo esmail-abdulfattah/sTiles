@@ -18,6 +18,16 @@ test_that("the candidate list is well formed", {
     expect_true(all(basename(cands) == sTiles:::.sTiles_lib_filename()))
 })
 
+test_that("cached solvers are ordered by release date, whatever the tag spelling", {
+    p <- file.path("cache", c("v2026.8.25", "Version_2026.10.19",
+                              "Version_2026.09.30", "libstiles-linux-x86_64"),
+                   "libstiles-linux-x86_64", "libstiles.so")
+    p[4] <- file.path("cache", "libstiles-linux-x86_64", "libstiles.so")
+    expect_identical(sTiles:::.sTiles_release_date(p),
+                     c(20260825, 20261019, 20260930, 0))
+    expect_identical(sTiles:::.sTiles_newest_first(p), p[c(2, 3, 1, 4)])
+})
+
 test_that("STILES_NO_DOWNLOAD blocks the installer", {
     withr_env <- Sys.getenv("STILES_NO_DOWNLOAD", unset = NA)
     Sys.setenv(STILES_NO_DOWNLOAD = "1")
