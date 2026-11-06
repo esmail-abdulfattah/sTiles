@@ -29,6 +29,43 @@ test_that("solve matches Matrix, for a vector and for several right-hand sides",
                  tolerance = 1e-8, ignore_attr = TRUE)
 })
 
+test_that("solve keeps the shape of b and refuses a transposed matrix", {
+    skip_no_solver()
+    Q <- spd_band(60)
+    s <- sTiles(Q)
+    on.exit(sTiles_close(s))
+    b <- as.double(seq_len(60))
+
+    expect_null(dim(sTiles_solve(s, b)))
+    expect_identical(dim(sTiles_solve(s, matrix(b))), c(60L, 1L))
+    expect_identical(dim(sTiles_solve(s, cbind(b, b, b))), c(60L, 3L))
+    expect_equal(as.matrix(sTiles_solve(s, as.data.frame(cbind(b, b)))),
+                 as.matrix(Matrix::solve(Q, cbind(b, b))),
+                 tolerance = 1e-8, ignore_attr = TRUE)
+    expect_error(sTiles_solve(s, t(cbind(b, b))), "60 rows")
+})
+
+test_that("half solves work in the original ordering, in every mode", {
+    skip_no_solver()
+    set.seed(2)
+    n <- 150
+    B <- Matrix::rsparsematrix(n, n, density = 0.02)
+    Q <- Matrix::forceSymmetric(Matrix::crossprod(B) + Matrix::Diagonal(n) * 3)
+    full <- as.matrix(Matrix::solve(Q))
+    b <- rnorm(n)
+
+    for (mode in c("auto", "dense", "semisparse", "sparse")) {
+        s <- sTiles(Q, mode = mode, cores = 2L)
+        y <- sTiles_solve(s, b, "L")
+        expect_equal(sTiles_solve(s, y, "Lt"), sTiles_solve(s, b), tolerance = 1e-8)
+        expect_equal(sum(y^2), sum(b * (full %*% b)), tolerance = 1e-8)
+        # Columns of this are draws: their covariance is exactly the inverse.
+        S <- sTiles_solve(s, diag(n), "Lt")
+        sTiles_close(s)
+        expect_equal(S %*% t(S), full, tolerance = 1e-8, ignore_attr = TRUE)
+    }
+})
+
 test_that("selected inverse matches the true inverse on the factor pattern", {
     skip_no_solver()
     Q <- spd_band(60)

@@ -985,11 +985,33 @@ sTiles_selinv_matrix <- function(x) {
 
 #' Solve a linear system with the factorization
 #'
+#' Solves `Q x = b`, or one half of it, for one or several right-hand sides.
+#'
+#' @section Ordering:
+#' The solver factors a reordered matrix, `Q[p, p] = L t(L)`, with a
+#' fill-reducing permutation `p` of its own choosing. The solves undo it
+#' internally: `b` and the result are always in the original ordering of `Q`,
+#' for every `system`, so nothing has to be permuted by hand.
+#'
+#' `"L"` and `"Lt"` therefore use `C`, which is `L` with its rows and columns
+#' put back in the original ordering. It satisfies `Q = C t(C)` but is not
+#' triangular, and it differs from the factor another library would give. So:
+#' \itemize{
+#'   \item `sTiles_solve(s, sTiles_solve(s, b, "L"), "Lt")` equals
+#'     `sTiles_solve(s, b)`;
+#'   \item with `y <- sTiles_solve(s, b, "L")`, `sum(y^2)` is
+#'     `t(b) %*% solve(Q) %*% b`;
+#'   \item `sTiles_solve(s, rnorm(n), "Lt")` is a draw from `N(0, solve(Q))`.
+#' }
+#'
 #' @param x A factorized "sTiles" object.
-#' @param b Right-hand side: a length-`n` vector, or an `n` by `nrhs` matrix.
+#' @param b Right-hand side, in the original ordering of `Q`: a length-`n`
+#'   vector, or a matrix with `n` rows and one column per right-hand side.
 #' @param system Which system to solve: "A" for `Q x = b` (default), "L" for
-#'   the forward solve `L y = b`, "Lt" for the backward solve `t(L) x = b`.
-#' @return The solution, with the same shape as `b`.
+#'   `C y = b`, "Lt" for `t(C) x = b`, where `Q = C t(C)`. See the Ordering
+#'   section.
+#' @return The solution in the original ordering: a vector when `b` is a vector,
+#'   otherwise a matrix with the dimensions of `b`.
 #' @seealso [sTiles()], [sTiles_logdet()]
 #' @examples
 #' if (sTiles_available()) {
@@ -999,13 +1021,30 @@ sTiles_selinv_matrix <- function(x) {
 #'   s <- sTiles(Q)
 #'   x <- sTiles_solve(s, rep(1, 50))
 #'   max(abs(as.vector(Q %*% x) - 1))
+#'
+#'   ## several right-hand sides, one per column
+#'   X <- sTiles_solve(s, cbind(rep(1, 50), seq_len(50)))
+#'   dim(X)
+#'
+#'   ## a draw from N(0, solve(Q))
+#'   draw <- sTiles_solve(s, rnorm(50), system = "Lt")
 #'   sTiles_close(s)
 #' }
 #' @export
 sTiles_solve <- function(x, b, system = c("A", "L", "Lt")) {
     .sTiles_ensure_loaded()
     which <- switch(match.arg(system), A = 0L, L = 1L, Lt = 2L)
-    .Call(.sc("sTiles_solve_R"), x$ptr, as.double(b), which)
+    d <- dim(b)
+    if (!is.null(d)) {
+        ## A 2 x n matrix has a valid total length, so only this catches it.
+        if (length(d) != 2L || d[1L] != x$n)
+            stop("b must be a vector of length ", x$n, " or a matrix with ",
+                 x$n, " rows", call. = FALSE)
+        b <- as.matrix(b)
+    }
+    out <- .Call(.sc("sTiles_solve_R"), x$ptr, as.double(b), which)
+    if (!is.null(d)) dim(out) <- d
+    out
 }
 
 #' Structured summary of a factorization
