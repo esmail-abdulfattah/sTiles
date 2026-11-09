@@ -1,0 +1,34 @@
+{
+ "python": {
+  "01_quickstart": "log|Q|            = 1317.032401\nmax |Q x - b|     = 4.4e-16\nfirst variances   = [0.267949 0.287187 0.288568]",
+  "02_solve": "one rhs:   x.shape = (1000,), max |Q x - b| = 5.7e-13\nfive rhs:  X.shape = (1000, 5), max |Q X - B| = 1.3e-15",
+  "03_selected_inverse": "diagonal:   max error = 1.7e-16\nQinv[10, 11] = 0.077350   (dense: 0.077350)\nQinv[10, 150] = 0.0   (dense: 2.4e-81, outside the pattern)\nrow 10 at [9, 10, 11] = [0.07735  0.288675 0.07735 ]",
+  "04_reuse_analysis": "analysis:  0.454 s  (paid once)\nkappa =   0.1   log|Q| =   31493.2364   cholesky: 0.0076 s\nkappa =   1.0   log|Q| =   96242.5227   cholesky: 0.0061 s\nkappa =  10.0   log|Q| =  247788.8801   cholesky: 0.0057 s",
+  "05_sampling": "exact variance of x[0]   = 0.2679\nsample variance of x[0]  = 0.2713",
+  "06_matrix_market": "grid40.mtx: 1600 x 1600, 7840 non-zeros\nlog|Q| = 1965.308933\nnon-zeros in L = 20771, analysis 0.030 s, cholesky 0.0011 s"
+ },
+ "r": {
+  "01_quickstart": "log|Q|            = 1317.032401\nmax |Q x - b|     = 4.4e-16\nfirst variances   = 0.267949 0.287187 0.288568",
+  "02_solve": "one rhs:   length(x) = 1000, max |Q x - b| = 5.7e-13\nfive rhs:  dim(X) = 1000 x 5, max |Q X - B| = 1.3e-15",
+  "03_selected_inverse": "diagonal:   max error = 1.7e-16\nQinv[11, 12] = 0.077350   (dense: 0.077350)\nQinv[11, 151] = 0.0   (dense: 2.4e-81, outside the pattern)\nrow 11 at c(10, 11, 12) = 0.07735 0.288675 0.07735 \n3 x 3 sparse Matrix of class \"dsCMatrix\"\n                                     \n[1,] 0.26794919 0.07179677 .         \n[2,] 0.07179677 0.28718708 0.07695155\n[3,] .          0.07695155 0.28856830",
+  "04_reuse_analysis": "analysis:  0.448 s  (paid once)\nkappa =   0.1   log|Q| =   31493.2364   cholesky: 0.0079 s\nkappa =   1.0   log|Q| =   96242.5227   cholesky: 0.0042 s\nkappa =  10.0   log|Q| =  247788.8801   cholesky: 0.0072 s",
+  "05_sampling": "exact variance of x[1]   = 0.2679\nsample variance of x[1]  = 0.2725",
+  "06_matrix_market": "grid40.mtx: 1600 x 1600, 4720 stored non-zeros\nlog|Q| = 1965.308933\nnon-zeros in L = 20771, analysis 0.034 s, cholesky 0.0009 s"
+ },
+ "julia": {
+  "01_quickstart": "log|Q|            = 1317.032401\nmax |Q x - b|     = 4.4e-16\nfirst variances   = [0.267949, 0.287187, 0.288568]",
+  "02_solve": "one rhs:   length(x) = 1000, max |Q x - b| = 5.7e-13\nfive rhs:  size(X) = (1000, 5), max |Q X - B| = 1.1e-15",
+  "03_selected_inverse": "diagonal:   max error = 1.7e-16\nQinv[11, 12] = 0.077350   (dense: 0.077350)\nQinv[11, 151] = 0.0   (dense: 2.4e-81, outside the pattern)\nrow 11 at [10, 11, 12] = [0.07735, 0.288675, 0.07735]",
+  "04_reuse_analysis": "analysis:  0.422 s  (paid once)\nkappa =   0.1   log|Q| =   31493.2364   cholesky: 0.0088 s\nkappa =   1.0   log|Q| =   96242.5227   cholesky: 0.0040 s\nkappa =  10.0   log|Q| =  247788.8801   cholesky: 0.0034 s",
+  "05_sampling": "exact variance of x[1]   = 0.2679\nsample variance of x[1]  = 0.2709",
+  "06_matrix_market": "grid40.mtx: 1600 x 1600, 4720 stored non-zeros\nlog|Q| = 1965.308933\nnon-zeros in L = 20771, analysis 0.032 s, cholesky 0.0010 s"
+ },
+ "c": {
+  "01_quickstart": "log|Q|            = 1317.032401\nmax |Q x - b|     = 3.9e-16\nfirst variances   = 0.267949 0.287187 0.288568",
+  "02_solve": "one rhs:   max |Q x - b| = 4.5e-13\nfive rhs:  max |Q X - B| = 3.1e-16",
+  "03_selected_inverse": "diag(Qinv)[0..2]  = 0.267949 0.287187 0.288568\nQinv[10, 11]      = 0.077350\nQinv[10, 150]     = 0.0   (outside the pattern)",
+  "04_reuse_analysis": "analysis:  0.530 s  (paid once)\nkappa =   0.1   log|Q| =   31493.2364   cholesky: 0.0075 s\nkappa =   1.0   log|Q| =   96242.5227   cholesky: 0.0065 s\nkappa =  10.0   log|Q| =  247788.8801   cholesky: 0.0054 s",
+  "05_sampling": "exact variance of x[0]   = 0.2679\nsample variance of x[0]  = 0.2762",
+  "06_matrix_market": "../data/grid40.mtx: 1600 x 1600, 4720 entries in the lower triangle\nlog|Q| = 1965.308933\nnon-zeros in L = 20771, analysis 0.040 s, cholesky 0.0012 s"
+ }
+}

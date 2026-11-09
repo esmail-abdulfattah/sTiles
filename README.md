@@ -26,7 +26,7 @@ pip install sTiles
 ```
 
 ```r
-install.packages("sTiles", repos = c("https://esmail-abdulfattah.r-universe.dev", "https://cloud.r-project.org"))
+install.packages("sTiles")
 ```
 
 ```julia
