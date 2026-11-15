@@ -158,3 +158,29 @@ test_that("summary reports the phases", {
     expect_true(after$factored)
     expect_gte(after$nnz_factor, after$nnz)
 })
+
+test_that("several handles live side by side and do not touch each other", {
+    skip_no_solver()
+    Q1 <- spd_band(60)
+    Q2 <- spd_band(90) * 2
+    ref1 <- as.numeric(Matrix::determinant(Q1, logarithm = TRUE)$modulus)
+    ref2 <- as.numeric(Matrix::determinant(Q2, logarithm = TRUE)$modulus)
+    full2 <- as.matrix(Matrix::solve(Q2))
+
+    s  <- sTiles(Q1, cores = 2L)
+    ss <- sTiles(Q2, cores = 2L, inverse = TRUE)
+    on.exit(sTiles_close(ss), add = TRUE)
+    expect_equal(sTiles_logdet(s), ref1, tolerance = 1e-8)
+    expect_equal(sTiles_logdet(ss), ref2, tolerance = 1e-8)
+
+    # Closing one leaves the other intact.
+    sTiles_close(s)
+    expect_equal(sTiles_logdet(ss), ref2, tolerance = 1e-8)
+    expect_equal(sTiles_selinv_diag(ss), diag(full2), tolerance = 1e-8)
+
+    # A new handle while ss is still open, then ss again.
+    s3 <- sTiles(Q1 * 3)
+    on.exit(sTiles_close(s3), add = TRUE)
+    expect_equal(sTiles_logdet(s3), ref1 + 60 * log(3), tolerance = 1e-8)
+    expect_equal(sTiles_logdet(ss), ref2, tolerance = 1e-8)
+})

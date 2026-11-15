@@ -5,6 +5,13 @@
  * an R-side `sTiles` object owns exactly one live factorization and frees it
  * (sTiles_freeGroup) when garbage-collected or closed.
  *
+ * One library copy per handle: libstiles keeps its state process-wide (memory
+ * keyed by group number, thread teams, settings, sTiles_quit), so two handles
+ * in one copy would share group 0. A file at a different path, loaded
+ * RTLD_LOCAL, is a separate instance with its own globals, so each live handle
+ * runs in a copy of its own and calls it through that copy's function table
+ * (stiles_lib). The R side keeps the pool of copies (.sTiles_lib_for_handle).
+ *
  * Ownership note: sTiles_assign_graph_one_call RETAINS the row/col pointers
  * (it does not copy them) and reads them over the handle's lifetime, so this
  * glue keeps malloc'd copies in the ctx and frees them in the finalizer --
@@ -14,44 +21,21 @@
  * passing REAL(x) straight through is safe.
  */
 
-#if !defined(_WIN32) && !defined(_GNU_SOURCE)
-#define _GNU_SOURCE          /* RTLD_DEFAULT for the optional-symbol lookup below */
-#endif
 #include <R.h>
 #include <Rinternals.h>
 #include <R_ext/Rdynload.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <dlfcn.h>
 #endif
 
-#include "stiles.h"      /* vendored copy of tools/include/stiles.h */
-
-/* Set by sTiles_win_bind_R on Windows, by dlsym elsewhere; see below. */
-typedef int (*fn_compute_ordering_t)(const int*, const int*, int, int, int, int,
-                                     int, int, int*, int*, int*, int*, int*);
-static fn_compute_ordering_t p_compute_ordering = NULL;
-
-#ifdef _WIN32
-/*
- * Windows has no equivalent of the RTLD_GLOBAL trick .sTiles_ensure_loaded()
- * uses on Linux/macOS (preload libstiles with global symbol visibility, then
- * load this glue with its sTiles_* symbols left undefined for the dynamic
- * linker to fill in). PE/DLL linking resolves imports against one specific,
- * named DLL at load time, there is no process-wide symbol search, so a DLL
- * cannot be built at all with unresolved externs the way an ELF .so or (with
- * -undefined dynamic_lookup) a Mach-O .dylib can.
- *
- * So on Windows every sTiles_* symbol used below is called through a function
- * pointer instead, resolved via LoadLibrary/GetProcAddress from R once the
- * real libstiles.dll path is known (see sTiles_win_bind_R, called from
- * .sTiles_ensure_loaded() in sTiles.R). The #define block below redirects
- * every ordinary call site in this file to the resolved pointer, so nothing
- * past this point needs to change.
- */
 typedef int         (*fn_sTiles_assign_graph_one_call_t)(int, int, void**, int, int, int*, int*);
 typedef int         (*fn_sTiles_assign_values_t)(int, int, void**, double*);
 typedef int         (*fn_sTiles_bind_t)(int, int, void**);
@@ -78,142 +62,155 @@ typedef int         (*fn_sTiles_solve_L_t)(int, int, void**, double*, int);
 typedef int         (*fn_sTiles_solve_LLT_t)(int, int, void**, double*, int);
 typedef int         (*fn_sTiles_solve_LT_t)(int, int, void**, double*, int);
 typedef int         (*fn_sTiles_unbind_t)(int, int, void**);
+typedef int         (*fn_compute_ordering_t)(const int*, const int*, int, int, int, int,
+                                             int, int, int*, int*, int*, int*, int*);
 
-static fn_sTiles_assign_graph_one_call_t     p_sTiles_assign_graph_one_call;
-static fn_sTiles_assign_values_t             p_sTiles_assign_values;
-static fn_sTiles_bind_t                      p_sTiles_bind;
-static fn_sTiles_chol_t                      p_sTiles_chol;
-static fn_sTiles_create_t                    p_sTiles_create;
-static fn_sTiles_expert_user_t               p_sTiles_expert_user;
-static fn_sTiles_freeGroup_t                 p_sTiles_freeGroup;
-static fn_sTiles_get_chol_elm_t              p_sTiles_get_chol_elm;
-static fn_sTiles_get_chol_timing_t           p_sTiles_get_chol_timing;
-static fn_sTiles_get_logdet_t                p_sTiles_get_logdet;
-static fn_sTiles_get_logical_element_perm_t  p_sTiles_get_logical_element_perm;
-static fn_sTiles_get_nnz_factor_t            p_sTiles_get_nnz_factor;
-static fn_sTiles_get_selinv_elm_t            p_sTiles_get_selinv_elm;
-static fn_sTiles_get_selinv_row_t            p_sTiles_get_selinv_row;
-static fn_sTiles_get_selinv_timing_t         p_sTiles_get_selinv_timing;
-static fn_sTiles_get_version_t               p_sTiles_get_version;
-static fn_sTiles_init_group_t                p_sTiles_init_group;
-static fn_sTiles_quit_t                      p_sTiles_quit;
-static fn_sTiles_selinv_t                    p_sTiles_selinv;
-static fn_sTiles_set_log_level_t             p_sTiles_set_log_level;
-static fn_sTiles_set_tile_size_t             p_sTiles_set_tile_size;
-static fn_sTiles_set_tile_type_mode_t        p_sTiles_set_tile_type_mode;
-static fn_sTiles_solve_L_t                   p_sTiles_solve_L;
-static fn_sTiles_solve_LLT_t                 p_sTiles_solve_LLT;
-static fn_sTiles_solve_LT_t                  p_sTiles_solve_LT;
-static fn_sTiles_unbind_t                    p_sTiles_unbind;
+/* One loaded copy of libstiles. */
+typedef struct {
+    void* dl;                 /* dlopen / LoadLibrary handle */
+    int   busy;               /* a live sTiles handle runs in this copy */
+    fn_sTiles_assign_graph_one_call_t     assign_graph_one_call;
+    fn_sTiles_assign_values_t             assign_values;
+    fn_sTiles_bind_t                      bind;
+    fn_sTiles_chol_t                      chol;
+    fn_sTiles_create_t                    create;
+    fn_sTiles_expert_user_t               expert_user;
+    fn_sTiles_freeGroup_t                 freeGroup;
+    fn_sTiles_get_chol_elm_t              get_chol_elm;
+    fn_sTiles_get_chol_timing_t           get_chol_timing;
+    fn_sTiles_get_logdet_t                get_logdet;
+    fn_sTiles_get_logical_element_perm_t  get_logical_element_perm;
+    fn_sTiles_get_nnz_factor_t            get_nnz_factor;
+    fn_sTiles_get_selinv_elm_t            get_selinv_elm;
+    fn_sTiles_get_selinv_row_t            get_selinv_row;
+    fn_sTiles_get_selinv_timing_t         get_selinv_timing;
+    fn_sTiles_get_version_t               get_version;
+    fn_sTiles_init_group_t                init_group;
+    fn_sTiles_quit_t                      quit;
+    fn_sTiles_selinv_t                    selinv;
+    fn_sTiles_set_log_level_t             set_log_level;
+    fn_sTiles_set_tile_size_t             set_tile_size;
+    fn_sTiles_set_tile_type_mode_t        set_tile_type_mode;
+    fn_sTiles_solve_L_t                   solve_L;
+    fn_sTiles_solve_LLT_t                 solve_LLT;
+    fn_sTiles_solve_LT_t                  solve_LT;
+    fn_sTiles_unbind_t                    unbind;
+    fn_compute_ordering_t                 compute_ordering;  /* optional, see below */
+} stiles_lib;
 
-#define sTiles_assign_graph_one_call     p_sTiles_assign_graph_one_call
-#define sTiles_assign_values             p_sTiles_assign_values
-#define sTiles_bind                      p_sTiles_bind
-#define sTiles_chol                      p_sTiles_chol
-#define sTiles_create                    p_sTiles_create
-#define sTiles_expert_user               p_sTiles_expert_user
-#define sTiles_freeGroup                 p_sTiles_freeGroup
-#define sTiles_get_chol_elm              p_sTiles_get_chol_elm
-#define sTiles_get_chol_timing           p_sTiles_get_chol_timing
-#define sTiles_get_logdet                p_sTiles_get_logdet
-#define sTiles_get_logical_element_perm  p_sTiles_get_logical_element_perm
-#define sTiles_get_nnz_factor            p_sTiles_get_nnz_factor
-#define sTiles_get_selinv_elm            p_sTiles_get_selinv_elm
-#define sTiles_get_selinv_row            p_sTiles_get_selinv_row
-#define sTiles_get_selinv_timing         p_sTiles_get_selinv_timing
-#define sTiles_get_version               p_sTiles_get_version
-#define sTiles_init_group                p_sTiles_init_group
-#define sTiles_quit                      p_sTiles_quit
-#define sTiles_selinv                    p_sTiles_selinv
-#define sTiles_set_log_level             p_sTiles_set_log_level
-#define sTiles_set_tile_size             p_sTiles_set_tile_size
-#define sTiles_set_tile_type_mode        p_sTiles_set_tile_type_mode
-#define sTiles_solve_L                   p_sTiles_solve_L
-#define sTiles_solve_LLT                 p_sTiles_solve_LLT
-#define sTiles_solve_LT                  p_sTiles_solve_LT
-#define sTiles_unbind                    p_sTiles_unbind
+/* ---- loading a copy ------------------------------------------------------ */
 
-#define STILES_BIND(name) \
-    do { \
-        p_##name = (fn_##name##_t) GetProcAddress(h, #name); \
-        if (!p_##name) \
-            Rf_error("sTiles: could not resolve symbol '%s' in %s", #name, path); \
-    } while (0)
-
-/* Called once from R (.sTiles_ensure_loaded) with the resolved libstiles.dll
- * path, before any other sTiles_* call. Not idempotence-guarded here; R side
- * only calls it once per session (guarded by .sTiles$dll being NULL). */
-SEXP sTiles_win_bind_R(SEXP path_) {
-    const char* path = CHAR(STRING_ELT(path_, 0));
-    HMODULE h = LoadLibraryA(path);
-    if (!h) Rf_error("sTiles: LoadLibrary failed for '%s' (error %lu)",
-                      path, (unsigned long) GetLastError());
-
-    STILES_BIND(sTiles_assign_graph_one_call);
-    STILES_BIND(sTiles_assign_values);
-    STILES_BIND(sTiles_bind);
-    STILES_BIND(sTiles_chol);
-    STILES_BIND(sTiles_create);
-    STILES_BIND(sTiles_expert_user);
-    STILES_BIND(sTiles_freeGroup);
-    STILES_BIND(sTiles_get_chol_elm);
-    STILES_BIND(sTiles_get_chol_timing);
-    STILES_BIND(sTiles_get_logdet);
-    STILES_BIND(sTiles_get_logical_element_perm);
-    STILES_BIND(sTiles_get_nnz_factor);
-    STILES_BIND(sTiles_get_selinv_elm);
-    STILES_BIND(sTiles_get_selinv_row);
-    STILES_BIND(sTiles_get_selinv_timing);
-    STILES_BIND(sTiles_get_version);
-    STILES_BIND(sTiles_init_group);
-    STILES_BIND(sTiles_quit);
-    STILES_BIND(sTiles_selinv);
-    STILES_BIND(sTiles_set_log_level);
-    STILES_BIND(sTiles_set_tile_size);
-    STILES_BIND(sTiles_set_tile_type_mode);
-    STILES_BIND(sTiles_solve_L);
-    STILES_BIND(sTiles_solve_LLT);
-    STILES_BIND(sTiles_solve_LT);
-    STILES_BIND(sTiles_unbind);
-
-    /* Optional: absent from releases up to Version_2026.09.04. Left NULL there,
-     * and sTiles_ordering() reports it instead of the whole package failing. */
-    p_compute_ordering = (fn_compute_ordering_t) GetProcAddress(h, "sTiles_compute_ordering");
-
-    return R_NilValue;
+#ifdef _WIN32
+/* Altered search path: the first copy finds its sibling DLLs in its own
+ * directory. Later copies live elsewhere and get those siblings by name, since
+ * Windows reuses a dependency that is already loaded. */
+static void* lib_open(const char* path) {
+    return (void*) LoadLibraryExA(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
 }
-#undef STILES_BIND
-#endif /* _WIN32 */
-
-/* ---- sTiles_compute_ordering: optional entry point ------------------------
- * Newer than the releases most users have installed, so it is never referenced
- * by name (an undefined symbol would stop this glue from loading against an
- * older libstiles under RTLD_NOW). It is looked up as a string at first use:
- * dlsym on the already-preloaded libstiles on Linux/macOS, GetProcAddress in
- * sTiles_win_bind_R on Windows. NULL means "library too old". */
-#ifndef _WIN32
-#include <dlfcn.h>
-static fn_compute_ordering_t resolve_compute_ordering(void) {
-    if (!p_compute_ordering) {
-        void* sym = dlsym(RTLD_DEFAULT, "sTiles_compute_ordering");
-        /* memcpy, not a cast: ISO C has no object-to-function pointer cast */
-        if (sym) memcpy(&p_compute_ordering, &sym, sizeof sym);
-    }
-    return p_compute_ordering;
+static void lib_close(void* dl) { FreeLibrary((HMODULE) dl); }
+static void* lib_sym(void* dl, const char* name) {
+    FARPROC p = GetProcAddress((HMODULE) dl, name);
+    void* v;
+    memcpy(&v, &p, sizeof v);
+    return v;
+}
+static const char* lib_error(void) {
+    static char buf[64];
+    snprintf(buf, sizeof buf, "error %lu", (unsigned long) GetLastError());
+    return buf;
 }
 #else
-static fn_compute_ordering_t resolve_compute_ordering(void) { return p_compute_ordering; }
+static void* lib_open(const char* path) { return dlopen(path, RTLD_NOW | RTLD_LOCAL); }
+static void lib_close(void* dl) { dlclose(dl); }
+static void* lib_sym(void* dl, const char* name) { return dlsym(dl, name); }
+static const char* lib_error(void) { const char* e = dlerror(); return e ? e : "unknown error"; }
 #endif
 
-SEXP sTiles_has_ordering_R(void) {
-    return Rf_ScalarLogical(resolve_compute_ordering() != NULL);
+/* memcpy, not a cast: ISO C has no object-to-function pointer cast */
+static int bind_one(void* dl, const char* name, void* dst) {
+    void* v = lib_sym(dl, name);
+    if (!v) return 0;
+    memcpy(dst, &v, sizeof v);
+    return 1;
+}
+
+/* NULL on success, else the first missing symbol. */
+static const char* lib_bind(stiles_lib* L) {
+#define REQ(field) if (!bind_one(L->dl, "sTiles_" #field, &L->field)) return "sTiles_" #field
+    REQ(assign_graph_one_call); REQ(assign_values);   REQ(bind);
+    REQ(chol);                  REQ(create);          REQ(expert_user);
+    REQ(freeGroup);             REQ(get_chol_elm);    REQ(get_chol_timing);
+    REQ(get_logdet);            REQ(get_logical_element_perm);
+    REQ(get_nnz_factor);        REQ(get_selinv_elm);  REQ(get_selinv_row);
+    REQ(get_selinv_timing);     REQ(get_version);     REQ(init_group);
+    REQ(quit);                  REQ(selinv);          REQ(set_log_level);
+    REQ(set_tile_size);         REQ(set_tile_type_mode);
+    REQ(solve_L);               REQ(solve_LLT);       REQ(solve_LT);
+    REQ(unbind);
+#undef REQ
+    /* Optional: absent from releases up to Version_2026.09.04. Left NULL there,
+     * and sTiles_ordering() reports it instead of the whole package failing. */
+    if (!bind_one(L->dl, "sTiles_compute_ordering", &L->compute_ordering))
+        L->compute_ordering = NULL;
+    return NULL;
+}
+
+static stiles_lib* lib_from(SEXP ext) {
+    if (TYPEOF(ext) != EXTPTRSXP)
+        Rf_error("not an sTiles library copy");
+    stiles_lib* L = (stiles_lib*) R_ExternalPtrAddr(ext);
+    if (!L) Rf_error("sTiles library copy already closed");
+    return L;
+}
+
+/* Load the library file at `path` as a new copy. No finalizer: the R side
+ * keeps every copy in its pool and closes them in .sTiles_unload. */
+SEXP sTiles_lib_open_R(SEXP path_) {
+    const char* path = CHAR(STRING_ELT(path_, 0));
+    stiles_lib* L = (stiles_lib*) calloc(1, sizeof(stiles_lib));
+    if (!L) Rf_error("out of memory");
+    L->dl = lib_open(path);
+    if (!L->dl) {
+        free(L);
+        Rf_error("sTiles: could not load '%s' (%s)", path, lib_error());
+    }
+    const char* missing = lib_bind(L);
+    if (missing) {
+        lib_close(L->dl);
+        free(L);
+        Rf_error("sTiles: could not resolve symbol '%s' in %s", missing, path);
+    }
+    SEXP ext = PROTECT(R_MakeExternalPtr(L, R_NilValue, R_NilValue));
+    Rf_setAttrib(ext, R_ClassSymbol, Rf_mkString("sTiles_lib"));
+    UNPROTECT(1);
+    return ext;
+}
+
+SEXP sTiles_lib_busy_R(SEXP ext) {
+    return Rf_ScalarLogical(lib_from(ext)->busy);
+}
+
+SEXP sTiles_lib_close_R(SEXP ext) {
+    stiles_lib* L = (stiles_lib*) R_ExternalPtrAddr(ext);
+    if (!L) return R_NilValue;
+    if (L->busy) Rf_error("sTiles library copy still holds a live handle");
+    lib_close(L->dl);
+    free(L);
+    R_ClearExternalPtr(ext);
+    return R_NilValue;
+}
+
+/* ---- standalone ordering ------------------------------------------------- */
+
+SEXP sTiles_has_ordering_R(SEXP lib_) {
+    return Rf_ScalarLogical(lib_from(lib_)->compute_ordering != NULL);
 }
 
 /* i, j: 0-based lower-triangle COO from .sTiles_lower_coo (not retained by the
  * library, so R's own vectors are passed straight through). Returns a list;
  * every index in it is converted to 1-based here, root parents become 0. */
-SEXP sTiles_ordering_R(SEXP i_, SEXP j_, SEXP n_, SEXP tile_, SEXP cores_) {
-    fn_compute_ordering_t fn = resolve_compute_ordering();
+SEXP sTiles_ordering_R(SEXP lib_, SEXP i_, SEXP j_, SEXP n_, SEXP tile_, SEXP cores_) {
+    fn_compute_ordering_t fn = lib_from(lib_)->compute_ordering;
     if (!fn)
         Rf_error("the loaded libstiles does not export sTiles_compute_ordering; "
                  "it needs a library newer than Version_2026.09.04 "
@@ -270,7 +267,10 @@ SEXP sTiles_ordering_R(SEXP i_, SEXP j_, SEXP n_, SEXP tile_, SEXP cores_) {
     return out;
 }
 
+/* ---- handles ------------------------------------------------------------- */
+
 typedef struct {
+    stiles_lib* L;          /* the copy this handle runs in                  */
     void*     handle;
     int       group;
     int       n;
@@ -296,26 +296,20 @@ static void require_factored(sTiles_ctx* c) {
                  "(preprocessing is done, the numeric Cholesky is not)");
 }
 
-/* Live handles in this R session. sTiles keeps its worker threads (and, on
- * Linux, its claim on a slice of the machine's cores) until sTiles_quit();
- * freeing a group releases memory but not the teams, so a session would hold
- * cores long after the last handle died. Quit is process-wide, hence the
- * count: it may only run when the LAST handle is finalized. Creating a new
- * handle afterwards re-initializes cleanly. */
-static int g_live_handles = 0;
-
+/* The handle is the only one in its copy, so quitting here releases that
+ * copy's worker threads and core claim without touching any other handle,
+ * and leaves the copy clean for the next handle the pool gives it to. */
 static void sTiles_finalize(SEXP ext) {
     sTiles_ctx* c = (sTiles_ctx*) R_ExternalPtrAddr(ext);
     if (!c) return;
-    if (c->handle) sTiles_freeGroup(c->group);   /* frees before we drop row/col */
+    stiles_lib* L = c->L;
+    if (c->handle) L->freeGroup(c->group);   /* frees before we drop row/col */
     free(c->row);
     free(c->col);
     free(c);
     R_ClearExternalPtr(ext);
-    if (--g_live_handles <= 0) {
-        g_live_handles = 0;
-        sTiles_quit();      /* join worker threads, release the core claim */
-    }
+    L->quit();
+    L->busy = 0;
 }
 
 static void ensure_selinv(sTiles_ctx* c) {
@@ -324,9 +318,9 @@ static void ensure_selinv(sTiles_ctx* c) {
                  "the selected inverse is unavailable");
     require_factored(c);
     if (!c->selinv_done) {
-        sTiles_bind(c->group, 0, &c->handle);
-        int rc = sTiles_selinv(c->group, 0, &c->handle);
-        sTiles_unbind(c->group, 0, &c->handle);
+        c->L->bind(c->group, 0, &c->handle);
+        int rc = c->L->selinv(c->group, 0, &c->handle);
+        c->L->unbind(c->group, 0, &c->handle);
         if (rc != 0) Rf_error("sTiles_selinv failed (status %d)", rc);
         c->selinv_done = 1;
     }
@@ -335,10 +329,12 @@ static void ensure_selinv(sTiles_ctx* c) {
 /* PHASE 1 -- preprocessing (symbolic) only: create + assign_graph + init_group.
  * i,j are 0-based lower-triangle COO (INTSXP). No numeric values, no Cholesky.
  * This is the ordering bake-off + tile layout; time it separately from the
- * numeric factorization done by sTiles_factorize_R. */
-SEXP sTiles_analyze_R(SEXP i_, SEXP j_, SEXP n_, SEXP cores_,
+ * numeric factorization done by sTiles_factorize_R. lib_ is a free copy from
+ * the R-side pool. */
+SEXP sTiles_analyze_R(SEXP lib_, SEXP i_, SEXP j_, SEXP n_, SEXP cores_,
                       SEXP mode_, SEXP ts_, SEXP inv_, SEXP group_,
                       SEXP loglevel_) {
+    stiles_lib* L     = lib_from(lib_);
     const int n       = Rf_asInteger(n_);
     const int nnz     = LENGTH(i_);
     const int cores   = Rf_asInteger(cores_);
@@ -350,25 +346,20 @@ SEXP sTiles_analyze_R(SEXP i_, SEXP j_, SEXP n_, SEXP cores_,
 
     if (LENGTH(j_) != nnz)
         Rf_error("i and j must have equal length");
-
-    /* One matrix at a time: libstiles keeps its teams in process-global state,
-     * so a second live handle would tear down the first one's teams. Refuse it
-     * with a clear message instead of crashing later. */
-    if (g_live_handles > 0)
-        Rf_error("sTiles handles one matrix at a time: another handle is still "
-                 "open in this session. Free it first (sTiles_close(x), or drop "
-                 "it and gc()), then analyze the next matrix.");
+    if (L->busy)
+        Rf_error("sTiles library copy already holds a live handle");
     if (group != 0)
         Rf_error("group must be 0: libstiles groups are not usable as separate "
                  "handles");
 
-    sTiles_set_log_level(loglvl);
-    sTiles_expert_user();
-    sTiles_set_tile_size(ts);
-    sTiles_set_tile_type_mode(mode);
+    L->set_log_level(loglvl);
+    L->expert_user();
+    L->set_tile_size(ts);
+    L->set_tile_type_mode(mode);
 
     sTiles_ctx* c = (sTiles_ctx*) calloc(1, sizeof(sTiles_ctx));
     if (!c) Rf_error("out of memory");
+    c->L = L;
     c->group = group; c->n = n; c->nnz = nnz; c->inverse = inverse;
 
     /* ctx-owned copies of the index arrays (sTiles retains these pointers). */
@@ -390,21 +381,24 @@ SEXP sTiles_analyze_R(SEXP i_, SEXP j_, SEXP n_, SEXP cores_,
     _Bool* ginv_b = (_Bool*) R_alloc(ng, sizeof(_Bool));
     for (int g = 0; g < ng; ++g) ginv_b[g] = inverse ? 1 : 0;
 
-    if (sTiles_create(&c->handle, ng, calls, coresv, ctype, ginv_b) != 0) {
+    if (L->create(&c->handle, ng, calls, coresv, ctype, ginv_b) != 0) {
         free(c->row); free(c->col); free(c);
+        L->quit();
         Rf_error("sTiles_create failed");
     }
 
-    sTiles_assign_graph_one_call(group, 0, &c->handle, n, nnz, c->row, c->col);
-    if (sTiles_init_group(group, &c->handle) != 0) {
-        sTiles_freeGroup(group);
+    L->assign_graph_one_call(group, 0, &c->handle, n, nnz, c->row, c->col);
+    if (L->init_group(group, &c->handle) != 0) {
+        L->freeGroup(group);
         free(c->row); free(c->col); free(c);
+        L->quit();
         Rf_error("sTiles_init_group failed");
     }
 
-    SEXP ext = PROTECT(R_MakeExternalPtr(c, R_NilValue, R_NilValue));
+    /* prot = the copy's external pointer, so the copy outlives the handle */
+    SEXP ext = PROTECT(R_MakeExternalPtr(c, R_NilValue, lib_));
     R_RegisterCFinalizerEx(ext, sTiles_finalize, TRUE);
-    g_live_handles++;
+    L->busy = 1;
     Rf_setAttrib(ext, R_ClassSymbol, Rf_mkString("sTiles_ptr"));
     UNPROTECT(1);
     return ext;
@@ -418,10 +412,10 @@ SEXP sTiles_factorize_R(SEXP ext, SEXP x_) {
     if (LENGTH(x_) != c->nnz)
         Rf_error("value vector length %d != pattern nnz %lld",
                  LENGTH(x_), c->nnz);
-    sTiles_assign_values(c->group, 0, &c->handle, REAL(x_));
-    sTiles_bind(c->group, 0, &c->handle);
-    int rc = sTiles_chol(c->group, 0, &c->handle);
-    sTiles_unbind(c->group, 0, &c->handle);
+    c->L->assign_values(c->group, 0, &c->handle, REAL(x_));
+    c->L->bind(c->group, 0, &c->handle);
+    int rc = c->L->chol(c->group, 0, &c->handle);
+    c->L->unbind(c->group, 0, &c->handle);
     if (rc != 0)
         Rf_error("sTiles_chol failed (status %d) -- matrix not positive-definite?",
                  rc);
@@ -434,7 +428,7 @@ SEXP sTiles_factorize_R(SEXP ext, SEXP x_) {
 SEXP sTiles_chol_time_R(SEXP ext) {
     sTiles_ctx* c = ctx_from(ext);
     require_factored(c);
-    return Rf_ScalarReal(sTiles_get_chol_timing(c->group, 0, &c->handle));
+    return Rf_ScalarReal(c->L->get_chol_timing(c->group, 0, &c->handle));
 }
 
 /* Has a numeric factorization run? Read from the C handle (survives the R
@@ -456,18 +450,18 @@ SEXP sTiles_selinv_time_R(SEXP ext) {
     sTiles_ctx* c = ctx_from(ext);
     if (!c->selinv_done)
         Rf_error("selected inverse not computed yet; call sTiles_selinv(s)");
-    return Rf_ScalarReal(sTiles_get_selinv_timing(c->group, 0, &c->handle));
+    return Rf_ScalarReal(c->L->get_selinv_timing(c->group, 0, &c->handle));
 }
 
 SEXP sTiles_logdet_R(SEXP ext) {
     sTiles_ctx* c = ctx_from(ext);
     require_factored(c);
-    return Rf_ScalarReal(sTiles_get_logdet(c->group, 0, &c->handle));
+    return Rf_ScalarReal(c->L->get_logdet(c->group, 0, &c->handle));
 }
 
 SEXP sTiles_nnz_factor_R(SEXP ext) {
     sTiles_ctx* c = ctx_from(ext);
-    return Rf_ScalarReal((double) sTiles_get_nnz_factor(c->group, 0, &c->handle));
+    return Rf_ScalarReal((double) c->L->get_nnz_factor(c->group, 0, &c->handle));
 }
 
 SEXP sTiles_dim_R(SEXP ext) {
@@ -480,7 +474,7 @@ SEXP sTiles_selinv_diag_R(SEXP ext) {
     SEXP out = PROTECT(Rf_allocVector(REALSXP, c->n));
     double* d = REAL(out);
     for (int i = 0; i < c->n; ++i)
-        d[i] = sTiles_get_selinv_elm(c->group, 0, i, i, &c->handle);
+        d[i] = c->L->get_selinv_elm(c->group, 0, i, i, &c->handle);
     UNPROTECT(1);
     return out;
 }
@@ -489,14 +483,14 @@ SEXP sTiles_selinv_diag_R(SEXP ext) {
 SEXP sTiles_selinv_elm_R(SEXP ext, SEXP i_, SEXP j_) {
     sTiles_ctx* c = ctx_from(ext);
     ensure_selinv(c);
-    return Rf_ScalarReal(sTiles_get_selinv_elm(
+    return Rf_ScalarReal(c->L->get_selinv_elm(
         c->group, 0, Rf_asInteger(i_) - 1, Rf_asInteger(j_) - 1, &c->handle));
 }
 
 SEXP sTiles_chol_elm_R(SEXP ext, SEXP i_, SEXP j_) {
     sTiles_ctx* c = ctx_from(ext);
     require_factored(c);
-    return Rf_ScalarReal(sTiles_get_chol_elm(
+    return Rf_ScalarReal(c->L->get_chol_elm(
         c->group, 0, Rf_asInteger(i_) - 1, Rf_asInteger(j_) - 1, &c->handle));
 }
 
@@ -508,8 +502,8 @@ SEXP sTiles_selinv_row_R(SEXP ext, SEXP node_, SEXP neighbors_) {
     int* nb = (int*) R_alloc(m, sizeof(int));
     int* src = INTEGER(neighbors_);
     for (int k = 0; k < m; ++k) nb[k] = src[k] - 1;   /* 0-based */
-    double* vals = sTiles_get_selinv_row(c->group, 0, Rf_asInteger(node_) - 1,
-                                         nb, m, &c->handle);
+    double* vals = c->L->get_selinv_row(c->group, 0, Rf_asInteger(node_) - 1,
+                                        nb, m, &c->handle);
     if (!vals) Rf_error("sTiles_get_selinv_row returned NULL");
     SEXP out = PROTECT(Rf_allocVector(REALSXP, m));
     memcpy(REAL(out), vals, (size_t) m * sizeof(double));
@@ -525,8 +519,8 @@ SEXP sTiles_selinv_pattern_R(SEXP ext) {
     SEXP out = PROTECT(Rf_allocVector(REALSXP, c->nnz));
     double* z = REAL(out);
     for (long long k = 0; k < c->nnz; ++k)
-        z[k] = sTiles_get_selinv_elm(c->group, 0, c->row[k], c->col[k],
-                                     &c->handle);
+        z[k] = c->L->get_selinv_elm(c->group, 0, c->row[k], c->col[k],
+                                    &c->handle);
     UNPROTECT(1);
     return out;
 }
@@ -545,12 +539,12 @@ SEXP sTiles_solve_R(SEXP ext, SEXP B_, SEXP which_) {
     memcpy(REAL(out), REAL(B_), (size_t) total * sizeof(double));
     double* work = REAL(out);
 
-    sTiles_bind(c->group, 0, &c->handle);
+    c->L->bind(c->group, 0, &c->handle);
     int rc;
-    if      (which == 1) rc = sTiles_solve_L (c->group, 0, &c->handle, work, nrhs);
-    else if (which == 2) rc = sTiles_solve_LT(c->group, 0, &c->handle, work, nrhs);
-    else                 rc = sTiles_solve_LLT(c->group, 0, &c->handle, work, nrhs);
-    sTiles_unbind(c->group, 0, &c->handle);
+    if      (which == 1) rc = c->L->solve_L (c->group, 0, &c->handle, work, nrhs);
+    else if (which == 2) rc = c->L->solve_LT(c->group, 0, &c->handle, work, nrhs);
+    else                 rc = c->L->solve_LLT(c->group, 0, &c->handle, work, nrhs);
+    c->L->unbind(c->group, 0, &c->handle);
     if (rc != 0) { UNPROTECT(1); Rf_error("solve failed (status %d)", rc); }
 
     if (nrhs > 1) {
@@ -567,7 +561,7 @@ SEXP sTiles_solve_R(SEXP ext, SEXP B_, SEXP which_) {
 SEXP sTiles_perm_R(SEXP ext) {
     sTiles_ctx* c = ctx_from(ext);
     int* buf = (int*) R_alloc(c->n, sizeof(int));
-    int m = sTiles_get_logical_element_perm(c->group, 0, &c->handle, buf);
+    int m = c->L->get_logical_element_perm(c->group, 0, &c->handle, buf);
     if (m < 0) Rf_error("sTiles_get_logical_element_perm failed");
     SEXP out = PROTECT(Rf_allocVector(INTSXP, m));
     int* o = INTEGER(out);
@@ -581,14 +575,17 @@ SEXP sTiles_free_R(SEXP ext) {
     return R_NilValue;
 }
 
-SEXP sTiles_version_R(void) {
-    const char* v = sTiles_get_version();
+SEXP sTiles_version_R(SEXP lib_) {
+    const char* v = lib_from(lib_)->get_version();
     return Rf_mkString(v ? v : "unknown");
 }
 
 /* ---- registration -------------------------------------------------------- */
 static const R_CallMethodDef CallEntries[] = {
-    {"sTiles_analyze_R",       (DL_FUNC) &sTiles_analyze_R,         9},
+    {"sTiles_lib_open_R",      (DL_FUNC) &sTiles_lib_open_R,        1},
+    {"sTiles_lib_busy_R",      (DL_FUNC) &sTiles_lib_busy_R,        1},
+    {"sTiles_lib_close_R",     (DL_FUNC) &sTiles_lib_close_R,       1},
+    {"sTiles_analyze_R",       (DL_FUNC) &sTiles_analyze_R,        10},
     {"sTiles_factorize_R",     (DL_FUNC) &sTiles_factorize_R,       2},
     {"sTiles_chol_time_R",     (DL_FUNC) &sTiles_chol_time_R,       1},
     {"sTiles_is_factored_R",   (DL_FUNC) &sTiles_is_factored_R,     1},
@@ -605,12 +602,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"sTiles_solve_R",         (DL_FUNC) &sTiles_solve_R,           3},
     {"sTiles_perm_R",          (DL_FUNC) &sTiles_perm_R,            1},
     {"sTiles_free_R",          (DL_FUNC) &sTiles_free_R,            1},
-    {"sTiles_version_R",       (DL_FUNC) &sTiles_version_R,         0},
-    {"sTiles_has_ordering_R",  (DL_FUNC) &sTiles_has_ordering_R,    0},
-    {"sTiles_ordering_R",      (DL_FUNC) &sTiles_ordering_R,        5},
-#ifdef _WIN32
-    {"sTiles_win_bind_R",      (DL_FUNC) &sTiles_win_bind_R,        1},
-#endif
+    {"sTiles_version_R",       (DL_FUNC) &sTiles_version_R,         1},
+    {"sTiles_has_ordering_R",  (DL_FUNC) &sTiles_has_ordering_R,    1},
+    {"sTiles_ordering_R",      (DL_FUNC) &sTiles_ordering_R,        6},
     {NULL, NULL, 0}
 };
 

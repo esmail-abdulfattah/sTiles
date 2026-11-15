@@ -22,8 +22,8 @@
 #' @keywords internal
 NULL
 
-# Package-private state: the located libstiles path, the glue DLLInfo, and a
-# cache of resolved native symbols.
+# Package-private state: the located libstiles path, the glue DLLInfo, the
+# pool of loaded library copies, and a cache of resolved native symbols.
 .sTiles <- new.env(parent = emptyenv())
 
 # Tile factorization regimes (mirror stiles.h tile_type_mode values).
@@ -286,32 +286,19 @@ NULL
     if (length(have)) have[1] else NA_character_
 }
 
-# Drop the loaded solver so a freshly downloaded one can replace it without
-# restarting R. Safe ONLY when this session never built a handle: an "sTiles"
-# object carries a C finalizer that lives inside the glue DLL, so unloading
-# while one is still reachable would send the next garbage collection into
-# code that is no longer mapped. Returns TRUE when nothing is loaded any more.
+# Drop the loaded solver copies so a freshly downloaded one can replace them
+# without restarting R. Refused while any handle is still live in a copy: its
+# finalizer would call into a library that is no longer mapped. The glue stays
+# loaded; it holds no reference into libstiles. Returns TRUE when no copy is
+# loaded any more.
 .sTiles_unload <- function() {
-    if (is.null(.sTiles$dll)) return(TRUE)             # never loaded: nothing to do
-    if (isTRUE(.sTiles$created > 0L)) return(FALSE)    # finalizers outstanding
-    # The DLL table is keyed by the exact string passed to dyn.load, so take
-    # the path back from R rather than rebuilding it and missing by a slash.
-    dlls <- getLoadedDLLs()
-    gluepath <- if (!is.null(dlls[[.sTiles$pkgname]])) dlls[[.sTiles$pkgname]][["path"]]
-                else file.path(.sTiles$libname, .sTiles$pkgname, "libs",
-                               .Platform$r_arch,
-                               paste0(.sTiles$pkgname, .Platform$dynlib.ext))
-    ok <- tryCatch({
-        dyn.unload(gluepath)          # glue first: its symbols bind into libstiles
-        dyn.unload(.sTiles$libpath)
-        TRUE
-    }, error = function(e) FALSE)
-    if (ok) {
-        .sTiles$dll <- NULL
-        .sTiles$libpath <- NULL
-        .sTiles$sym <- new.env(parent = emptyenv())    # cached symbol addresses are stale
-    }
-    ok
+    if (is.null(.sTiles$libpath)) return(TRUE)         # never loaded: nothing to do
+    for (L in .sTiles$pool)
+        if (.Call(.sc("sTiles_lib_busy_R"), L)) return(FALSE)
+    for (L in .sTiles$pool) .Call(.sc("sTiles_lib_close_R"), L)
+    .sTiles$pool <- list()
+    .sTiles$libpath <- NULL
+    TRUE
 }
 
 #' Delete every cached sTiles solver library
@@ -333,7 +320,7 @@ NULL
 #' }
 #' @export
 sTiles_clean_cache <- function() {
-    if (.Platform$OS.type == "windows" && !is.null(.sTiles$dll))
+    if (.Platform$OS.type == "windows" && !is.null(.sTiles$libpath))
         stop("restart R first, then call sTiles_clean_cache(): Windows cannot ",
              "delete a solver that is already loaded", call. = FALSE)
     hits <- .sTiles_cached_libs(.sTiles_ci_folder(), .sTiles_lib_filename())
@@ -540,7 +527,7 @@ sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
     .sTiles$libname <- libname
     .sTiles$pkgname <- pkgname
     .sTiles$sym <- new.env(parent = emptyenv())
-    .sTiles$created <- 0L   # handles built here; gates .sTiles_unload()
+    .sTiles$pool <- list()  # loaded library copies; see .sTiles_lib_for_handle
 }
 
 # A cached solver is reused as it is, and loading never reaches the network, so
@@ -556,43 +543,59 @@ sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
                 "and restart R to update it.")
 }
 
-# Locate/download libstiles and load it + the glue DLL. Idempotent; called from
-# every native entry point via .sc().
+# Load the glue DLL, then locate/download libstiles and load its first copy.
+# Idempotent; called from every native entry point.
 .sTiles_ensure_loaded <- function() {
-    if (!is.null(.sTiles$dll)) return(invisible())
+    if (is.null(.sTiles$dll)) {
+        gluepath <- file.path(.sTiles$libname, .sTiles$pkgname, "libs",
+                              .Platform$r_arch,
+                              paste0(.sTiles$pkgname, .Platform$dynlib.ext))
+        .sTiles$dll <- dyn.load(gluepath)
+    }
+    if (!is.null(.sTiles$libpath)) return(invisible())
     .sTiles_check_cpu()
     libpath <- .sTiles_find_lib(.sTiles$libname, .sTiles$pkgname)
-    # Preload libstiles with GLOBAL symbol visibility (local = FALSE) so the
-    # glue's undefined sTiles_* symbols resolve against it. (Windows has no
-    # such mechanism; see the GetProcAddress bind step below instead.)
-    dyn.load(libpath, local = FALSE, now = TRUE)
     .sTiles$libpath <- libpath
     .sTiles_note_stale(libpath)
-
-    gluepath <- file.path(.sTiles$libname, .sTiles$pkgname, "libs",
-                          .Platform$r_arch,
-                          paste0(.sTiles$pkgname, .Platform$dynlib.ext))
-    .sTiles$dll <- dyn.load(gluepath)
-
-    # Windows PE/DLL linking can't leave the glue's sTiles_* symbols undefined
-    # at link time the way an ELF .so (Linux) or a -undefined dynamic_lookup
-    # .dylib (macOS) can, so the glue resolves them itself via
-    # LoadLibrary/GetProcAddress once it knows the real libstiles.dll path.
-    if (.Platform$OS.type == "windows")
-        .Call(.sTiles_win_bind_sym(), libpath)
-
+    .sTiles_lib_any()       # a library that does not load fails here, not later
     invisible()
 }
 
-# Address of the Windows bind routine, or its NAME before anything is loaded.
-# See .sc for why the name, and not an error, is the right answer there.
-.sTiles_win_bind_sym <- function() {
-    if (is.null(.sTiles$dll)) return("sTiles_win_bind_R")
-    getNativeSymbolInfo("sTiles_win_bind_R", PACKAGE = .sTiles$dll)$address
+# libstiles keeps its state process-wide (memory keyed by group number, thread
+# teams, settings, sTiles_quit), so two handles in one loaded copy would share
+# group 0. Every live handle therefore gets a copy of its own: the located file
+# for the first, then copies of it under tempdir(), each a separate instance.
+# A closed handle frees its copy for the next one, so the pool only grows to
+# the number of handles open at the same time.
+.sTiles_lib_for_handle <- function() {
+    for (L in .sTiles$pool)
+        if (!.Call(.sc("sTiles_lib_busy_R"), L)) return(L)
+    k <- length(.sTiles$pool) + 1L
+    path <- if (k == 1L) .sTiles$libpath else .sTiles_lib_copy(k)
+    L <- .Call(.sc("sTiles_lib_open_R"), path)
+    .sTiles$pool[[k]] <- L
+    L
+}
+
+# Any loaded copy, for calls that need no handle (version, ordering).
+.sTiles_lib_any <- function() {
+    if (length(.sTiles$pool)) .sTiles$pool[[1L]] else .sTiles_lib_for_handle()
+}
+
+# A real copy, not a link: the loader recognises a linked file as the library
+# it already has and would hand back the same instance.
+.sTiles_lib_copy <- function(k) {
+    dir <- file.path(tempdir(), sprintf("sTiles-lib-%d", k))
+    dir.create(dir, showWarnings = FALSE)
+    dest <- file.path(dir, basename(.sTiles$libpath))
+    if (!file.exists(dest) && !file.copy(.sTiles$libpath, dest))
+        stop("sTiles: could not copy the solver library to ", dir, call. = FALSE)
+    dest
 }
 
 .onUnload <- function(libpath) {
-    if (!is.null(.sTiles$dll)) try(dyn.unload(.sTiles$dll[["path"]]), silent = TRUE)
+    if (.sTiles_unload() && !is.null(.sTiles$dll))
+        try(dyn.unload(.sTiles$dll[["path"]]), silent = TRUE)
 }
 
 # Resolve (and cache) a registered native routine from the glue DLL, or return
@@ -643,7 +646,7 @@ sTiles_library_path <- function() { .sTiles_ensure_loaded(); .sTiles$libpath }
 #' @export
 sTiles_version <- function() {
     .sTiles_ensure_loaded()
-    .Call(.sc("sTiles_version_R"))
+    .Call(.sc("sTiles_version_R"), .sTiles_lib_any())
 }
 
 # ---------------------------------------------------------------------------
@@ -704,13 +707,12 @@ sTiles_analyze <- function(Q, cores = 1L, mode = "auto", tile_size = 40L,
     ## Timed here: libstiles reports chol/selinv time but nothing for the
     ## preprocessing, which is usually the expensive phase -- it runs once per
     ## sparsity pattern, while sTiles_factorize() runs once per set of values.
+    lib <- .sTiles_lib_for_handle()
     t0 <- proc.time()[["elapsed"]]
-    ptr <- .Call(.sc("sTiles_analyze_R"), coo$i, coo$j, coo$n,
+    ptr <- .Call(.sc("sTiles_analyze_R"), lib, coo$i, coo$j, coo$n,
                  as.integer(cores), as.integer(m), as.integer(tile_size),
                  as.logical(inverse), 0L, as.integer(log_level))
     analyze_time <- proc.time()[["elapsed"]] - t0
-
-    .sTiles$created <- .sTiles$created + 1L   # a C finalizer now exists; see .sTiles_unload
 
     obj <- list(ptr = ptr, n = coo$n, nnz = length(coo$i), analyze_time = analyze_time,
                 mode = as.integer(m), cores = as.integer(cores),
@@ -1181,7 +1183,7 @@ print.sTiles_summary <- function(x, ...) {
 # Version_2026.09.04 do not.
 .sTiles_has_ordering <- function() {
     .sTiles_ensure_loaded()
-    isTRUE(.Call(.sc("sTiles_has_ordering_R")))
+    isTRUE(.Call(.sc("sTiles_has_ordering_R"), .sTiles_lib_any()))
 }
 
 #' Fill-reducing ordering of a symmetric sparse matrix, on its own
@@ -1234,7 +1236,7 @@ print.sTiles_summary <- function(x, ...) {
 sTiles_ordering <- function(Q, tile_size = 40L, cores = 1L) {
     .sTiles_ensure_loaded()
     coo <- .sTiles_lower_coo(Q)
-    res <- .Call(.sc("sTiles_ordering_R"), coo$i, coo$j, coo$n,
+    res <- .Call(.sc("sTiles_ordering_R"), .sTiles_lib_any(), coo$i, coo$j, coo$n,
                  as.integer(tile_size), as.integer(cores))
     res$winner <- names(.sTiles_ordering_names)[match(res$winner, .sTiles_ordering_names)]
     class(res) <- "sTiles_ordering"

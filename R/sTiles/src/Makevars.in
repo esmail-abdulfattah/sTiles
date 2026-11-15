@@ -1,18 +1,7 @@
-# The glue is compiled with UNDEFINED sTiles_* symbols; they are resolved at
-# runtime against libstiles, which the package preloads (RTLD_GLOBAL) in
-# .onLoad before loading this object.  So there is no -lstiles / rpath here and
-# the package needs no libstiles present at *build* time -- only stiles.h
-# (vendored next to this file).
-#
-# On macOS the linker rejects undefined symbols by default, so allow dynamic
-# lookup there; on Linux undefined symbols in a shared object are fine.
-#
-# Windows PE/DLL linking allows neither, there is no process-wide symbol
-# search at load time, so the glue can't be built with sTiles_* left
-# undefined at all. There it resolves them itself at runtime via
-# LoadLibrary/GetProcAddress instead (see the _WIN32 block in
-# sTiles_glue.c), which needs kernel32.
+# No -lstiles and no rpath: the glue loads libstiles itself at run time, one
+# copy per live handle (dlopen / LoadLibrary, see sTiles_glue.c), so the
+# package needs no libstiles present at *build* time.
 
-# ifeq/+= are GNU make extensions, which a portable package may not use, so the
-# platform decision happens in ./configure and lands in @PKG_LIBS@ instead.
+# ifeq/+= are GNU make extensions, which a portable package may not use, so any
+# platform decision happens in ./configure and is substituted into PKG_LIBS below.
 PKG_LIBS = @PKG_LIBS@

@@ -1,14 +1,10 @@
 #!/bin/sh
-# Decide the one platform-dependent link flag and write src/Makevars.
+# Write src/Makevars.
 #
-# The glue is compiled with its sTiles_* symbols UNDEFINED: they resolve at run
-# time against libstiles, which the package preloads with global visibility
-# before loading the glue, so there is no -lstiles and no rpath here. Undefined
-# symbols in a shared object are fine on Linux; the macOS linker rejects them
-# unless told to look them up dynamically.
+# The glue references no libstiles symbol at link time: it loads each library
+# copy itself (dlopen / LoadLibrary) and calls it through a function table, so
+# there is no -lstiles, no rpath and no undefined symbol to allow on any
+# platform.
 PKG_LIBS=""
-case "`uname -s`" in
-    Darwin*) PKG_LIBS="-undefined dynamic_lookup" ;;
-esac
 
 sed "s|@PKG_LIBS@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
