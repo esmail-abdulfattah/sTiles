@@ -488,77 +488,113 @@ lib, library_path = _load()
 # on the Python side is ``byref(c_void_p)``.  We declare those params as
 # ``c_void_p`` (a pointer-to-pointer is still just an address) and always pass
 # ``ctypes.byref(handle)`` at the call site.
+#
+# Declared per loaded copy: core.py opens one copy of the library per live
+# object (see open_copy), and ctypes keeps argtypes on each CDLL separately.
 # ---------------------------------------------------------------------------
-def _decl(name, restype, argtypes):
-    fn = getattr(lib, name)
+def _decl(L, name, restype, argtypes):
+    fn = getattr(L, name)
     fn.restype = restype
     fn.argtypes = argtypes
     return fn
 
 
-# Version / logging ---------------------------------------------------------
-_decl("sTiles_get_version", c_char_p, [])
-_decl("sTiles_set_log_level", None, [c_int])
-_decl("sTiles_expert_user", None, [])
+def _declare(L):
+    # Version / logging ---------------------------------------------------------
+    _decl(L, "sTiles_get_version", c_char_p, [])
+    _decl(L, "sTiles_set_log_level", None, [c_int])
+    _decl(L, "sTiles_expert_user", None, [])
 
-# Global configuration ------------------------------------------------------
-_decl("sTiles_set_tile_size", None, [c_int])
-_decl("sTiles_return_tile_size", c_int, [])
-_decl("sTiles_get_auto_tile_size", c_int, [])
-_decl("sTiles_set_tile_type_mode", None, [c_int])
-_decl("sTiles_set_ordering_mode", None, [c_int])
-_decl("sTiles_force_ND", None, [c_int])
+    # Global configuration ------------------------------------------------------
+    _decl(L, "sTiles_set_tile_size", None, [c_int])
+    _decl(L, "sTiles_return_tile_size", c_int, [])
+    _decl(L, "sTiles_get_auto_tile_size", c_int, [])
+    _decl(L, "sTiles_set_tile_type_mode", None, [c_int])
+    _decl(L, "sTiles_set_ordering_mode", None, [c_int])
+    _decl(L, "sTiles_force_ND", None, [c_int])
 
-# Lifecycle -----------------------------------------------------------------
-# int sTiles_create(void**, int num_groups, const int* calls_per_group,
-#                   const int* cores_per_group, const int* chol_type,
-#                   const bool* get_inverse)
-_decl("sTiles_create", c_int,
-      [c_void_p, c_int, c_int_p, c_int_p, c_int_p, c_bool_p])
-# int sTiles_assign_graph_one_call(int g, int c, void**, int n, int nnz,
-#                                  int* row, int* col)
-_decl("sTiles_assign_graph_one_call", c_int,
-      [c_int, c_int, c_void_p, c_int, c_int, c_int_p, c_int_p])
-_decl("sTiles_init_group", c_int, [c_int, c_void_p])
-_decl("sTiles_assign_values", c_int, [c_int, c_int, c_void_p, c_double_p])
-_decl("sTiles_bind", c_int, [c_int, c_int, c_void_p])
-_decl("sTiles_unbind", c_int, [c_int, c_int, c_void_p])
-_decl("sTiles_chol", c_int, [c_int, c_int, c_void_p])
-_decl("sTiles_selinv", c_int, [c_int, c_int, c_void_p])
-_decl("sTiles_freeGroup", None, [c_int])
-_decl("sTiles_quit", None, [])
+    # Lifecycle -----------------------------------------------------------------
+    # int sTiles_create(void**, int num_groups, const int* calls_per_group,
+    #                   const int* cores_per_group, const int* chol_type,
+    #                   const bool* get_inverse)
+    _decl(L, "sTiles_create", c_int,
+          [c_void_p, c_int, c_int_p, c_int_p, c_int_p, c_bool_p])
+    # int sTiles_assign_graph_one_call(int g, int c, void**, int n, int nnz,
+    #                                  int* row, int* col)
+    _decl(L, "sTiles_assign_graph_one_call", c_int,
+          [c_int, c_int, c_void_p, c_int, c_int, c_int_p, c_int_p])
+    _decl(L, "sTiles_init_group", c_int, [c_int, c_void_p])
+    _decl(L, "sTiles_assign_values", c_int, [c_int, c_int, c_void_p, c_double_p])
+    _decl(L, "sTiles_bind", c_int, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_unbind", c_int, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_chol", c_int, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_selinv", c_int, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_freeGroup", None, [c_int])
+    _decl(L, "sTiles_quit", None, [])
 
-# Result accessors ----------------------------------------------------------
-_decl("sTiles_get_logdet", c_double, [c_int, c_int, c_void_p])
-_decl("sTiles_get_nnz_factor", c_longlong, [c_int, c_int, c_void_p])
-_decl("sTiles_get_selinv_elm", c_double, [c_int, c_int, c_int, c_int, c_void_p])
-_decl("sTiles_get_chol_elm", c_double, [c_int, c_int, c_int, c_int, c_void_p])
-# double* sTiles_get_selinv_row(int g, int c, int node, int* neighbors,
-#                               int size, void**)
-_decl("sTiles_get_selinv_row", c_double_p,
-      [c_int, c_int, c_int, c_int_p, c_int, c_void_p])
-# int sTiles_get_selinv_diag(int g, int c, void** h, int n, double* out): the
-# whole diagonal in one call. Added to libstiles after Version_2026.09.04, so
-# it is optional: core.py falls back to the per-element loop when the loaded
-# library predates it (the loop costs ~0.7 us per ctypes call, 20x C on 100k
-# nodes; the bulk call costs what R and Julia pay).
-try:
-    _decl("sTiles_get_selinv_diag", c_int, [c_int, c_int, c_void_p, c_int, c_double_p])
-except AttributeError:
-    pass
-_decl("sTiles_clear_selinv", c_int, [c_int, c_int, c_void_p])
-_decl("sTiles_get_chol_timing", c_double, [c_int, c_int, c_void_p])
-_decl("sTiles_get_selinv_timing", c_double, [c_int, c_int, c_void_p])
+    # Result accessors ----------------------------------------------------------
+    _decl(L, "sTiles_get_logdet", c_double, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_get_nnz_factor", c_longlong, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_get_selinv_elm", c_double, [c_int, c_int, c_int, c_int, c_void_p])
+    _decl(L, "sTiles_get_chol_elm", c_double, [c_int, c_int, c_int, c_int, c_void_p])
+    # double* sTiles_get_selinv_row(int g, int c, int node, int* neighbors,
+    #                               int size, void**)
+    _decl(L, "sTiles_get_selinv_row", c_double_p,
+          [c_int, c_int, c_int, c_int_p, c_int, c_void_p])
+    # int sTiles_get_selinv_diag(int g, int c, void** h, int n, double* out): the
+    # whole diagonal in one call. Added to libstiles after Version_2026.09.04, so
+    # it is optional: core.py falls back to the per-element loop when the loaded
+    # library predates it (the loop costs ~0.7 us per ctypes call, 20x C on 100k
+    # nodes; the bulk call costs what R and Julia pay).
+    try:
+        _decl(L, "sTiles_get_selinv_diag", c_int, [c_int, c_int, c_void_p, c_int, c_double_p])
+    except AttributeError:
+        pass
+    _decl(L, "sTiles_clear_selinv", c_int, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_get_chol_timing", c_double, [c_int, c_int, c_void_p])
+    _decl(L, "sTiles_get_selinv_timing", c_double, [c_int, c_int, c_void_p])
 
-# Permutation ---------------------------------------------------------------
-# int sTiles_get_logical_element_perm(int g, int c, void**, int* out_perm)
-_decl("sTiles_get_logical_element_perm", c_int, [c_int, c_int, c_void_p, c_int_p])
+    # Permutation ---------------------------------------------------------------
+    # int sTiles_get_logical_element_perm(int g, int c, void**, int* out_perm)
+    _decl(L, "sTiles_get_logical_element_perm", c_int, [c_int, c_int, c_void_p, c_int_p])
 
-# Solvers (B is column-major, original order, overwritten in place) ----------
-_decl("sTiles_solve_LLT", c_int, [c_int, c_int, c_void_p, c_double_p, c_int])
-_decl("sTiles_solve_L", c_int, [c_int, c_int, c_void_p, c_double_p, c_int])
-_decl("sTiles_solve_LT", c_int, [c_int, c_int, c_void_p, c_double_p, c_int])
+    # Solvers (B is column-major, original order, overwritten in place) ----------
+    _decl(L, "sTiles_solve_LLT", c_int, [c_int, c_int, c_void_p, c_double_p, c_int])
+    _decl(L, "sTiles_solve_L", c_int, [c_int, c_int, c_void_p, c_double_p, c_int])
+    _decl(L, "sTiles_solve_LT", c_int, [c_int, c_int, c_void_p, c_double_p, c_int])
 
-# Memory estimate (static, no handle) --------------------------------------
-_decl("sTiles_estimate_memory", c_double,
-      [c_int, c_int, c_int, c_int, c_int, c_int])
+    # Memory estimate (static, no handle) --------------------------------------
+    _decl(L, "sTiles_estimate_memory", c_double,
+          [c_int, c_int, c_int, c_int, c_int, c_int])
+
+
+_declare(lib)
+
+
+# ---------------------------------------------------------------------------
+# Library copies.
+#
+# libstiles keeps its state process-wide (memory keyed by group number, thread
+# teams, settings, sTiles_quit), so two objects in one loaded copy would share
+# group 0. The same file at another path loads as a separate instance with its
+# own globals (CDLL is RTLD_LOCAL). It must be a real copy: a link resolves to
+# the library already loaded and gives back the same instance.
+# ---------------------------------------------------------------------------
+_copy_dir: Path | None = None
+
+
+def open_copy(k: int) -> ctypes.CDLL:
+    """Load copy number ``k`` (2, 3, ...) of the located library, declared."""
+    global _copy_dir
+    if _copy_dir is None:
+        import atexit
+        _copy_dir = Path(tempfile.mkdtemp(prefix="sTiles-lib-"))
+        # Windows cannot delete a loaded DLL; the temp dir is left to the OS there.
+        atexit.register(shutil.rmtree, _copy_dir, True)
+    dest = _copy_dir / str(k) / Path(library_path).name
+    if not dest.is_file():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(library_path, dest)
+    L = ctypes.CDLL(str(dest))
+    _declare(L)
+    return L

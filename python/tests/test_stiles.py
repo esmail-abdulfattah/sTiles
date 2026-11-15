@@ -256,9 +256,10 @@ def test_rhs_widths(nrhs):
 def test_errors_and_lifecycle():
     n = 10
     Q = band_spd(n)
-    with sTiles(Q):
-        with pytest.raises(sTilesError):
-            sTiles(Q)                                        # one live handle
+    with sTiles(Q) as a:
+        with sTiles(2.0 * Q) as b:                           # several live objects
+            assert b.logdet == pytest.approx(logdet_dense(2.0 * Q), rel=1e-12)
+        assert a.logdet == pytest.approx(logdet_dense(Q), rel=1e-12)
     with sTiles(Q) as s:                                     # clean re-init after quit
         assert s.logdet == pytest.approx(logdet_dense(Q), rel=1e-12)
     # not positive definite: clean error, nothing left live
@@ -303,6 +304,29 @@ def test_gc_releases_the_handle():
     gc.collect()
     with sTiles(Q) as t:
         assert t.logdet == pytest.approx(logdet_dense(Q), rel=1e-12)
+
+
+def test_several_objects_do_not_touch_each_other():
+    Q1, Q2 = band_spd(60), 2.0 * band_spd(90)
+    ld1, ld2 = logdet_dense(Q1), logdet_dense(Q2)
+    full2 = np.linalg.inv(np.asarray(Q2.todense()))
+
+    s = sTiles(Q1, cores=2)
+    ss = sTiles(Q2, cores=2, inverse=True)
+    try:
+        assert s.logdet == pytest.approx(ld1, rel=1e-12)
+        assert ss.logdet == pytest.approx(ld2, rel=1e-12)
+
+        s.close()                                            # ss must be intact
+        assert ss.logdet == pytest.approx(ld2, rel=1e-12)
+        np.testing.assert_allclose(ss.selinv_diag(), np.diag(full2), rtol=1e-10)
+
+        with sTiles(3.0 * Q1) as s3:                         # new object, ss still open
+            assert s3.logdet == pytest.approx(ld1 + 60 * np.log(3.0), rel=1e-12)
+            assert ss.logdet == pytest.approx(ld2, rel=1e-12)
+    finally:
+        s.close()
+        ss.close()
 
 
 def test_many_cycles():

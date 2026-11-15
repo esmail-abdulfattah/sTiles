@@ -27,15 +27,15 @@ Notes
   read; the upper triangle (if present) is ignored.
 * All indices exposed by this API are 0-based in the *original* ordering of the
   input matrix -- sTiles undoes its internal fill-reducing permutation for you.
-* One matrix at a time per process.  libstiles keeps its teams and worker
-  threads in process-global state, so a second live handle is refused with a
-  clear error; close the first one (``close()`` or a ``with`` block) and the
-  next :class:`sTiles` object starts cleanly.
+* Several objects can be open at once, and they never touch each other: each
+  runs in its own loaded copy of libstiles.  Closing one (``close()`` or a
+  ``with`` block) frees its memory and threads and leaves the others intact.
 """
 
 from __future__ import annotations
 
 import ctypes
+import threading
 import time as _time
 from ctypes import byref, c_bool, c_int, c_void_p
 
@@ -115,29 +115,38 @@ def _lower_coo(Q):
     return int(n), row[order].copy(), col[order].copy(), val[order].copy()
 
 
-# Live-object count for the process-wide teardown below. sTiles keeps its
-# worker threads (and, on Linux, its claim on a slice of the machine's cores)
-# until sTiles_quit() -- freeing a group releases memory but not the teams.
-# A long-lived host such as a notebook would therefore hold cores it no longer
-# uses. Quit is process-wide, so it may only run when the LAST object closes;
-# creating a new object afterwards re-initializes cleanly.
-_live_objects = 0
+# One loaded copy of libstiles per live object. libstiles keeps its state
+# process-wide (memory keyed by group number, thread teams, settings,
+# sTiles_quit), so two objects in one copy would share group 0. The first
+# object uses the located library itself, later ones copies of it
+# (_ffi.open_copy). A closed object quits its copy -- joining its worker
+# threads and releasing its core claim -- and hands it to the next object, so
+# the pool only grows to the number of objects open at the same time.
+_pool = [lib]
+_busy: set = set()
+_pool_lock = threading.Lock()
 
 
-def _register_live():
-    global _live_objects
-    _live_objects += 1
+def _acquire_lib():
+    with _pool_lock:
+        for k in range(len(_pool)):
+            if k not in _busy:
+                _busy.add(k)
+                return k, _pool[k]
+        L = _ffi.open_copy(len(_pool) + 1)
+        _pool.append(L)
+        k = len(_pool) - 1
+        _busy.add(k)
+        return k, L
 
 
-def _unregister_live():
-    global _live_objects
-    _live_objects -= 1
-    if _live_objects <= 0:
-        _live_objects = 0
-        try:
-            lib.sTiles_quit()
-        except Exception:
-            pass
+def _release_lib(k):
+    try:
+        _pool[k].sTiles_quit()
+    except Exception:
+        pass
+    with _pool_lock:
+        _busy.discard(k)
 
 
 class sTilesError(RuntimeError):
@@ -183,13 +192,8 @@ class sTiles:
 
     def __init__(self, Q, cores=1, mode="auto", tile_size=40, inverse=False,
                  log_level=-1, factorize=True):
-        if _live_objects > 0:
-            raise sTilesError(
-                "sTiles handles one matrix at a time: another sTiles object is "
-                "still open in this process. Close it first (close() or a "
-                "'with' block), then build the next one.")
         self._closed = False
-        self._counted = False
+        self._slot = None
         self._handle = c_void_p(None)
         self.group = 0
         self.want_inverse = bool(inverse)
@@ -205,12 +209,20 @@ class sTiles:
         self._col = col
         self._values = val
 
-        lib.sTiles_set_log_level(int(log_level))
+        self._slot, self._lib = _acquire_lib()
+        try:
+            self._build(log_level, tile_size, row, col, factorize)
+        except BaseException:
+            self.close()            # hand the copy back: a failed build holds nothing
+            raise
+
+    def _build(self, log_level, tile_size, row, col, factorize):
+        self._lib.sTiles_set_log_level(int(log_level))
 
         # --- global configuration (expert mode gates the setters) ----------
-        lib.sTiles_expert_user()
-        lib.sTiles_set_tile_size(int(tile_size))
-        lib.sTiles_set_tile_type_mode(self.mode)
+        self._lib.sTiles_expert_user()
+        self._lib.sTiles_set_tile_size(int(tile_size))
+        self._lib.sTiles_set_tile_type_mode(self.mode)
 
         # --- create handle -------------------------------------------------
         # One group, and it gets the graph. Creating extra groups and leaving
@@ -221,11 +233,9 @@ class sTiles:
         cores_arr = (c_int * ng)(*([self.cores] * ng))
         chol_type = (c_int * ng)(*([0] * ng))   # 0 = sparse factorization variant
         get_inv = (c_bool * ng)(*([self.want_inverse] * ng))
-        rc = lib.sTiles_create(byref(self._handle), ng, calls, cores_arr,
-                               chol_type, get_inv)
+        rc = self._lib.sTiles_create(byref(self._handle), ng, calls, cores_arr,
+                                     chol_type, get_inv)
         self._check(rc, "sTiles_create")
-        _register_live()
-        self._counted = True
 
         # --- PHASE 1: preprocessing (graph + ordering + tile layout) -------
         # Symbolic only -- no numeric values, no Cholesky. Timed here because
@@ -233,12 +243,12 @@ class sTiles:
         # it is usually the expensive one: it runs once per sparsity pattern
         # while factorize() runs once per set of values.
         _t0 = _time.perf_counter()
-        rc = lib.sTiles_assign_graph_one_call(
+        rc = self._lib.sTiles_assign_graph_one_call(
             self.group, 0, byref(self._handle), self.n, self.nnz,
             row.ctypes.data_as(_ffi.c_int_p), col.ctypes.data_as(_ffi.c_int_p))
         self._check(rc, "sTiles_assign_graph_one_call")
 
-        rc = lib.sTiles_init_group(self.group, byref(self._handle))
+        rc = self._lib.sTiles_init_group(self.group, byref(self._handle))
         self._check(rc, "sTiles_init_group")
         self.analyze_time = _time.perf_counter() - _t0
 
@@ -299,13 +309,13 @@ class sTiles:
                     "build a new sTiles for a different pattern")
             self._values = val
         val = self._values
-        rc = lib.sTiles_assign_values(
+        rc = self._lib.sTiles_assign_values(
             self.group, 0, byref(self._handle),
             val.ctypes.data_as(_ffi.c_double_p))
         self._check(rc, "sTiles_assign_values")
-        lib.sTiles_bind(self.group, 0, byref(self._handle))
-        rc = lib.sTiles_chol(self.group, 0, byref(self._handle))
-        lib.sTiles_unbind(self.group, 0, byref(self._handle))
+        self._lib.sTiles_bind(self.group, 0, byref(self._handle))
+        rc = self._lib.sTiles_chol(self.group, 0, byref(self._handle))
+        self._lib.sTiles_unbind(self.group, 0, byref(self._handle))
         self._check(rc, "sTiles_chol")
         self._factored = True
         self._selinv_done = False
@@ -317,9 +327,9 @@ class sTiles:
                 "construct sTiles(..., inverse=True) to use the selected inverse")
         self._require_factored()
         if not self._selinv_done:
-            lib.sTiles_bind(self.group, 0, byref(self._handle))
-            rc = lib.sTiles_selinv(self.group, 0, byref(self._handle))
-            lib.sTiles_unbind(self.group, 0, byref(self._handle))
+            self._lib.sTiles_bind(self.group, 0, byref(self._handle))
+            rc = self._lib.sTiles_selinv(self.group, 0, byref(self._handle))
+            self._lib.sTiles_unbind(self.group, 0, byref(self._handle))
             self._check(rc, "sTiles_selinv")
             self._selinv_done = True
 
@@ -333,25 +343,25 @@ class sTiles:
     def logdet(self) -> float:
         """log-determinant of Q (== 2 * sum(log diag(L)))."""
         self._require_factored()
-        return float(lib.sTiles_get_logdet(self.group, 0, byref(self._handle)))
+        return float(self._lib.sTiles_get_logdet(self.group, 0, byref(self._handle)))
 
     @property
     def nnz_factor(self) -> int:
         """Number of stored non-zeros in the Cholesky factor L."""
         self._require_open()
-        return int(lib.sTiles_get_nnz_factor(self.group, 0, byref(self._handle)))
+        return int(self._lib.sTiles_get_nnz_factor(self.group, 0, byref(self._handle)))
 
     @property
     def chol_time(self) -> float:
         """Library-measured numeric Cholesky time in seconds (no Python overhead)."""
         self._require_factored()
-        return float(lib.sTiles_get_chol_timing(self.group, 0, byref(self._handle)))
+        return float(self._lib.sTiles_get_chol_timing(self.group, 0, byref(self._handle)))
 
     @property
     def selinv_time(self) -> float:
         """Library-measured selected-inverse time in seconds (no Python overhead)."""
         self._require_factored()
-        return float(lib.sTiles_get_selinv_timing(self.group, 0, byref(self._handle)))
+        return float(self._lib.sTiles_get_selinv_timing(self.group, 0, byref(self._handle)))
 
     def summary(self) -> dict:
         """
@@ -390,7 +400,7 @@ class sTiles:
     def chol_elm(self, i: int, j: int) -> float:
         """Entry L[i, j] of the Cholesky factor (0-based, original order)."""
         self._require_factored()
-        return float(lib.sTiles_get_chol_elm(
+        return float(self._lib.sTiles_get_chol_elm(
             self.group, 0, int(i), int(j), byref(self._handle)))
 
     def selinv_elm(self, i: int, j: int) -> float:
@@ -402,7 +412,7 @@ class sTiles:
         computation on first use.
         """
         self._ensure_selinv()
-        return float(lib.sTiles_get_selinv_elm(
+        return float(self._lib.sTiles_get_selinv_elm(
             self.group, 0, int(i), int(j), byref(self._handle)))
 
     def selinv_diag(self) -> np.ndarray:
@@ -414,11 +424,11 @@ class sTiles:
         out = np.empty(self.n, dtype=np.float64)
         h = byref(self._handle)
         g = self.group
-        bulk = getattr(lib, "sTiles_get_selinv_diag", None)
+        bulk = getattr(self._lib, "sTiles_get_selinv_diag", None)
         if bulk is not None and bulk(g, 0, h, self.n, out.ctypes.data_as(_ffi.c_double_p)) == self.n:
             return out
         # Older libraries: one FFI call per node.
-        get = lib.sTiles_get_selinv_elm
+        get = self._lib.sTiles_get_selinv_elm
         for i in range(self.n):
             out[i] = get(g, 0, i, i, h)
         return out
@@ -430,7 +440,7 @@ class sTiles:
         """
         self._ensure_selinv()
         nb = np.ascontiguousarray(neighbors, dtype=np.int32)
-        ptr = lib.sTiles_get_selinv_row(
+        ptr = self._lib.sTiles_get_selinv_row(
             self.group, 0, int(node), nb.ctypes.data_as(_ffi.c_int_p),
             nb.size, byref(self._handle))
         if not ptr:
@@ -445,7 +455,7 @@ class sTiles:
         """
         self._require_open()
         out = np.empty(self.n, dtype=np.int32)
-        m = lib.sTiles_get_logical_element_perm(
+        m = self._lib.sTiles_get_logical_element_perm(
             self.group, 0, byref(self._handle), out.ctypes.data_as(_ffi.c_int_p))
         if m < 0:
             raise sTilesError("sTiles_get_logical_element_perm failed")
@@ -467,10 +477,10 @@ class sTiles:
         # three passes over B (the last a strided transpose) and cost 2-4x the
         # solve itself for 64 right-hand sides.
         work = np.array(B, dtype=np.float64, order="F", copy=True)
-        lib.sTiles_bind(self.group, 0, byref(self._handle))
+        self._lib.sTiles_bind(self.group, 0, byref(self._handle))
         rc = fn(self.group, 0, byref(self._handle),
                 work.ctypes.data_as(_ffi.c_double_p), nrhs)
-        lib.sTiles_unbind(self.group, 0, byref(self._handle))
+        self._lib.sTiles_unbind(self.group, 0, byref(self._handle))
         self._check(rc, fn.__name__)
         return work[:, 0] if one_d else work
 
@@ -482,8 +492,8 @@ class sTiles:
         ``b`` is never modified.  A matrix result is a fresh column-major
         (Fortran-ordered) array, the layout the solver works in.
         """
-        fn = {"A": lib.sTiles_solve_LLT, "L": lib.sTiles_solve_L,
-              "Lt": lib.sTiles_solve_LT}.get(system)
+        fn = {"A": self._lib.sTiles_solve_LLT, "L": self._lib.sTiles_solve_L,
+              "Lt": self._lib.sTiles_solve_LT}.get(system)
         if fn is None:
             raise ValueError(f"system must be 'A', 'L' or 'Lt', got {system!r}")
         return self._solve(fn, b)
@@ -516,16 +526,18 @@ class sTiles:
     # -- lifecycle ----------------------------------------------------------
     def close(self):
         if not self._closed:
+            slot = getattr(self, "_slot", None)
             try:
-                lib.sTiles_freeGroup(self.group)
+                if slot is not None:
+                    self._lib.sTiles_freeGroup(self.group)
             finally:
                 self._closed = True
                 self._handle = c_void_p(None)
-                # Last object gone -> full teardown: joins the worker threads
-                # and releases this process's core reservation.
-                if getattr(self, "_counted", False):
-                    self._counted = False
-                    _unregister_live()
+                # The object is the only one in its copy, so quitting it joins
+                # this object's threads and releases its cores, nobody else's.
+                if slot is not None:
+                    self._slot = None
+                    _release_lib(slot)
 
     def __enter__(self):
         return self
