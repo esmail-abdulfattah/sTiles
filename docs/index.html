@@ -1690,7 +1690,7 @@ close(F)
 # sTiles.cholesky(Q; ...) does analyze + factorize in one call when you only
 # need one factorization.</code></pre>
                 </div>
-                <p class="lang-note">No compiler. The native <code>libstiles</code> for your platform is fetched from the GitHub Release the first time you run <code>using sTiles</code> and cached; set <code>STILES_LIB</code> to use a copy of your own. One factor is live at a time, so <code>close(F)</code> before building the next.
+                <p class="lang-note">No compiler. The native <code>libstiles</code> for your platform is fetched from the GitHub Release the first time you run <code>using sTiles</code> and cached; set <code>STILES_LIB</code> to use a copy of your own. Several factors can be live at once; <code>close(F)</code> frees one immediately.
                 <br><code>cores</code> defaults to 1 and is never auto-detected: pass <code>cores = Sys.CPU_THREADS</code> to use every core, or any number up to it, to actually get parallel speed.</p>
             </div>
 

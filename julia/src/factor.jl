@@ -94,12 +94,10 @@ end
 # ---------------------------------------------------------------------------
 # One live factorization.
 #
-# libstiles keeps its thread teams and worker state in process-global storage,
-# so exactly one factor can be live at a time -- the same restriction the
-# Python and R bindings enforce.
+# Several factors can be live at once: each runs in its own loaded copy of
+# libstiles (see Lib and _acquire_lib in library.jl), so they never share
+# state. A factor is the only one in its copy.
 # ---------------------------------------------------------------------------
-const LIVE = Ref(0)
-const LIVE_LOCK = ReentrantLock()
 
 """
     sTiles.Factor
@@ -110,6 +108,7 @@ Build one with [`sTiles.cholesky`](@ref) (analyze and factorize) or
 [`sTiles.analyze`](@ref) (analysis only), and release it with `close(F)`.
 """
 mutable struct Factor <: LinearAlgebra.Factorization{Float64}
+    lib::Lib                         # the copy of libstiles this factor runs in
     handle::Base.RefValue{Ptr{Cvoid}}
     n::Int
     nnz::Int
@@ -180,19 +179,14 @@ function analyze(Q::AbstractMatrix; cores::Integer = 1, mode = :auto,
     cores >= 1 || throw(ArgumentError("cores must be >= 1"))
     n, row, col, val = _lower_coo(Q)
 
-    lock(LIVE_LOCK)
+    L = _acquire_lib()
+    handle = Ref(Ptr{Cvoid}(C_NULL))
     try
-        LIVE[] == 0 || throw(sTilesError(
-            "sTiles handles one matrix at a time: another factor is still " *
-            "open in this process. Close it first (close(F)), then build the " *
-            "next one."))
+        _set_log_level(L, log_level)
+        _expert_user(L)                 # gates the setters below
+        _set_tile_size(L, tile_size)
+        _set_tile_type_mode(L, m)
 
-        _set_log_level(log_level)
-        _expert_user()                  # gates the setters below
-        _set_tile_size(tile_size)
-        _set_tile_type_mode(m)
-
-        handle = Ref(Ptr{Cvoid}(C_NULL))
         # One group, and it gets the graph below: creating extra groups and
         # leaving them without one makes the team setup fail on the empty group.
         ng = Cint(1)
@@ -200,29 +194,29 @@ function analyze(Q::AbstractMatrix; cores::Integer = 1, mode = :auto,
         coresv = Cint[cores]
         ctype = Cint[0]                 # 0 = sparse factorization variant
         ginv = Bool[inverse]
-        _check(_create(handle, ng, calls, coresv, ctype, ginv), "sTiles_create")
-
-        F = Factor(handle, n, length(row), row, col, val, Cint(0), Int(cores), m,
-                   inverse, false, false, false, 0.0, ReentrantLock())
-        LIVE[] += 1
-        finalizer(_finalize!, F)
-
-        # Timed here: libstiles reports the Cholesky and selected-inverse times
-        # but nothing for the analysis, which is usually the expensive phase.
-        t0 = time()
-        try
-            _check(_assign_graph_one_call(F.group, 0, F.handle, n, F.nnz, F.row, F.col),
-                   "sTiles_assign_graph_one_call")
-            _check(_init_group(F.group, F.handle), "sTiles_init_group")
-        catch
-            _teardown!(F)
-            rethrow()
-        end
-        F.analyze_time = time() - t0
-        return F
-    finally
-        unlock(LIVE_LOCK)
+        _check(_create(L, handle, ng, calls, coresv, ctype, ginv), "sTiles_create")
+    catch
+        _release_lib(L)
+        rethrow()
     end
+
+    F = Factor(L, handle, n, length(row), row, col, val, Cint(0), Int(cores), m,
+               inverse, false, false, false, 0.0, ReentrantLock())
+    finalizer(_finalize!, F)
+
+    # Timed here: libstiles reports the Cholesky and selected-inverse times
+    # but nothing for the analysis, which is usually the expensive phase.
+    t0 = time()
+    try
+        _check(_assign_graph_one_call(F.lib, F.group, 0, F.handle, n, F.nnz, F.row, F.col),
+               "sTiles_assign_graph_one_call")
+        _check(_init_group(F.lib, F.group, F.handle), "sTiles_init_group")
+    catch
+        _teardown!(F)
+        rethrow()
+    end
+    F.analyze_time = time() - t0
+    return F
 end
 
 """
@@ -266,10 +260,10 @@ function factorize!(F::Factor, Q::Union{AbstractMatrix,Nothing} = nothing)
         if Q !== nothing
             F.values = _values_for(F, Q)
         end
-        _check(_assign_values(F.group, 0, F.handle, F.values), "sTiles_assign_values")
-        _bind(F.group, 0, F.handle)
-        rc = _chol(F.group, 0, F.handle)
-        _unbind(F.group, 0, F.handle)
+        _check(_assign_values(F.lib, F.group, 0, F.handle, F.values), "sTiles_assign_values")
+        _bind(F.lib, F.group, 0, F.handle)
+        rc = _chol(F.lib, F.group, 0, F.handle)
+        _unbind(F.lib, F.group, 0, F.handle)
         rc == 0 || throw(sTilesError(
             "sTiles_chol failed (status $rc): matrix not positive definite?"))
         F.factored = true
@@ -307,7 +301,7 @@ function LinearAlgebra.logdet(F::Factor)
     lock(F.lock)
     try
         _require_factored(F)
-        return _get_logdet(F.group, 0, F.handle)
+        return _get_logdet(F.lib, F.group, 0, F.handle)
     finally
         unlock(F.lock)
     end
@@ -326,7 +320,7 @@ function SparseArrays.nnz(F::Factor)
     lock(F.lock)
     try
         _require_open(F)
-        return Int(_get_nnz_factor(F.group, 0, F.handle))
+        return Int(_get_nnz_factor(F.lib, F.group, 0, F.handle))
     finally
         unlock(F.lock)
     end
@@ -341,7 +335,7 @@ function chol_time(F::Factor)
     lock(F.lock)
     try
         _require_factored(F)
-        return _get_chol_timing(F.group, 0, F.handle)
+        return _get_chol_timing(F.lib, F.group, 0, F.handle)
     finally
         unlock(F.lock)
     end
@@ -356,7 +350,7 @@ function selinv_time(F::Factor)
     lock(F.lock)
     try
         _require_factored(F)
-        return _get_selinv_timing(F.group, 0, F.handle)
+        return _get_selinv_timing(F.lib, F.group, 0, F.handle)
     finally
         unlock(F.lock)
     end
@@ -398,7 +392,7 @@ function chol_elm(F::Factor, i::Integer, j::Integer)
     try
         _require_factored(F)
         _checkindex(F, i); _checkindex(F, j)
-        return _get_chol_elm(F.group, 0, i - 1, j - 1, F.handle)
+        return _get_chol_elm(F.lib, F.group, 0, i - 1, j - 1, F.handle)
     finally
         unlock(F.lock)
     end
@@ -414,9 +408,9 @@ function _ensure_selinv(F::Factor)
         "build the factor with inverse = true to use the selected inverse"))
     _require_factored(F)
     if !F.selinv_done
-        _bind(F.group, 0, F.handle)
-        rc = _selinv(F.group, 0, F.handle)
-        _unbind(F.group, 0, F.handle)
+        _bind(F.lib, F.group, 0, F.handle)
+        rc = _selinv(F.lib, F.group, 0, F.handle)
+        _unbind(F.lib, F.group, 0, F.handle)
         _check(rc, "sTiles_selinv")
         F.selinv_done = true
     end
@@ -453,7 +447,7 @@ function selinv_diag(F::Factor)
         _ensure_selinv(F)
         out = Vector{Float64}(undef, F.n)
         @inbounds for i in 1:F.n
-            out[i] = _get_selinv_elm(F.group, 0, i - 1, i - 1, F.handle)
+            out[i] = _get_selinv_elm(F.lib, F.group, 0, i - 1, i - 1, F.handle)
         end
         return out
     finally
@@ -475,7 +469,7 @@ function selinv_elm(F::Factor, i::Integer, j::Integer)
     try
         _ensure_selinv(F)
         _checkindex(F, i); _checkindex(F, j)
-        return _get_selinv_elm(F.group, 0, i - 1, j - 1, F.handle)
+        return _get_selinv_elm(F.lib, F.group, 0, i - 1, j - 1, F.handle)
     finally
         unlock(F.lock)
     end
@@ -497,7 +491,7 @@ function selinv_row(F::Factor, node::Integer, neighbors::AbstractVector{<:Intege
             _checkindex(F, v)
             nb[k] = v - 1
         end
-        p = _get_selinv_row(F.group, 0, node - 1, nb, length(nb), F.handle)
+        p = _get_selinv_row(F.lib, F.group, 0, node - 1, nb, length(nb), F.handle)
         p == C_NULL && throw(sTilesError("sTiles_get_selinv_row returned null"))
         # The library owns that buffer and reuses it; copy before returning.
         return copy(unsafe_wrap(Array, p, length(nb); own = false))
@@ -517,7 +511,7 @@ function permutation(F::Factor)
     try
         _require_open(F)
         buf = Vector{Cint}(undef, F.n)
-        m = _get_logical_element_perm(F.group, 0, F.handle, buf)
+        m = _get_logical_element_perm(F.lib, F.group, 0, F.handle, buf)
         m < 0 && throw(sTilesError("sTiles_get_logical_element_perm failed"))
         return [Int(buf[k]) + 1 for k in 1:m]
     finally
@@ -554,9 +548,9 @@ function solve!(F::Factor, B::StridedVecOrMat{Float64}; system::Symbol = :A)
                 "the right-hand side must be contiguous and column-major; " *
                 "pass a plain Vector or Matrix (or copy the view first)"))
         nrhs = size(B, 2)
-        _bind(F.group, 0, F.handle)
-        rc = fn(F.group, 0, F.handle, B, nrhs)
-        _unbind(F.group, 0, F.handle)
+        _bind(F.lib, F.group, 0, F.handle)
+        rc = fn(F.lib, F.group, 0, F.handle, B, nrhs)
+        _unbind(F.lib, F.group, 0, F.handle)
         _check(rc, "sTiles solve (:$system)")
         return B
     finally
@@ -589,26 +583,27 @@ LinearAlgebra.ldiv!(Y::StridedMatrix{Float64}, F::Factor, B::AbstractMatrix) =
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
+# Freeing a group releases its memory but not the worker teams, and on Linux
+# not the copy's claim on a slice of the machine's cores either; only quit
+# does that. The factor is the only one in its copy, so quitting here touches
+# no other factor, and leaves the copy clean for the next one.
+function _release_lib(L::Lib)
+    try
+        _quit(L)
+    catch
+    end
+    L.busy[] = false
+    return nothing
+end
+
 function _teardown!(F::Factor)
     F.closed && return nothing
     F.closed = true
     try
-        _free_group(F.group)
+        _free_group(F.lib, F.group)
     finally
         F.handle[] = C_NULL
-        LIVE[] -= 1
-        if LIVE[] <= 0
-            LIVE[] = 0
-            # Freeing a group releases its memory but not the worker teams, and
-            # on Linux not this process's claim on a slice of the machine's
-            # cores either; only quit does that. It is process-wide, so it may
-            # run only once the last factor is gone. Building another factor
-            # afterwards re-initializes cleanly.
-            try
-                _quit()
-            catch
-            end
-        end
+        _release_lib(F.lib)
     end
     return nothing
 end
@@ -616,15 +611,15 @@ end
 """
     close(F)
 
-Release the factorization: frees the solver's memory and, once the last live
-factor is closed, joins its worker threads. Safe to call more than once.
+Release the factorization: frees the solver's memory and joins its worker
+threads. Other live factors are not affected. Safe to call more than once.
 """
 function Base.close(F::Factor)
-    lock(LIVE_LOCK)
+    lock(F.lock)
     try
         _teardown!(F)
     finally
-        unlock(LIVE_LOCK)
+        unlock(F.lock)
     end
     return nothing
 end
@@ -632,7 +627,7 @@ end
 # The finalizer deliberately takes no lock: locking from a finalizer can
 # deadlock against the collector. It is safe without one, because a factor
 # being finalized is unreachable, so no other task can be calling into it, and
-# only one factor is ever live.
+# releasing its copy only clears an atomic flag.
 _finalize!(F::Factor) = (try _teardown!(F) catch end; nothing)
 
 """

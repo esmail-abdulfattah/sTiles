@@ -382,10 +382,10 @@ let rng = MersenneTwister(33), bad = 0
     let
         F = sTiles.cholesky(band(50, 1)); F = nothing
         for _ in 1:20
-            sTiles.LIVE[] == 0 && break
+            sTiles._live() == 0 && break
             GC.gc(true)
         end
-        record("finalizer releases a dropped factor", sTiles.LIVE[] == 0, "LIVE=$(sTiles.LIVE[])")
+        record("finalizer releases a dropped factor", sTiles._live() == 0, "live=$(sTiles._live())")
     end
     F = sTiles.cholesky(band(50, 1))
     record("new factor after finalizer", relerr(logdet(F), logdet(Matrix(band(50, 1)))) < 1e-12)
@@ -394,7 +394,7 @@ let rng = MersenneTwister(33), bad = 0
     for M in (spdiagm(0 => [1.0, -1.0]), sprand(4, 5, 0.5))
         try sTiles.cholesky(M) catch end
     end
-    record("failed constructors leave nothing live", sTiles.LIVE[] == 0)
+    record("failed constructors leave nothing live", sTiles._live() == 0)
 end
 
 println("\n== F. concurrent solves from Julia threads ==")

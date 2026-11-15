@@ -103,12 +103,12 @@ selinv_elm(F, i, j)            # exact in-pattern, exactly 0.0 outside it
 selinv_row(F, i, nbrs)         # (Q^-1)[i, k] for k in nbrs
 ```
 
-### One factor at a time
+### Several factors at once
 
-`libstiles` keeps its thread teams in process-global state, so one factor may
-be live per process. Close it (`close(F)`) before building the next one. A
-factor that goes out of scope is released by the garbage collector, but
-`close` is immediate and is what you want in a loop.
+Any number of factors can be live in one process and they never touch each
+other: each runs in its own loaded copy of `libstiles`. A factor that goes out
+of scope is released by the garbage collector, but `close(F)` frees its memory
+and threads immediately and is what you want in a loop.
 
 ## Examples and tests
 

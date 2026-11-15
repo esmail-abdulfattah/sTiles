@@ -35,6 +35,56 @@ const SOLVER_RELEASE = "Version_2026.11.15"
 const LIBHANDLE = Ref{Ptr{Cvoid}}(C_NULL)
 const LIBPATH   = Ref{String}("")
 
+# One loaded copy of libstiles. libstiles keeps its state process-wide (memory
+# keyed by group number, thread teams, settings, sTiles_quit), so two factors
+# in one copy would share group 0. The same file at another path loads as a
+# separate instance (RTLD_LOCAL), so each live factor gets a copy of its own.
+# `busy` is atomic because the finalizer releases a copy without taking a lock.
+struct Lib
+    handle::Ptr{Cvoid}
+    syms::Dict{Symbol,Ptr{Cvoid}}
+    busy::Threads.Atomic{Bool}
+end
+
+# POOL[1] is the located library itself, later entries copies of it. A closed
+# factor frees its copy for the next one, so the pool only grows to the number
+# of factors open at the same time.
+const POOL = Lib[]
+const POOL_LOCK = ReentrantLock()
+const COPY_DIR = Ref{String}("")
+
+# A real copy, not a link: the loader recognises a linked file as the library
+# it already has and would hand back the same instance. mktempdir removes the
+# directory at exit.
+function _open_copy(k::Integer)
+    isempty(COPY_DIR[]) && (COPY_DIR[] = mktempdir(; prefix = "sTiles-lib-"))
+    dir = joinpath(COPY_DIR[], string(k))
+    dest = joinpath(dir, basename(LIBPATH[]))
+    if !isfile(dest)
+        mkpath(dir)
+        cp(LIBPATH[], dest)
+    end
+    h = Libdl.dlopen(dest, Libdl.RTLD_LAZY | Libdl.RTLD_LOCAL)
+    return Lib(h, _resolve_symbols(h), Threads.Atomic{Bool}(false))
+end
+
+# Number of live factors, one per busy copy.
+_live() = count(L -> L.busy[], POOL)
+
+# A free copy for a new factor, marked busy.
+function _acquire_lib()
+    _ensure_loaded()
+    lock(POOL_LOCK) do
+        for L in POOL
+            Threads.atomic_cas!(L.busy, false, true) || return L
+        end
+        L = _open_copy(length(POOL) + 1)
+        L.busy[] = true
+        push!(POOL, L)
+        return L
+    end
+end
+
 # A machine can legitimately have this package and not the solver: no network
 # yet, a CPU the prebuilt library does not support, or a cluster whose login
 # node installs packages without reaching the compute environment. Throwing
@@ -59,7 +109,7 @@ Whether the solver library is loaded and ready to use. `false` means the
 package imported fine but found no `libstiles`; [`sTiles.why_unavailable`](@ref)
 says why and [`sTiles.load!`](@ref) retries.
 """
-available() = LIBHANDLE[] != C_NULL
+available() = !isempty(POOL)
 
 """
     sTiles.why_unavailable() -> Union{Nothing,String}
@@ -84,7 +134,11 @@ function load!()
     handle, path = _load_library()
     LIBHANDLE[] = handle
     LIBPATH[] = path
-    _resolve_symbols(handle)
+    syms = _resolve_symbols(handle)
+    lock(POOL_LOCK) do
+        empty!(POOL)        # factors still open keep their own copy
+        push!(POOL, Lib(handle, syms, Threads.Atomic{Bool}(false)))
+    end
     LOAD_ERROR[] = nothing
     return path
 end

@@ -181,7 +181,10 @@ closing(f, F) = try f(F) finally close(F) end
         n = 10
         Q = band_spd(n)
         closing(sTiles.cholesky(Q)) do F
-            @test_throws sTilesError sTiles.cholesky(Q)   # one live factor
+            closing(sTiles.cholesky(2.0 * Q)) do G        # several live factors
+                @test logdet(G) ≈ logdet(Matrix(2.0 * Q)) rtol = 1e-12
+            end
+            @test logdet(F) ≈ logdet(Matrix(Q)) rtol = 1e-12
         end
         closing(sTiles.cholesky(Q)) do F              # clean re-init after quit
             @test logdet(F) ≈ logdet(Matrix(Q)) rtol = 1e-12
@@ -192,6 +195,28 @@ closing(f, F) = try f(F) finally close(F) end
         closing(sTiles.cholesky(Q)) do F
             @test logdet(F) ≈ logdet(Matrix(Q)) rtol = 1e-12
         end
+    end
+
+    @testset "several factors do not touch each other" begin
+        Q1, Q2 = band_spd(60), 2.0 * band_spd(90)
+        ld1, ld2 = logdet(Matrix(Q1)), logdet(Matrix(Q2))
+        F = sTiles.cholesky(Q1; cores = 2)
+        G = sTiles.cholesky(Q2; cores = 2, inverse = true)
+        try
+            @test logdet(F) ≈ ld1 rtol = 1e-12
+            @test logdet(G) ≈ ld2 rtol = 1e-12
+            close(F)                                      # G must be intact
+            @test logdet(G) ≈ ld2 rtol = 1e-12
+            @test selinv_diag(G) ≈ diag(inv(Matrix(Q2))) rtol = 1e-10
+            closing(sTiles.cholesky(3.0 * Q1)) do H       # new factor, G still open
+                @test logdet(H) ≈ ld1 + 60 * log(3.0) rtol = 1e-12
+                @test logdet(G) ≈ ld2 rtol = 1e-12
+            end
+        finally
+            close(F)
+            close(G)
+        end
+        @test sTiles._live() == 0
     end
 
     @testset "estimate_memory" begin

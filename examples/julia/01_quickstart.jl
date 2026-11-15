@@ -20,4 +20,4 @@ x = F \ b                                # x = Q^-1 b
 v = selinv_diag(F)                       # diag(Q^-1), the marginal variances
 println("first variances   = ", round.(v[1:3]; digits = 6))
 
-close(F)                                 # one factor at a time: free it first
+close(F)                                 # free memory and threads now
