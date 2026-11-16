@@ -44,7 +44,7 @@ NULL
     sysname <- Sys.info()[["sysname"]]
     machine <- Sys.info()[["machine"]]
     arch <- switch(machine,
-                   "x86_64" = "x86_64", "amd64" = "x86_64",
+                   "x86_64" = "x86_64", "amd64" = "x86_64", "x86-64" = "x86_64",
                    "arm64" = "arm64", "aarch64" = "arm64", machine)
     os <- switch(sysname, Darwin = "macos", Windows = "windows", "linux")
     paste0(os, "-", arch)
@@ -90,7 +90,7 @@ NULL
     sysname <- Sys.info()[["sysname"]]
     machine <- Sys.info()[["machine"]]
     arch <- switch(machine,
-                   "x86_64" = "x86_64", "amd64" = "x86_64",
+                   "x86_64" = "x86_64", "amd64" = "x86_64", "x86-64" = "x86_64",
                    "arm64" = "arm64", "aarch64" = "arm64", machine)
     base <- if (sysname == "Darwin") {
         if (arch == "arm64") "libstiles-macos-apple-arm64"
