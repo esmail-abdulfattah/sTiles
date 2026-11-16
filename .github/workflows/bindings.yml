@@ -78,5 +78,8 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1.11"
+      - name: smoke
+        timeout-minutes: 5
+        run: julia .github/ci/julia_smoke.jl
       - name: Pkg.test
         run: julia -e 'using Pkg; Pkg.develop(path="julia"); Pkg.test("sTiles")'
