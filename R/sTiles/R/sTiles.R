@@ -588,11 +588,15 @@ sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
     # macOS builds carry their own libomp, which aborts on finding a second one
     if (Sys.info()[["sysname"]] == "Darwin" && !nzchar(Sys.getenv("KMP_DUPLICATE_LIB_OK")))
         Sys.setenv(KMP_DUPLICATE_LIB_OK = "TRUE")
-    dir <- file.path(tempdir(), sprintf("sTiles-lib-%d", k))
+    # forked workers share tempdir(): per pid, and renamed into place whole
+    dir <- file.path(tempdir(), sprintf("sTiles-lib-%d-%d", Sys.getpid(), k))
     dir.create(dir, showWarnings = FALSE)
     dest <- file.path(dir, basename(.sTiles$libpath))
-    if (!file.exists(dest) && !file.copy(.sTiles$libpath, dest))
-        stop("sTiles: could not copy the solver library to ", dir, call. = FALSE)
+    if (!file.exists(dest)) {
+        tmp <- paste0(dest, ".part")
+        if (!file.copy(.sTiles$libpath, tmp, overwrite = TRUE) || !file.rename(tmp, dest))
+            stop("sTiles: could not copy the solver library to ", dir, call. = FALSE)
+    }
     dest
 }
 
