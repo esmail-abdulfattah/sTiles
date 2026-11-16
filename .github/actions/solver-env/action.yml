@@ -1,0 +1,17 @@
+name: solver-env
+description: System libraries the Linux solver loads, and the latest release tag.
+runs:
+  using: composite
+  steps:
+    - name: Linux system libraries
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq libhwloc15 libnuma1 libgfortran5
+    - name: latest release tag
+      shell: bash
+      run: |
+        tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+        echo "solver release: $tag"
+        echo "STILES_RELEASE_TAG=$tag" >> "$GITHUB_ENV"
