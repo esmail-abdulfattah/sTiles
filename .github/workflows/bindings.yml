@@ -67,6 +67,7 @@ jobs:
   julia:
     name: Julia ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
