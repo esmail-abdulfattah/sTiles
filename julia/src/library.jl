@@ -57,6 +57,8 @@ const COPY_DIR = Ref{String}("")
 # it already has and would hand back the same instance. mktempdir removes the
 # directory at exit.
 function _open_copy(k::Integer)
+    # macOS builds carry their own libomp, which aborts on finding a second one
+    Sys.isapple() && !haskey(ENV, "KMP_DUPLICATE_LIB_OK") && (ENV["KMP_DUPLICATE_LIB_OK"] = "TRUE")
     isempty(COPY_DIR[]) && (COPY_DIR[] = mktempdir(; prefix = "sTiles-lib-"))
     dir = joinpath(COPY_DIR[], string(k))
     dest = joinpath(dir, basename(LIBPATH[]))

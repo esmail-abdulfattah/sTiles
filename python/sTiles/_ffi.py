@@ -586,6 +586,9 @@ _copy_dir: Path | None = None
 def open_copy(k: int) -> ctypes.CDLL:
     """Load copy number ``k`` (2, 3, ...) of the located library, declared."""
     global _copy_dir
+    # macOS builds carry their own libomp, which aborts on finding a second one
+    if sys.platform == "darwin":
+        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
     if _copy_dir is None:
         import atexit
         _copy_dir = Path(tempfile.mkdtemp(prefix="sTiles-lib-"))

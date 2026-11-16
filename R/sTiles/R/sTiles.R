@@ -585,6 +585,9 @@ sTiles_install_library <- function(tag = NULL, variant = NULL, force = FALSE) {
 # A real copy, not a link: the loader recognises a linked file as the library
 # it already has and would hand back the same instance.
 .sTiles_lib_copy <- function(k) {
+    # macOS builds carry their own libomp, which aborts on finding a second one
+    if (Sys.info()[["sysname"]] == "Darwin" && !nzchar(Sys.getenv("KMP_DUPLICATE_LIB_OK")))
+        Sys.setenv(KMP_DUPLICATE_LIB_OK = "TRUE")
     dir <- file.path(tempdir(), sprintf("sTiles-lib-%d", k))
     dir.create(dir, showWarnings = FALSE)
     dest <- file.path(dir, basename(.sTiles$libpath))
